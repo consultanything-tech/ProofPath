@@ -53,6 +53,61 @@ matrix, deployment and public reviewer/submission checks remain open. Local
 fixture preview is served at `http://127.0.0.1:3000/` during this development
 session; it is not a deployment.
 
+## Browser/server safety gate — October 27, 2026
+
+Added exact Host validation for every route, same-origin JSON media/body checks,
+empty approve/run request bodies, and a single run slot acquired before approval
+consumption. Each fresh context permits only its main page's approved document,
+`shop.js` and `styles.css` GET requests. Redirects are fetched with zero follow
+and blocked before fulfilling; other routes/frames/methods/types are rejected.
+WebSockets never connect, popups are closed, downloads cancelled and service
+workers suppressed by browser policy. Actual page URLs are checked throughout.
+Per-action limits are 10 seconds and the run deadline is 90 seconds; internal
+short limits are available only to tests. Reports expose completed, blocked,
+timed-out or failed execution separately from the deterministic verdict.
+
+Completed observations survive interruption and cleanup errors. Hidden,
+duplicate or malformed cart observations are inconclusive; unsafe integers are
+rejected. Missing screenshot files cannot leave an assertion/report at PASS.
+Approval expires at the exact ten-minute boundary; a corrupted stored envelope
+is rejected. No dependency or live model/API use was introduced.
+
+Validation: TypeScript checks passed; the final default suite passed 15/15 and
+the opt-in `pnpm test:safety` suite passed 10/10 with Chromium and temporary
+loopback servers. The safety suite preserved local manifests and verified their
+sidecar hashes. Representative run IDs:
+
+| Case | Execution / verdict | Local run ID |
+| --- | --- | --- |
+| Normal controlled page | completed / PASS | `cc9ff0e1-6480-486f-826a-db7b0f3d30d7` |
+| Same-origin escaped resource | blocked / INCONCLUSIVE; zero escaped hits | `88dca262-5986-46cb-b540-f85dd545e661` |
+| Same-origin redirect | blocked / INCONCLUSIVE; zero destination hits | `5c1edfb4-ea6f-42e9-bb03-5f62defe6261` |
+| Cross-origin redirect | blocked / INCONCLUSIVE; zero decoy connections | `b73348e5-5596-4640-96e6-e125753da080` |
+| Popup / data-URL download | blocked / INCONCLUSIVE | `ecc11b48-110a-4019-ba9a-034d4f9b4ead` / `8585bca6-1bac-4ea7-80c8-7e539ed4474a` |
+| WebSocket | blocked / INCONCLUSIVE; zero decoy connections | `b66afc04-12ab-4901-bbe7-46c02f6cb0dc` |
+| Post-click hash navigation | blocked / INCONCLUSIVE | `e9ee88a1-db9d-4a52-8562-493df92ddf49` |
+| In-flight request deadline | timed-out / INCONCLUSIVE | `6bb3b411-74ca-422f-9c54-10a4df49f432` |
+
+Service-worker registration fetched no worker script in run
+`4a0bd47e-ad10-414d-b702-3a19c125cf71`. Browser policy suppressed the registration;
+no separate runner blocked event is claimed for that case.
+
+The rebuilt real app rejected wrong Host on static/API/manifest routes, wrong
+Origin, invalid media and oversized JSON. An unapproved request created no run
+directory. Two overlapping approvals produced one run and one busy rejection;
+the rejected approval remained usable and then worked once (`7641336b-e1a8-42bb-b574-32ec9f5fbec6`
+and `5cccb370-6d2e-498a-b73f-2ade8d27ec44`). Fresh normal regressions returned
+required-fields PASS (`b406560d-1e90-46ac-9817-cf4f5d875d54`), cart PASS
+(`599d5474-5bf3-4550-afd0-f5ded42e0336`), seeded quantity FAIL
+(`f12597a6-6ee1-49b9-bc70-8649c9c454a8`) and fixed quantity PASS
+(`c7cd7fc3-d567-443e-b9d0-d8c18fc0228d`); screenshot and manifest hashes matched.
+
+This is a core local safety matrix, not proof against every browser edge case.
+Cleanup-failure injection, broader asynchronous races, live Meta behavior and
+deployed/public reviewer checks remain open. The delegated implementation agent
+hit a workspace credit limit during this gate; the primary agent completed the
+remaining implementation, test fixes and verification.
+
 ## Start boundary confirmed — October 27, 2026, approximately 00:23 SGT
 
 The kickoff transcript says the 10-day hacking period starts after kickoff and

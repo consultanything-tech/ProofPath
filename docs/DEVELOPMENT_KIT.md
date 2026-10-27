@@ -256,8 +256,8 @@ unrelated content.
 | Layer | Minimum proof | Status |
 | --- | --- | --- |
 | Contract | Valid plan, clarification, unknown key/action/target, zero assertions, missing coverage | Partial: valid fixture and external action/missing action coverage checks |
-| Approval | Missing approval, changed plan, changed scenario revision, valid envelope | Partial: approval required and one-use consumption checked; expiry/tamper not checked |
-| Safety | External route/redirect/subresource, popup, download, WebSocket, service worker | Not run |
+| Approval | Missing approval, changed plan, changed scenario revision, valid envelope | Local checks cover one-use, exact ten-minute expiry, stored-envelope tampering, and busy-run rejection without consumption |
+| Safety | External route/redirect/subresource, popup, download, WebSocket, service worker | Core loopback Chromium matrix passed: redirect/escape zero egress, popup/download/WS blocking, worker registration suppression, post-click URL check and in-flight timeout; not an exhaustive security audit |
 | Verdict | All true; known false plus missing observation; only missing observation | Local fixture PASS/FAIL verified; unit checks distinguish missing/false markers, preserve known failure and prevent incomplete execution from passing |
 | Journey | Add to cart, seeded quantity, fixed quantity, blank required fields | All three fixture journeys have local browser evidence; blank checkout shows both errors and stays active; run IDs and hash checks are in BUILD_LOG.md |
 | Reliability | Three seeded `FAIL`s at `S$39`; three fixed `PASS`es at `S$78` | Verified locally: three per revision, with screenshot and manifest hashes checked |
@@ -301,7 +301,7 @@ blocking, deterministic verdicts, evidence provenance, or logged-out review.
 | Model integration | Endpoint/model in official Quickstart. | Documented, not smoke-tested |
 | Structured response | Strict JSON Schema in official documentation. | Documented, not smoke-tested |
 | Public repository/deployment | Private GitHub repository is configured; no deployment exists. | Publication/deployment not started |
-| Functional ProofPath | Fixture-backed checkout journeys. | All three fixture journeys verified locally; live Meta and full safety matrix remain open |
+| Functional ProofPath | Fixture-backed checkout journeys. | All three fixture journeys and core local safety matrix verified; live Meta and broader edge cases remain open |
 
 ## Build handoff
 

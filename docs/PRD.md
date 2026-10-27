@@ -144,8 +144,8 @@ The matrix tracks implementation evidence; partial results are labelled as such.
 | Planner | Ambiguous request | Clarification; no plan or run | Not run |
 | Planner | Login, payment, or external site | Rejection/clarification; no run | Not run |
 | Validation | Unknown key/action/target, selector, JS, shell, or external URL | Rejected before browser launch | Partial: external action and missing required action coverage rejected |
-| Approval | Run before approval or after plan/scenario change | Rejected; no run artefact | Partial: approval required and consumed once; scenario revision changes the digest; expiry/tamper not exercised |
-| Origin | Redirect or resource leaves allowed origin | Aborted and reported | Not run |
+| Approval | Run before approval or after plan/scenario change | Rejected; no run artefact | Local checks cover one-use, revision binding, exact expiry, stored-envelope tamper and overlap without consuming the rejected run's approval |
+| Origin | Redirect or resource leaves allowed origin | Aborted and reported | Core local Chromium matrix passed, including zero-hit redirect/escape destinations and explicit execution status |
 | Verdict | All true / one false / missing observation | `PASS` / `FAIL` / `INCONCLUSIVE` | Local fixture PASS/FAIL and unit checks for missing/false markers and incomplete execution verified |
 | Evidence | Each completed assertion | Expected/observed, timestamp, URL, screenshot reference and hashes | Verified locally for all three fixture journeys; see BUILD_LOG.md |
 | Reliability | Seeded quantity three times | Three `FAIL`s observing `S$39` | Verified: three local runs; screenshot and manifest hashes matched |

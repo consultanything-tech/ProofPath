@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { AssertionResult } from "./verdict.js";
+import { aggregate } from "./verdict.js";
 import type { ApprovalEnvelope, PlannerProvenance } from "./plan-store.js";
 import type { Scenario } from "./scenarios.js";
 
@@ -15,11 +16,14 @@ export type RunManifest = {
   origin: string;
   startedAt: string;
   endedAt: string;
+  executionStatus: ExecutionStatus;
   verdict: "PASS" | "FAIL" | "INCONCLUSIVE";
   executionError?: string;
   assertions: AssertionResult[];
   replay: string[];
 };
+
+export type ExecutionStatus = "completed" | "blocked" | "timed-out" | "failed";
 
 const runsRoot = resolve(process.cwd(), "runs");
 
@@ -32,10 +36,12 @@ export async function saveRun(manifest: Omit<RunManifest, "runId">, runId = rand
       const screenshotSha256 = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
       return { ...assertion, screenshotSha256 };
     } catch {
-      return assertion;
+      return assertion.verdict === "PASS"
+        ? { ...assertion, observed: null, verdict: "INCONCLUSIVE" as const, screenshot: "not-captured.png" }
+        : { ...assertion, screenshot: "not-captured.png" };
     }
   }));
-  const complete = { runId, ...manifest, assertions };
+  const complete = { runId, ...manifest, verdict: aggregate(assertions, manifest.executionStatus === "completed"), assertions };
   const contents = JSON.stringify(complete, null, 2);
   await writeFile(join(directory, "manifest.json"), contents);
   await writeFile(join(directory, "manifest.sha256"), createHash("sha256").update(contents).digest("hex") + "\n");

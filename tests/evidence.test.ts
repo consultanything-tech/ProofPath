@@ -31,6 +31,7 @@ test("manifest records the digest of each captured screenshot", async () => {
       origin: "http://127.0.0.1:3000",
       startedAt: new Date(0).toISOString(),
       endedAt: new Date(0).toISOString(),
+      executionStatus: "completed",
       verdict: "PASS",
       assertions: [{ id: "assertion", expected: "1", observed: "1", verdict: "PASS", screenshot: "assertion.png" }],
       replay: []
@@ -38,5 +39,32 @@ test("manifest records the digest of each captured screenshot", async () => {
     assert.equal(report.assertions[0].screenshotSha256, `sha256:${createHash("sha256").update(bytes).digest("hex")}`);
   } finally {
     await rm(dirname(screenshot), { recursive: true, force: true });
+  }
+});
+
+test("missing screenshot evidence downgrades a PASS assertion to inconclusive", async () => {
+  const runId = "00000000-0000-4000-8000-000000000002";
+  const scenario = getScenario("add-to-cart", "baseline");
+  const directory = dirname(evidencePath(runId, "missing.png"));
+  await rm(directory, { recursive: true, force: true });
+  try {
+    const report = await saveRun({
+      planId: "plan-missing-evidence",
+      approvalDigest: "sha256:test",
+      planner: { mode: "fixture", provider: null, model: null },
+      scenario,
+      approvalEnvelope: { originalRequirement: "Add one lamp", scenario, contractVersion: "1", targetRegistryVersion: "2", planner: { mode: "fixture", provider: null, model: null }, plan: fixturePlanFor(scenario).plan! },
+      origin: "http://127.0.0.1:3000",
+      startedAt: new Date(0).toISOString(),
+      endedAt: new Date(0).toISOString(),
+      executionStatus: "completed",
+      verdict: "PASS",
+      assertions: [{ id: "missing", expected: "1", observed: "1", verdict: "PASS", screenshot: "missing.png" }],
+      replay: []
+    }, runId);
+    assert.deepEqual(report.assertions[0], { id: "missing", expected: "1", observed: null, verdict: "INCONCLUSIVE", screenshot: "not-captured.png" });
+    assert.equal(report.verdict, "INCONCLUSIVE");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
 });

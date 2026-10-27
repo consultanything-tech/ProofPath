@@ -71,9 +71,10 @@ unsupported request. Canned fixture success cannot satisfy this check.
 All three fixture journeys now have local browser evidence recorded in
 `BUILD_LOG.md`, including blank-field validation, keyboard approval/run controls,
 and screenshot/manifest hash checks. Incomplete execution cannot aggregate to
-PASS, while known failures still dominate. The full safety matrix, approval
-expiry/tamper checks, asynchronous UI races and live language evaluation remain
-incomplete; keep recording exact verified behavior and gaps.
+PASS, while known failures still dominate. The core loopback safety matrix and
+approval expiry/tamper checks are now recorded below in `BUILD_LOG.md`.
+Asynchronous UI races, broader browser edge cases and live language evaluation
+remain incomplete; keep recording exact verified behavior and gaps.
 
 ## Open owner decisions
 

@@ -57,3 +57,28 @@ test("a known failure dominates incomplete evidence", () => {
   assert.equal(aggregate([{ id: "a", expected: "1", observed: "1", verdict: "PASS", screenshot: "a.png" }], false), "INCONCLUSIVE");
   assert.equal(aggregate([{ id: "a", expected: "1", observed: "2", verdict: "FAIL", screenshot: "a.png" }], false), "FAIL");
 });
+
+test("approval expires exactly at its ten-minute boundary", t => {
+  let clock = 1_000_000;
+  t.mock.method(Date, "now", () => clock);
+  const store = new PlanStore();
+  const plan = fixturePlanFor(baseline).plan!;
+  const valid = store.create("Add a lamp", baseline, plan);
+  const expired = store.create("Add a lamp", baseline, plan);
+  store.approve(valid.id);
+  store.approve(expired.id);
+  clock += 599_999;
+  assert.equal(store.consume(valid.id).id, valid.id);
+  clock += 1;
+  assert.throws(() => store.consume(expired.id), /expired/);
+});
+
+test("a changed server-stored envelope fails the approval integrity check", () => {
+  const store = new PlanStore();
+  const saved = store.create("Add a lamp", baseline, fixturePlanFor(baseline).plan!);
+  store.approve(saved.id);
+  // Deliberately corrupt server state to exercise the digest check; HTTP never exposes it.
+  const internal = store as unknown as { plans: Map<string, { envelope: { originalRequirement: string } }> };
+  internal.plans.get(saved.id)!.envelope.originalRequirement = "Changed after approval";
+  assert.throws(() => store.consume(saved.id), /integrity/);
+});

@@ -46,7 +46,7 @@ export class PlanStore {
   consume(id: string) {
     const stored = this.require(id);
     if (!stored.approvedAt) throw new Error("Approve the plan before running it.");
-    if (Date.now() - stored.approvedAt > 600_000) throw new Error("Plan approval expired; approve a new snapshot.");
+    if (Date.now() - stored.approvedAt >= 600_000) throw new Error("Plan approval expired; approve a new snapshot.");
     if (stored.consumed) throw new Error("Plan approval has already been used.");
     validatePlan(stored.envelope.plan);
     if (stored.envelope.plan.scenarioId !== stored.envelope.scenario.id || digestFor(stored.envelope) !== stored.digest) throw new Error("Approved snapshot integrity check failed.");

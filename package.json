@@ -7,6 +7,7 @@
     "build": "tsc",
     "dev": "pnpm build && node dist/src/server.js",
     "test": "pnpm build && node --test dist/tests/*.test.js",
+    "test:safety": "pnpm build && node --test dist/tests/safety.integration.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
