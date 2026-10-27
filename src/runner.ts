@@ -19,6 +19,20 @@ export function parseVisibleSgdMinor(value: string | null): string | null {
   return String(Number(match[1]) * 100 + Number(match[2]));
 }
 
+export type MarkerState = { count: number; visible: boolean };
+export type CheckoutMarkers = { firstError: MarkerState; secondError: MarkerState; active: MarkerState; confirmation: MarkerState };
+
+export function observeRequiredErrors({ firstError, secondError }: CheckoutMarkers): string | null {
+  if (firstError.count !== 1 || secondError.count !== 1) return null;
+  return firstError.visible && secondError.visible ? "true" : "false";
+}
+
+export function observeCheckoutStayed({ active, confirmation }: CheckoutMarkers): string | null {
+  if (active.count !== 1 || confirmation.count > 1 || (confirmation.count === 1 && !confirmation.visible)) return null;
+  if (!active.visible || confirmation.count === 1) return "false";
+  return "true";
+}
+
 export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string, runId: string): Promise<AssertionResult[]> {
   const plan = envelope.plan;
   const expectedOrigin = new URL(origin).origin;
@@ -41,6 +55,8 @@ export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string
       }
       if (action.kind === "click" && action.target === "add-desk-lamp") await page.getByRole("button", { name: "Add Desk Lamp" }).click({ timeout: 10_000 });
       if (action.kind === "fill" && action.target === "quantity") await page.getByLabel("Quantity").fill(action.value ?? "");
+      if (action.kind === "click" && action.target === "checkout") await page.getByRole("button", { name: "Checkout", exact: true }).click({ timeout: 10_000 });
+      if (action.kind === "click" && action.target === "continue-checkout") await page.getByRole("button", { name: "Continue", exact: true }).click({ timeout: 10_000 });
     }
     const results: AssertionResult[] = [];
     for (let index = 0; index < plan.assertions.length; index += 1) {
@@ -55,6 +71,15 @@ export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string
         if (!blocked && assertion.predicate === "cart-total-minor-equals") {
           const total = page.locator("#cart-total");
           observed = await total.isVisible() ? parseVisibleSgdMinor(await total.textContent()) : null;
+        }
+        if (!blocked && (assertion.predicate === "required-errors-visible" || assertion.predicate === "checkout-stayed")) {
+          const state = async (selector: string): Promise<MarkerState> => {
+            const locator = page.locator(selector);
+            const count = await locator.count();
+            return { count, visible: count === 1 && await locator.isVisible() };
+          };
+          const markers = { firstError: await state("#email-error"), secondError: await state("#postal-code-error"), active: await state("#checkout-active"), confirmation: await state("#checkout-confirmation") };
+          observed = assertion.predicate === "required-errors-visible" ? observeRequiredErrors(markers) : observeCheckoutStayed(markers);
         }
         const value = observed?.trim() ?? null;
         results.push({ id: assertion.id, expected: assertion.expected, observed: value, verdict: value === null ? "INCONCLUSIVE" : value === assertion.expected ? "PASS" : "FAIL", screenshot: filename, timestamp: new Date().toISOString(), url: page.url() });

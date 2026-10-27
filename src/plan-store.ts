@@ -7,7 +7,7 @@ export type ApprovalEnvelope = {
   originalRequirement: string;
   scenario: Scenario;
   contractVersion: "1";
-  targetRegistryVersion: "1";
+  targetRegistryVersion: typeof TARGET_REGISTRY_VERSION;
   planner: PlannerProvenance;
   plan: Plan;
 };

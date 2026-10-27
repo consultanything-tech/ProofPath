@@ -68,9 +68,12 @@ Required checks:
 Live language evaluation is six unseen paraphrases, one ambiguous and one
 unsupported request. Canned fixture success cannot satisfy this check.
 
-The quantity-proof checks now have focused validation recorded in `BUILD_LOG.md`.
-The remaining checks above are still incomplete; keep recording exact verified
-behavior and gaps rather than treating the list as complete.
+All three fixture journeys now have local browser evidence recorded in
+`BUILD_LOG.md`, including blank-field validation, keyboard approval/run controls,
+and screenshot/manifest hash checks. Incomplete execution cannot aggregate to
+PASS, while known failures still dominate. The full safety matrix, approval
+expiry/tamper checks, asynchronous UI races and live language evaluation remain
+incomplete; keep recording exact verified behavior and gaps.
 
 ## Open owner decisions
 

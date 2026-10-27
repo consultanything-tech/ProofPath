@@ -7,7 +7,7 @@ ProofPath turns a plain-language browser journey into an approved run and an evi
 - Event: Meta Global AI Developer Hackathon
 - Track: Indie Developer — Build for Your World
 - Participation: accepted and solo; acceptance was confirmed in the setup conversation on 26 October 2026.
-- Status: fixture-backed add-to-cart and seeded/fixed quantity slices implemented after the October 27 kickoff boundary. Local browser evidence shows the seeded quantity defect failing and the fixed revision passing; live Meta integration remains unverified.
+- Status: fixture-backed add-to-cart, seeded/fixed quantity, and blank-required-fields slices are implemented after the October 27 kickoff boundary. Local browser evidence shows the seeded quantity defect failing and the fixed revision passing; live Meta integration remains unverified.
 
 The planned demo is deliberately narrow:
 
@@ -28,7 +28,7 @@ TestForgeAI is prior experience, not this project’s implementation. This base 
 
 ## Candidate implementation
 
-The current stack is Node.js, TypeScript, pnpm, Playwright, and a thin local server. Fixture mode creates server-owned add-to-cart or quantity-update plans; the UI states that it does not interpret text or call Meta. Every screen labels it **Fixture planner — Meta not used**. The server hashes the requirement, scenario revision, target registry, fixture provenance, and validated plan into a one-use ten-minute approval, then uses Playwright only against the local synthetic shop. The seeded quantity revision deliberately reports 3900 cents for quantity 2 and must `FAIL`; the fixed revision reports 7800 and must `PASS`. Reports retain the complete approval envelope, screenshots, per-assertion URL and timestamp, screenshot SHA-256 values, replay steps, and a hashed manifest. Live Meta integration remains unverified. Meta Billing was inspected on 26 October 2026: $150 free credits in use and $0 balance are verified. No payment method is on file. Live Meta API integration remains a separate gate.
+The current stack is Node.js, TypeScript, pnpm, Playwright, and a thin local server. Fixture mode creates server-owned add-to-cart, quantity-update, or required-fields plans; the UI states that it does not interpret text or call Meta. Every screen labels it **Fixture planner — Meta not used**. The server hashes the requirement, scenario revision, target registry, fixture provenance, and validated plan into a one-use ten-minute approval, then uses Playwright only against the local synthetic shop. The seeded quantity revision deliberately reports 3900 cents for quantity 2 and must `FAIL`; the fixed revision reports 7800 and must `PASS`. The required-fields plan continues with two blank synthetic fields, checks both visible errors and that checkout stayed active, and has no payment action. Reports retain the complete approval envelope, screenshots, per-assertion URL and timestamp, screenshot SHA-256 values, replay steps, and a hashed manifest. Live Meta integration remains unverified. Meta Billing was inspected on 26 October 2026: $150 free credits in use and $0 balance are verified. No payment method is on file. Live Meta API integration remains a separate gate.
 
 ## Submission checklist
 

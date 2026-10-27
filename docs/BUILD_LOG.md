@@ -14,6 +14,45 @@ Every later product claim should point to a commit or a preserved run artifact. 
 | 2026-10-27 | Uncommitted local work | Cleared the displayed approval and report when the requirement, journey, or revision changes; ignored stale responses from earlier inputs. | None. | `node --check public/app.js` passed. In a local browser, changing either the revision or requirement after approval hid the old run button and required a new proposal and approval. | Full keyboard and asynchronous race testing remain open. |
 | 2026-10-27 | Uncommitted local work | Repeated the seeded and fixed quantity journeys using fresh plans and approvals. | None. Fixture mode only. | Three seeded runs returned `FAIL` with quantity 2 and 3900 cents: `c408d3e3-1711-40f7-a4aa-01dbc923a63c`, `764de95a-9504-4704-8ac5-5df1966e3b80`, `8f914f96-fc87-4674-b084-9aad7d5375da`. Three fixed runs returned `PASS` with quantity 2 and 7800 cents: `d1b3a4c2-df0e-4df2-9cef-2db758a2292e`, `c92ce122-7778-4871-a643-8fbbf07b7dfc`, `14f33b09-fcab-489c-96d5-8a0521c45742`. Every screenshot and manifest digest matched its file. | Synthetic localhost fixture only; required-field journey, full safety matrix, live Meta, public repository, deployment, and logged-out review remain open. |
 
+## Required checkout fields — October 27, 2026
+
+Implemented the third fixture journey using registry version 2: open the shop,
+add the lamp, open checkout, and continue with blank email and postal-code
+fields. The validator permits only that ordered workflow and both server-owned
+boolean assertions. Missing or duplicate markers are inconclusive; present but
+hidden errors are false. Incomplete execution cannot aggregate to PASS, while
+a known failed assertion still yields FAIL. No dependencies were added.
+
+`pnpm typecheck` and `pnpm test` passed (7/7 focused tests). Parent validation
+also passed JavaScript syntax and diff checks. Fresh approved browser/API runs:
+
+| Scenario | Observed | Verdict | Run ID |
+| --- | --- | --- | --- |
+| Blank required fields | Both errors visible; checkout active; no confirmation | PASS | `9ae3fc08-59cf-4b92-9167-2ea16c174dc0` |
+| Add to cart | Quantity 1; 3900 cents | PASS | `951f1308-548d-4e49-bfe2-fde9e41df731` |
+| Seeded quantity defect | Quantity 2; 3900 cents | FAIL | `b5f835d8-2bde-457a-99a7-df86f9ada56b` |
+| Fixed quantity | Quantity 2; 7800 cents | PASS | `b22e46a8-796b-4966-afec-b89cbe5855dd` |
+
+Every assertion had the approved local URL, timestamp, PNG screenshot and
+matching screenshot hash. Manifest sidecars matched the stored manifest bytes;
+served manifests and screenshots matched the files. Unapproved/reused runs and
+an unsupported required-fields revision were rejected; unlisted evidence was
+not served. Generated runs remain local and ignored by Git.
+
+Browser review used Tab and Enter through proposal, approval and execution; the
+UI displayed PASS with both boolean observations true in run
+`e496f404-a9c8-4de2-88b7-6057b7e7c33e`. Changing the journey or requirement hid
+the prior approval/run/report controls. Visual inspection confirmed both blank
+field errors and active checkout. Synthetic form checks verified linked required
+field errors, one-field correction, advancement with both fields filled, and
+cleared inputs/confirmation when reopening checkout. No payment was attempted.
+
+This proves controlled local fixture behavior only. Live Meta use, unseen-language
+evaluation, approval expiry/tamper, asynchronous UI races, the full egress/safety
+matrix, deployment and public reviewer/submission checks remain open. Local
+fixture preview is served at `http://127.0.0.1:3000/` during this development
+session; it is not a deployment.
+
 ## Start boundary confirmed — October 27, 2026, approximately 00:23 SGT
 
 The kickoff transcript says the 10-day hacking period starts after kickoff and

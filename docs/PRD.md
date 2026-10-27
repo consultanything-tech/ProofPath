@@ -140,14 +140,14 @@ The matrix tracks implementation evidence; partial results are labelled as such.
 
 | Area | Check | Required result | Status |
 | --- | --- | --- | --- |
-| Planner | Each supported journey | Covered plan with at least one assertion | Partial: add-to-cart and fixture quantity-update plans; required fields not implemented |
+| Planner | Each supported journey | Covered plan with at least one assertion | Partial: fixture plans cover add-to-cart, quantity-update, and required fields; live Meta planning not implemented |
 | Planner | Ambiguous request | Clarification; no plan or run | Not run |
 | Planner | Login, payment, or external site | Rejection/clarification; no run | Not run |
 | Validation | Unknown key/action/target, selector, JS, shell, or external URL | Rejected before browser launch | Partial: external action and missing required action coverage rejected |
 | Approval | Run before approval or after plan/scenario change | Rejected; no run artefact | Partial: approval required and consumed once; scenario revision changes the digest; expiry/tamper not exercised |
 | Origin | Redirect or resource leaves allowed origin | Aborted and reported | Not run |
-| Verdict | All true / one false / missing observation | `PASS` / `FAIL` / `INCONCLUSIVE` | Partial: one local PASS and unit checks for failure/inconclusive aggregation |
-| Evidence | Each completed assertion | Expected/observed, timestamp, URL, screenshot reference and hashes | Verified for one add-to-cart run |
+| Verdict | All true / one false / missing observation | `PASS` / `FAIL` / `INCONCLUSIVE` | Local fixture PASS/FAIL and unit checks for missing/false markers and incomplete execution verified |
+| Evidence | Each completed assertion | Expected/observed, timestamp, URL, screenshot reference and hashes | Verified locally for all three fixture journeys; see BUILD_LOG.md |
 | Reliability | Seeded quantity three times | Three `FAIL`s observing `S$39` | Verified: three local runs; screenshot and manifest hashes matched |
 | Reliability | Fixed quantity three times | Three `PASS`es observing `S$78` | Verified: three local runs; screenshot and manifest hashes matched |
 | Review | Logged-out reviewer | Public source, demo, and video accessible | Not run |

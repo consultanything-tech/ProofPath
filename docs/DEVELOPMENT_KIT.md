@@ -1,7 +1,7 @@
 # ProofPath Development Kit
 
 **Companion to:** [PRD](PRD.md)  
-**Status:** implementation blueprint, updated 27 October 2026 (Asia/Singapore); fixture-backed add-to-cart and seeded/fixed quantity slices are implemented locally.
+**Status:** implementation blueprint, updated 27 October 2026 (Asia/Singapore); fixture-backed add-to-cart, seeded/fixed quantity, and required-fields slices are implemented locally.
 
 ## First deliverable
 
@@ -165,7 +165,7 @@ and display it before approval:
   "originalRequirement": "Change lamp quantity from 1 to 2; total is S$78.",
   "scenario": {"id": "quantity-update", "revision": "seeded-bug"},
   "contractVersion": "1",
-  "targetRegistryVersion": "1",
+  "targetRegistryVersion": "2",
   "planner": {"mode": "fixture", "provider": null, "model": null},
   "plan": {"...": "validated candidate"}
 }
@@ -258,8 +258,8 @@ unrelated content.
 | Contract | Valid plan, clarification, unknown key/action/target, zero assertions, missing coverage | Partial: valid fixture and external action/missing action coverage checks |
 | Approval | Missing approval, changed plan, changed scenario revision, valid envelope | Partial: approval required and one-use consumption checked; expiry/tamper not checked |
 | Safety | External route/redirect/subresource, popup, download, WebSocket, service worker | Not run |
-| Verdict | All true; known false plus missing observation; only missing observation | Partial: actual add-to-cart PASS; unit checks known failure and inconclusive aggregation |
-| Journey | Add to cart, seeded quantity, fixed quantity, blank required fields | Add to cart: one local PASS; quantity: one local seeded FAIL and one fixed PASS; required fields not run |
+| Verdict | All true; known false plus missing observation; only missing observation | Local fixture PASS/FAIL verified; unit checks distinguish missing/false markers, preserve known failure and prevent incomplete execution from passing |
+| Journey | Add to cart, seeded quantity, fixed quantity, blank required fields | All three fixture journeys have local browser evidence; blank checkout shows both errors and stays active; run IDs and hash checks are in BUILD_LOG.md |
 | Reliability | Three seeded `FAIL`s at `S$39`; three fixed `PASS`es at `S$78` | Verified locally: three per revision, with screenshot and manifest hashes checked |
 | Human review | Fresh logged-out review of public source, deployment, and video | Not run |
 
@@ -300,8 +300,8 @@ blocking, deterministic verdicts, evidence provenance, or logged-out review.
 | Payment readiness | No payment method shown; guide says one is needed for API calls. | Payment setup incomplete |
 | Model integration | Endpoint/model in official Quickstart. | Documented, not smoke-tested |
 | Structured response | Strict JSON Schema in official documentation. | Documented, not smoke-tested |
-| Public repository/deployment | Local Git repository exists with documentation only; no remote or deployment is configured. | Publication/deployment not started |
-| Functional ProofPath | Fixture-backed add-to-cart flow. | Partial: one local PASS; other journeys/live Meta not verified |
+| Public repository/deployment | Private GitHub repository is configured; no deployment exists. | Publication/deployment not started |
+| Functional ProofPath | Fixture-backed checkout journeys. | All three fixture journeys verified locally; live Meta and full safety matrix remain open |
 
 ## Build handoff
 

@@ -18,9 +18,10 @@ const invalidatePlan = () => {
 const syncJourney = () => {
   const quantity = scenario.value === "quantity-update";
   revision.disabled = !quantity;
-  if (!quantity) { revision.value = "baseline"; requirement.value = "Add one Desk Lamp; cart quantity is 1 and total is S$39."; }
+  if (scenario.value === "add-to-cart") { revision.value = "baseline"; requirement.value = "Add one Desk Lamp; cart quantity is 1 and total is S$39."; }
   if (quantity && revision.value === "baseline") revision.value = "seeded-bug";
   if (quantity) requirement.value = "Change Desk Lamp quantity to 2; total is S$78.";
+  if (scenario.value === "required-fields") { revision.value = "baseline"; requirement.value = "Continue checkout with required fields blank; show both validation errors and stay on checkout."; }
 };
 scenario.addEventListener("change", () => { syncJourney(); invalidatePlan(); });
 revision.addEventListener("change", invalidatePlan);

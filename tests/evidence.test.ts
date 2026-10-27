@@ -24,7 +24,7 @@ test("manifest records the digest of each captured screenshot", async () => {
         originalRequirement: "Add one lamp",
         scenario: getScenario("add-to-cart", "baseline"),
         contractVersion: "1",
-        targetRegistryVersion: "1",
+        targetRegistryVersion: "2",
         planner: { mode: "fixture", provider: null, model: null },
         plan: fixturePlanFor(getScenario("add-to-cart", "baseline")).plan!
       },
