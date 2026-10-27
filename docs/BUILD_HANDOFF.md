@@ -78,6 +78,12 @@ remain incomplete; keep recording exact verified behavior and gaps.
 
 ## Open owner decisions
 
+The direct Meta planner adapter is implemented and tested with fake transport
+only. Startup mode is explicit, a Meta key is required locally, clarifications
+produce no approval, and provider failures cannot fall back to fixtures. No real
+key was configured and no live call was made. The next live gate requires local
+owner configuration, account readiness and a smoke-test spending boundary.
+
 Payment readiness and live API access remain unverified. The prior Billing check
 showed $150 free credits and no payment method. Never paste keys in chat; configure
 locally in an ignored environment file. No billing changes are authorized here.

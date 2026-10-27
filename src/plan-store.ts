@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { CONTRACT_VERSION, type Plan, validatePlan } from "./contracts.js";
 import { TARGET_REGISTRY_VERSION, type Scenario } from "./scenarios.js";
 
-export type PlannerProvenance = { mode: "fixture"; provider: null; model: null };
+export type PlannerProvenance = { mode: "fixture"; provider: null; model: null } | { mode: "meta"; provider: "meta-model-api"; model: "muse-spark-1.3" };
 export type ApprovalEnvelope = {
   originalRequirement: string;
   scenario: Scenario;

@@ -140,8 +140,8 @@ The matrix tracks implementation evidence; partial results are labelled as such.
 
 | Area | Check | Required result | Status |
 | --- | --- | --- | --- |
-| Planner | Each supported journey | Covered plan with at least one assertion | Partial: fixture plans cover add-to-cart, quantity-update, and required fields; live Meta planning not implemented |
-| Planner | Ambiguous request | Clarification; no plan or run | Not run |
+| Planner | Each supported journey | Covered plan with at least one assertion | All fixture plans implemented; direct Meta adapter has mock-transport evidence only |
+| Planner | Ambiguous request | Clarification; no plan or run | HTTP/mock response path verified; actual ambiguous-language evaluation not run |
 | Planner | Login, payment, or external site | Rejection/clarification; no run | Not run |
 | Validation | Unknown key/action/target, selector, JS, shell, or external URL | Rejected before browser launch | Partial: external action and missing required action coverage rejected |
 | Approval | Run before approval or after plan/scenario change | Rejected; no run artefact | Local checks cover one-use, revision binding, exact expiry, stored-envelope tamper and overlap without consuming the rejected run's approval |

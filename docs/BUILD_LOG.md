@@ -108,6 +108,66 @@ deployed/public reviewer checks remain open. The delegated implementation agent
 hit a workspace credit limit during this gate; the primary agent completed the
 remaining implementation, test fixes and verification.
 
+## Direct Meta planner adapter, offline verification — October 27, 2026
+
+Implemented an explicit fixture/meta planner selection, direct native-fetch
+Chat Completions adapter, frozen strict schema and immutable mode/provider/model
+provenance. Missing mode or missing Meta key fails startup. The optional ignored
+`.env` is loaded by `pnpm dev`; no real environment file/key was created or read.
+The endpoint and model are fixed server-side to Meta Model API and
+`muse-spark-1.3`, with 4096 completion tokens, low reasoning, a 30-second total
+deadline, 64 KiB response cap and at most one transient retry. HTTP redirects
+are disabled. Raw provider errors/bodies and credentials are never returned.
+
+Only the synthetic requirement and public scenario facts enter the prompt;
+seeded/fixed versions yield identical requests for the same prose. No server-owned
+revision, defect, expected verdict or approval envelope is appended. Returned model identity,
+finish state, refusal/tool responses and local contract/scenario constraints are
+checked before saving a plan. Clarification has no plan ID or approval. Meta
+errors cannot substitute a fixture. UI configuration/report labels reflect the
+actual startup mode; repeated proposal clicks are disabled while planning.
+Approval JSON now wraps within the preview panel without horizontal overflow.
+
+Validation: 24/24 default tests passed, including fake transport and HTTP tests
+for plan/clarification, wrong models/schema/scenarios, auth/payment failures,
+retry bounds, abort/deadline, oversized/unreadable bodies, no secret echo and
+provenance-bound approval hashes. TypeScript build and JavaScript syntax checks
+passed. The unchanged browser boundary also passed the 10/10 local safety suite
+after the planner module was connected, including persisted blocked and timed-out
+manifests (`01274283-c02d-47c4-abac-733b3a9822d6` cross-origin redirect and
+`d0fe879d-bb5e-4153-b87f-cb70a45e1f7a` in-flight timeout).
+
+Fixture-mode app smoke checks passed Host/Origin/media/body protections,
+unapproved/no-artifact rejection and overlapping-run approval reuse
+(`eb955cbb-da58-4e9b-901f-d1b24eb2d94f`, `f2970805-c6b8-4daf-85f0-3ce1937f67a6`).
+Fresh journeys, with screenshot and manifest hashes checked:
+
+| Scenario | Verdict | Local run ID |
+| --- | --- | --- |
+| Required fields | PASS | `27067b08-7c7d-45b8-ad21-cf7aa1b4e456` |
+| Add to cart | PASS | `d39941f6-dd8c-4553-b4c4-a4146a79e425` |
+| Seeded quantity | FAIL | `2aaf7031-bf0f-465f-93b4-25feb215527d` |
+| Fixed quantity | PASS | `394a4b35-04f8-48f2-ae29-cfa325517958` |
+
+The final browser preview displayed PASS, completed execution and explicit
+fixture provenance with both checkout assertions true in run
+`86dc9ec3-9b8b-4588-92f2-f66116388054`. The approval panel fit its 636-pixel
+viewport with no horizontal overflow.
+An isolated synthetic clarification server also exercised the real UI: the
+question was displayed and both approval and run controls stayed hidden. That
+temporary server used no model transport and was stopped after the check.
+
+No live Meta request was made and no Meta credit, card/billing setting, public
+deployment or publication was used. Mock responses prove adapter mechanics,
+not live eligible-model use or natural-language quality. The next gate requires
+the owner to configure the ignored local key, confirm account readiness and
+authorize a smoke-test spending boundary. Six unseen paraphrases plus ambiguous
+and unsupported requests, deployment and final submission artifacts remain open.
+
+Sources refreshed October 27: [Meta Quickstart](https://dev.meta.ai/docs/quickstart),
+[Structured output](https://dev.meta.ai/docs/structured-output) and
+[Chat Completions parameters](https://dev.meta.ai/docs/protocols/chat-completions).
+
 ## Start boundary confirmed — October 27, 2026, approximately 00:23 SGT
 
 The kickoff transcript says the 10-day hacking period starts after kickoff and

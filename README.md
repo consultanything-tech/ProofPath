@@ -7,7 +7,7 @@ ProofPath turns a plain-language browser journey into an approved run and an evi
 - Event: Meta Global AI Developer Hackathon
 - Track: Indie Developer — Build for Your World
 - Participation: accepted and solo; acceptance was confirmed in the setup conversation on 26 October 2026.
-- Status: fixture-backed add-to-cart, seeded/fixed quantity, and blank-required-fields slices are implemented after the October 27 kickoff boundary. Local browser evidence shows the seeded quantity defect failing and the fixed revision passing; live Meta integration remains unverified.
+- Status: all fixture journeys and core local safety checks are implemented. The direct Meta planner passes offline mock-transport tests; live access and model behavior remain unverified.
 
 The planned demo is deliberately narrow:
 
@@ -26,9 +26,36 @@ Start with [the PRD](docs/PRD.md) and [development kit](docs/DEVELOPMENT_KIT.md)
 
 TestForgeAI is prior experience, not this project’s implementation. This base contains no reused implementation. Any future reuse must be owned or permitted, disclosed, and distinguishable from hackathon work; do not use employer, private, client, or credentialed data.
 
-## Candidate implementation
+## Run locally
 
-The current stack is Node.js, TypeScript, pnpm, Playwright, and a thin local server. Fixture mode creates server-owned add-to-cart, quantity-update, or required-fields plans; the UI states that it does not interpret text or call Meta. Every screen labels it **Fixture planner — Meta not used**. The server hashes the requirement, scenario revision, target registry, fixture provenance, and validated plan into a one-use ten-minute approval, then uses Playwright only against the local synthetic shop. The seeded quantity revision deliberately reports 3900 cents for quantity 2 and must `FAIL`; the fixed revision reports 7800 and must `PASS`. The required-fields plan continues with two blank synthetic fields, checks both visible errors and that checkout stayed active, and has no payment action. Reports retain the complete approval envelope, screenshots, per-assertion URL and timestamp, screenshot SHA-256 values, replay steps, and a hashed manifest. Live Meta integration remains unverified. Meta Billing was inspected on 26 October 2026: $150 free credits in use and $0 balance are verified. No payment method is on file. Live Meta API integration remains a separate gate.
+Use Node 26 and pnpm:
+
+```sh
+pnpm install
+pnpm exec playwright install chromium
+PLANNER_MODE=fixture pnpm dev
+```
+
+Open `http://127.0.0.1:3000/`. This exact local host is required. Run `pnpm test`
+for focused unit/server checks and `pnpm test:safety` for the loopback-only
+Chromium harness. Generated screenshots and manifests stay in ignored `runs/`.
+
+For a future live test, copy `.env.example` to the ignored `.env` and configure
+the key locally; `pnpm dev` loads that optional file. Meta mode requires
+`PLANNER_MODE=meta` and `MODEL_API_KEY`. Missing/invalid mode or a missing key
+fails startup. Keep fixture mode selected until account readiness and a live
+test spending boundary are confirmed. Never put keys in chat or commit them.
+There is no startup/background model call. Propose plan in Meta mode sends the
+synthetic requirement and public scenario facts to Meta; a clarification creates
+no approvable plan, and provider errors never substitute a fixture.
+
+## Implementation
+
+The stack is Node.js, TypeScript, pnpm, Playwright and a thin local server. Fixture mode creates canned plans and explicitly says it does not interpret text or call Meta. Meta mode uses a direct Model API adapter with strict schema validation and no fallback; it has mock-transport evidence only. UI labels and immutable approval/report provenance identify the selected mode.
+
+The server hashes the requirement, scenario revision, target registry, planner provenance and validated plan into a one-use ten-minute approval. A fresh browser context permits only the synthetic shop and its two assets. Runs are serialized, bounded and reported as completed, blocked, timed-out or failed. The seeded quantity revision observes 3900 cents for quantity 2 and fails; the fixed revision observes 7800 and passes. Blank checkout requires both visible errors and an active checkout state. Reports retain approval snapshots, replay, URL/time, screenshots and hashes. Missing evidence cannot produce PASS, and a known failure survives interrupted execution.
+
+The October 26 Billing inspection showed $150 free credits, $0 balance and no payment method. Payment readiness, live responses, unseen-language evaluation and public deployment remain separate gates. No API call or billing change was made during this implementation.
 
 ## Submission checklist
 

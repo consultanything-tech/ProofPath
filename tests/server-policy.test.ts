@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { request } from "node:http";
 import test from "node:test";
 import { createProofPathServer, RunGate } from "../src/server.js";
+import { createPlanner } from "../src/planner.js";
+import { createMetaPlanner, META_MODEL } from "../src/meta-planner.js";
+import { fixturePlanFor } from "../src/planner.js";
+import { getScenario } from "../src/scenarios.js";
 
 test("one run slot rejects overlap and can be released", () => {
   const gate = new RunGate();
@@ -12,8 +16,55 @@ test("one run slot rejects overlap and can be released", () => {
   gate.release();
 });
 
+test("mock Meta HTTP planning returns clarification without approval and preserves provenance on plans/errors", async () => {
+  const key = "synthetic-http-test-key";
+  let result: unknown = { kind: "clarification", question: "Which supported journey?", plan: null };
+  let fail = false;
+  let calls = 0;
+  const planner = createMetaPlanner({ apiKey: key, retryDelayMs: 0, fetch: (async () => {
+    calls += 1;
+    if (fail) throw new Error(key);
+    return new Response(JSON.stringify({ model: META_MODEL, choices: [{ finish_reason: "stop", message: { content: JSON.stringify(result) } }] }));
+  }) as typeof fetch });
+  const { server, origin } = createProofPathServer(0, planner);
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const send = (path: string, body?: string) => new Promise<{ status: number; body: any }>((resolve, reject) => {
+    const req = request({ hostname: "127.0.0.1", port: address.port, path, method: body ? "POST" : "GET", headers: { Host: new URL(origin).host, Origin: origin, "Content-Type": "application/json" } }, res => {
+      let text = "";
+      res.setEncoding("utf8");
+      res.on("data", chunk => text += chunk);
+      res.on("end", () => resolve({ status: res.statusCode!, body: JSON.parse(text) }));
+    });
+    req.on("error", reject); req.end(body);
+  });
+  try {
+    const config = await send("/api/config");
+    assert.equal(config.body.planner.mode, "meta");
+    assert.equal(JSON.stringify(config.body).includes(key), false);
+    const input = JSON.stringify({ requirement: "Add one lamp", scenarioId: "add-to-cart", revision: "baseline" });
+    const clarification = await send("/api/plans", input);
+    assert.equal(clarification.status, 200);
+    assert.equal(clarification.body.kind, "clarification");
+    assert.equal(clarification.body.id, undefined);
+    assert.equal(clarification.body.digest, undefined);
+    result = fixturePlanFor(getScenario("add-to-cart", "baseline"));
+    const proposal = await send("/api/plans", input);
+    assert.equal(proposal.status, 201);
+    assert.equal(proposal.body.envelope.planner.mode, "meta");
+    assert.equal(proposal.body.envelope.planner.model, META_MODEL);
+    fail = true;
+    const error = await send("/api/plans", input);
+    assert.equal(error.status, 400);
+    assert.equal(error.body.id, undefined);
+    assert.equal(JSON.stringify(error.body).includes(key), false);
+    assert.equal(calls, 4);
+  } finally { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
+});
+
 test("HTTP policy enforces Host, Origin, media type and body limit before execution", async () => {
-  const { server, origin } = createProofPathServer(0);
+  const { server, origin } = createProofPathServer(0, createPlanner({ PLANNER_MODE: "fixture" }));
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   assert.ok(address && typeof address !== "string");

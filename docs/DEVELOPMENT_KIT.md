@@ -1,7 +1,7 @@
 # ProofPath Development Kit
 
 **Companion to:** [PRD](PRD.md)  
-**Status:** implementation blueprint, updated 27 October 2026 (Asia/Singapore); fixture-backed add-to-cart, seeded/fixed quantity, and required-fields slices are implemented locally.
+**Status:** updated 27 October 2026 (Asia/Singapore); all fixture journeys, core browser safety checks and an offline-tested Meta adapter are implemented. Live Meta behavior remains unverified.
 
 ## First deliverable
 
@@ -31,12 +31,13 @@ storage for this MVP.
 
 ## Candidate map
 
-This is a target for the build, not files created now.
+The implementation follows this layout. Model fixtures live inline in focused tests.
 
 ```text
 src/
   server.ts          routes, static files, host limits
   planner.ts         explicit fixture or Meta planner; no fallback
+  meta-planner.ts    native fetch, strict schema, bounded response/retry/timeout
   contracts.ts       runtime validation and domain types
   plan-store.ts      in-memory candidate and approval state
   scenarios.ts       server-owned criteria, revisions and semantic targets
@@ -50,7 +51,6 @@ public/
   shop.html          synthetic checkout only
   shop.js            deterministic seeded/fixed shop behavior
 tests/               contract, approval, verdict, safety, and journey tests
-fixtures/model/      valid, clarification, invalid-action, external-route
 runs/                ignored generated artefacts
 .env.example         PLANNER_MODE and MODEL_API_KEY names; no secrets
 ```
@@ -63,10 +63,14 @@ prize promotion separate from the MVP.
 
 ## Single planner contract
 
-The documented path is `POST https://api.meta.ai/v1/chat/completions` using
-`muse-spark-1.3` and `response_format` JSON Schema. It remains provisional until
-a successful redacted smoke test proves the account, endpoint, model, and
-response behavior. The first slice should use a server-side `fetch`, not an SDK.
+The adapter uses `POST https://api.meta.ai/v1/chat/completions`, `muse-spark-1.3`
+and strict `response_format` JSON Schema via native server-side `fetch`. The
+official Chat Completions guide was refreshed on October 27 and documents
+`max_completion_tokens`; the adapter caps it at 4096 with low reasoning, a
+30-second total deadline, a 64 KiB response cap and at most one transient retry.
+Response model must match the requested model. Mock tests validate request shape
+and failure handling; account access and live compatibility still require an
+authorized smoke test.
 
 Use `response_format.json_schema.strict: true`. Meta's documentation requires a
 plain-object root, `additionalProperties: false` on every object, and every
@@ -153,7 +157,8 @@ every UI/report says **Fixture planner — Meta not used**. It does not establis
 natural-language understanding or eligible Meta use. Meta mode without a local
 key fails startup; errors never fall back to fixtures. Preserve planner mode,
 provider and model in every approved envelope and report (model is null for
-fixtures). The live adapter remains unverified until a successful real call.
+fixtures). The adapter has offline tests; live access and language behavior
+remain unverified until a real call and unseen-input evaluation.
 
 ## Approval integrity
 
@@ -294,12 +299,12 @@ blocking, deterministic verdicts, evidence provenance, or logged-out review.
 
 ## Readiness ledger
 
-| Item | Evidence as of 26 October | Status |
+| Item | Evidence updated 27 October | Status |
 | --- | --- | --- |
 | Credits | Billing showed `Free credits in use $150.00`; balance `$0.00`. | Verified visually |
 | Payment readiness | No payment method shown; guide says one is needed for API calls. | Payment setup incomplete |
-| Model integration | Endpoint/model in official Quickstart. | Documented, not smoke-tested |
-| Structured response | Strict JSON Schema in official documentation. | Documented, not smoke-tested |
+| Model integration | Native-fetch adapter and mock transport checks. | Implemented offline; live access not smoke-tested |
+| Structured response | Frozen strict schema, local contract checks and failure tests. | Verified with mocks; actual model output not evaluated |
 | Public repository/deployment | Private GitHub repository is configured; no deployment exists. | Publication/deployment not started |
 | Functional ProofPath | Fixture-backed checkout journeys. | All three fixture journeys and core local safety matrix verified; live Meta and broader edge cases remain open |
 
@@ -314,6 +319,7 @@ requirements.
 - [Participant guide](https://cerebralvalley.ai/e/meta-ai-developer-hackathon/details)
 - [Meta Model API quickstart](https://dev.meta.ai/docs/quickstart)
 - [Structured output guide](https://dev.meta.ai/docs/structured-output)
+- [Chat Completions parameters](https://dev.meta.ai/docs/protocols/chat-completions)
 - [Official kickoff](https://discord.com/channels/1557169028080869426/1557169028626251801/1564221713284071557)
 - [Official temporary-hold note](https://discord.com/channels/1557169028080869426/1557169028626251801/1564266493875585025)
 - Local scope: `/opt/homebrew/var/www/ProofPath/README.md` and `docs/PLAN.md`

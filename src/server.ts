@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { validatePlannerResponse } from "./contracts.js";
 import { saveRun, evidencePath, manifestPath, type ExecutionStatus } from "./evidence.js";
 import { PlanStore } from "./plan-store.js";
-import { fixturePlanFor } from "./planner.js";
+import { createPlanner, plannerLabel, type Planner } from "./planner.js";
 import { RunnerExecutionError, runApprovedPlan } from "./runner.js";
 import { getScenario } from "./scenarios.js";
 import { aggregate, type AssertionResult } from "./verdict.js";
@@ -53,7 +53,7 @@ async function serveFile(res: ServerResponse, path: string) {
   try { send(res, 200, await readFile(file), mime[extname(file)] ?? "application/octet-stream"); } catch { send(res, 404, { error: "Not found." }); }
 }
 
-export function createProofPathServer(port: number) {
+export function createProofPathServer(port: number, planner: Planner = createPlanner(process.env)) {
   const origin = `http://${host}:${port}`;
   const store = new PlanStore();
   const gate = new RunGate();
@@ -62,14 +62,16 @@ export function createProofPathServer(port: number) {
       if (req.headers.host !== `${host}:${port}`) throw new Error("Exact local Host header required.");
       const url = new URL(req.url ?? "/", origin);
       if (url.origin !== origin) throw new Error("Local request URL required.");
+      if (req.method === "GET" && url.pathname === "/api/config") return send(res, 200, { planner: planner.provenance, plannerLabel: plannerLabel(planner.provenance) });
       if (req.method === "POST" && url.pathname === "/api/plans") {
         mutation(req, origin);
         const input = await readJson(req);
         if (!isRecord(input) || typeof input.requirement !== "string" || input.requirement.trim().length === 0 || input.requirement.length > 2000) throw new Error("A requirement of up to 2,000 characters is required.");
         const scenario = getScenario(input.scenarioId, input.revision);
-        const response = validatePlannerResponse(fixturePlanFor(scenario));
-        if (response.kind !== "plan" || !response.plan) throw new Error("Fixture planner did not return a plan.");
-        return send(res, 201, { ...store.create(input.requirement.trim(), scenario, response.plan), planner: "Fixture planner — Meta not used" });
+        const response = validatePlannerResponse(await planner.propose(input.requirement.trim(), scenario));
+        const label = plannerLabel(planner.provenance);
+        if (response.kind === "clarification") return send(res, 200, { kind: "clarification", question: response.question, plannerLabel: label });
+        return send(res, 201, { kind: "plan", ...store.create(input.requirement.trim(), scenario, response.plan!, planner.provenance), plannerLabel: label });
       }
       const approve = url.pathname.match(/^\/api\/plans\/([a-f0-9-]+)\/approve$/);
       if (req.method === "POST" && approve) {
@@ -122,5 +124,5 @@ export function createProofPathServer(port: number) {
 const port = Number(process.env.PORT ?? 3000);
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { server, origin } = createProofPathServer(port);
-  server.listen(port, host, () => console.log(`ProofPath fixture mode at ${origin}`));
+  server.listen(port, host, () => console.log(`ProofPath ${process.env.PLANNER_MODE} mode at ${origin}`));
 }
