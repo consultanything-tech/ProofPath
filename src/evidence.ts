@@ -6,6 +6,15 @@ import { aggregate } from "./verdict.js";
 import type { ApprovalEnvelope, PlannerProvenance } from "./plan-store.js";
 import type { Scenario } from "./scenarios.js";
 
+export type ActionResult = {
+  id: string;
+  status: "completed" | "blocked" | "timed-out" | "failed" | "not-run";
+  startedAt: string | null;
+  endedAt: string | null;
+  url: string | null;
+  error?: string;
+};
+
 export type RunManifest = {
   runId: string;
   planId: string;
@@ -19,6 +28,7 @@ export type RunManifest = {
   executionStatus: ExecutionStatus;
   verdict: "PASS" | "FAIL" | "INCONCLUSIVE";
   executionError?: string;
+  actionResults: ActionResult[];
   assertions: AssertionResult[];
   replay: string[];
 };

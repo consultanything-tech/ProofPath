@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { allowFixtureRequest, observeCheckoutStayed, observeRequiredErrors, padUnobserved, parseVisibleNonNegativeInteger, parseVisibleSgdMinor, type CheckoutMarkers } from "../src/runner.js";
+import { chromium } from "playwright";
+import { allowFixtureRequest, observeCheckoutStayed, observeRequiredErrors, padUnobserved, parseVisibleNonNegativeInteger, parseVisibleSgdMinor, runApprovedPlan, RunnerExecutionError, type CheckoutMarkers } from "../src/runner.js";
 import { PlanStore } from "../src/plan-store.js";
 import { fixturePlanFor } from "../src/planner.js";
 import { getScenario } from "../src/scenarios.js";
@@ -50,6 +51,20 @@ test("interrupted execution preserves a failure and pads only unobserved asserti
   assert.equal(results[0].verdict, "FAIL");
   assert.equal(results[1].verdict, "INCONCLUSIVE");
   assert.equal(aggregate(results, false), "FAIL");
+});
+
+test("browser setup failure records every action as not-run without exposing raw errors", async (t) => {
+  t.mock.method(chromium, "launch", async () => { throw new Error("synthetic raw browser launch detail"); });
+  const scenario = getScenario("add-to-cart", "baseline");
+  const envelope = new PlanStore().create("Add one lamp", scenario, fixturePlanFor(scenario).plan!).envelope;
+  await assert.rejects(runApprovedPlan(envelope, "http://127.0.0.1:3000", "00000000-0000-4000-8000-000000000003"), (error) => {
+    assert.ok(error instanceof RunnerExecutionError);
+    assert.equal(error.status, "failed");
+    assert.equal(error.message, "Runner failed.");
+    assert.deepEqual(error.actionResults, envelope.plan.actions.map(({ id }) => ({ id, status: "not-run", startedAt: null, endedAt: null, url: null })));
+    assert.ok(error.assertions.every((item) => item.verdict === "INCONCLUSIVE"));
+    return true;
+  });
 });
 
 const markers = (overrides: Partial<CheckoutMarkers> = {}): CheckoutMarkers => ({

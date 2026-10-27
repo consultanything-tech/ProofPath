@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validatePlannerResponse } from "./contracts.js";
-import { saveRun, evidencePath, manifestPath, type ExecutionStatus } from "./evidence.js";
+import { saveRun, evidencePath, manifestPath, type ActionResult, type ExecutionStatus } from "./evidence.js";
 import { PlanStore } from "./plan-store.js";
 import { createPlanner, plannerLabel, type Planner } from "./planner.js";
 import { RunnerExecutionError, runApprovedPlan } from "./runner.js";
@@ -91,13 +91,19 @@ export function createProofPathServer(port: number, planner: Planner = createPla
           let executionStatus: ExecutionStatus = "completed";
           let executionError: string | undefined;
           let assertions: AssertionResult[];
-          try { assertions = await runApprovedPlan(plan.envelope, origin, temporaryId); }
+          let actionResults: ActionResult[];
+          try {
+            const result = await runApprovedPlan(plan.envelope, origin, temporaryId);
+            assertions = result.assertions;
+            actionResults = result.actionResults;
+          }
           catch (error) {
             executionStatus = error instanceof RunnerExecutionError ? error.status : "failed";
             executionError = sanitizedFailure(executionStatus);
             assertions = error instanceof RunnerExecutionError ? error.assertions : plan.envelope.plan.assertions.map((item) => ({ id: item.id, expected: item.expected, observed: null, verdict: "INCONCLUSIVE" as const, screenshot: "not-captured.png", timestamp: new Date().toISOString(), url: origin }));
+            actionResults = error instanceof RunnerExecutionError ? error.actionResults : plan.envelope.plan.actions.map((item) => ({ id: item.id, status: "not-run" as const, startedAt: null, endedAt: null, url: null }));
           }
-          const report = await saveRun({ planId: plan.id, approvalDigest: plan.digest, approvalEnvelope: plan.envelope, planner: plan.envelope.planner, scenario: plan.envelope.scenario, origin, startedAt, endedAt: new Date().toISOString(), executionStatus, verdict: aggregate(assertions, executionStatus === "completed"), assertions, replay: plan.envelope.scenario.replay, ...(executionError ? { executionError } : {}) }, temporaryId);
+          const report = await saveRun({ planId: plan.id, approvalDigest: plan.digest, approvalEnvelope: plan.envelope, planner: plan.envelope.planner, scenario: plan.envelope.scenario, origin, startedAt, endedAt: new Date().toISOString(), executionStatus, verdict: aggregate(assertions, executionStatus === "completed"), actionResults, assertions, replay: plan.envelope.scenario.replay, ...(executionError ? { executionError } : {}) }, temporaryId);
           return send(res, 201, report);
         } finally { gate.release(); }
       }

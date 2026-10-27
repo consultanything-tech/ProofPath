@@ -6,13 +6,12 @@ import test from "node:test";
 import { manifestPath, saveRun } from "../src/evidence.js";
 import type { ApprovalEnvelope } from "../src/plan-store.js";
 import { fixturePlanFor } from "../src/planner.js";
-import { RunnerExecutionError, runApprovedPlan } from "../src/runner.js";
+import { RunnerExecutionError, runApprovedPlan, type RunnerResult } from "../src/runner.js";
 import { getScenario } from "../src/scenarios.js";
-import type { AssertionResult } from "../src/verdict.js";
 import { aggregate } from "../src/verdict.js";
 
 type Mode = "normal" | "same-origin-resource" | "same-origin-redirect" | "cross-origin-redirect" | "popup" | "download" | "websocket" | "service-worker" | "post-action-navigation" | "slow";
-type Outcome = { ok: true; result: AssertionResult[]; runId: string; hits: Record<string, number>; origin: string } | { ok: false; error: unknown; runId: string; hits: Record<string, number>; origin: string };
+type Outcome = { ok: true; result: RunnerResult; runId: string; hits: Record<string, number>; origin: string } | { ok: false; error: unknown; runId: string; hits: Record<string, number>; origin: string };
 
 const coreScript = `
 const quantity = document.querySelector('#quantity');
@@ -82,13 +81,15 @@ async function run(mode: Mode, limits?: { actionTimeoutMs: number; totalTimeoutM
       outcome = { ok: false, error, runId, hits: fixture.hits, origin: fixture.origin };
     }
     const error = outcome.ok ? undefined : outcome.error as RunnerExecutionError;
-    const assertions = outcome.ok ? outcome.result : error!.assertions;
+    const assertions = outcome.ok ? outcome.result.assertions : error!.assertions;
+    const actionResults = outcome.ok ? outcome.result.actionResults : error!.actionResults;
     const executionStatus = error?.status ?? "completed";
-    const report = await saveRun({ planId: "synthetic-safety-test", approvalDigest: "sha256:synthetic", approvalEnvelope: approved, planner: approved.planner, scenario: approved.scenario, origin: fixture.origin, startedAt, endedAt: new Date().toISOString(), executionStatus, assertions, verdict: aggregate(assertions, executionStatus === "completed"), replay: approved.scenario.replay }, runId);
+    const report = await saveRun({ planId: "synthetic-safety-test", approvalDigest: "sha256:synthetic", approvalEnvelope: approved, planner: approved.planner, scenario: approved.scenario, origin: fixture.origin, startedAt, endedAt: new Date().toISOString(), executionStatus, actionResults, assertions, verdict: aggregate(assertions, executionStatus === "completed"), replay: approved.scenario.replay }, runId);
     const bytes = await readFile(manifestPath(runId));
     const sidecar = (await readFile(manifestPath(runId).replace("manifest.json", "manifest.sha256"), "utf8")).trim();
     assert.equal(sidecar, createHash("sha256").update(bytes).digest("hex"));
     assert.equal(report.executionStatus, executionStatus);
+    assert.deepEqual(report.actionResults.map((item) => item.id), approved.plan.actions.map((item) => item.id));
     if (error) { assert.equal(report.verdict, "INCONCLUSIVE"); assert.equal(report.assertions.length, 2); }
     console.log(JSON.stringify({ mode, executionStatus, verdict: report.verdict, runId }));
     return outcome;
@@ -101,7 +102,9 @@ test("safety runner completes only the controlled fixture flow", async () => {
   const outcome = await run("normal");
   try {
     if (!outcome.ok) assert.fail("Normal controlled fixture was blocked or failed.");
-    assert.deepEqual(outcome.result.map((item) => item.verdict), ["PASS", "PASS"]);
+    assert.deepEqual(outcome.result.assertions.map((item) => item.verdict), ["PASS", "PASS"]);
+    assert.deepEqual(outcome.result.actionResults.map((item) => item.status), ["completed", "completed", "completed"]);
+    assert.ok(outcome.result.actionResults.every((item) => item.startedAt && item.endedAt && item.url === `${outcome.origin}/shop.html?revision=baseline`));
   } finally { /* Preserve ignored synthetic artifacts for evidence review. */ }
 });
 
@@ -112,6 +115,13 @@ for (const mode of ["same-origin-resource", "same-origin-redirect", "cross-origi
       if (outcome.ok) assert.fail("Unsafe fixture unexpectedly completed.");
       assert.ok(outcome.error instanceof RunnerExecutionError);
       assert.equal(outcome.error.status, "blocked");
+      const blockedAt = outcome.error.actionResults.findIndex((item) => item.status === "blocked");
+      assert.ok(blockedAt >= 0);
+      const expectedBlockedActions = mode === "download" ? [1, 2] : ["popup", "post-action-navigation"].includes(mode) ? [1] : [0];
+      assert.ok(expectedBlockedActions.includes(blockedAt));
+      assert.ok(outcome.error.actionResults.slice(0, blockedAt).every((item) => item.status === "completed"));
+      assert.ok(outcome.error.actionResults.slice(blockedAt + 1).every((item) => item.status === "not-run"));
+      assert.equal(outcome.error.actionResults[blockedAt].error, "Runner blocked a browser request.");
       assert.equal(outcome.hits["/escape.js"] ?? 0, 0);
       assert.equal(outcome.hits["/escaped"] ?? 0, 0);
       assert.equal(outcome.hits["/popup"] ?? 0, 0);
@@ -136,6 +146,9 @@ test("total execution deadline becomes timed-out", async () => {
     if (outcome.ok) assert.fail("Slow fixture unexpectedly completed.");
     assert.ok(outcome.error instanceof RunnerExecutionError);
     assert.equal(outcome.error.status, "timed-out");
+    assert.equal(outcome.error.actionResults[0].status, "timed-out");
+    assert.deepEqual(outcome.error.actionResults.slice(1).map((item) => item.status), ["not-run", "not-run"]);
+    assert.equal(outcome.error.actionResults[0].error, "Runner timed out.");
     assert.equal(outcome.hits["/shop.html"], 1);
   } finally { /* Preserve ignored synthetic artifacts for evidence review. */ }
 });

@@ -1,7 +1,7 @@
 import { chromium, type Browser, type BrowserContext, type Locator, type Page } from "playwright";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
-import { evidencePath, type ExecutionStatus } from "./evidence.js";
+import { evidencePath, type ActionResult, type ExecutionStatus } from "./evidence.js";
 import { fixturePath } from "./scenarios.js";
 import type { ApprovalEnvelope } from "./plan-store.js";
 import type { AssertionResult } from "./verdict.js";
@@ -17,8 +17,10 @@ export type RequestFacts = {
   mainFrame: boolean;
 };
 
+export type RunnerResult = { assertions: AssertionResult[]; actionResults: ActionResult[] };
+
 export class RunnerExecutionError extends Error {
-  constructor(message: string, readonly status: ExecutionStatus, readonly assertions: AssertionResult[]) {
+  constructor(message: string, readonly status: ExecutionStatus, readonly assertions: AssertionResult[], readonly actionResults: ActionResult[]) {
     super(message);
     this.name = "RunnerExecutionError";
   }
@@ -93,12 +95,19 @@ function runnerMessage(status: ExecutionStatus): string {
   return "Runner failed.";
 }
 
-export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string, runId: string, limits: RunnerLimits = DEFAULT_LIMITS): Promise<AssertionResult[]> {
+function completeActionResults(envelope: ApprovalEnvelope, results: ActionResult[]): ActionResult[] {
+  const byId = new Map(results.map((result) => [result.id, result]));
+  return envelope.plan.actions.map((action) => byId.get(action.id) ?? { id: action.id, status: "not-run", startedAt: null, endedAt: null, url: null });
+}
+
+export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string, runId: string, limits: RunnerLimits = DEFAULT_LIMITS): Promise<RunnerResult> {
   const plan = envelope.plan;
   const expectedOrigin = new URL(origin).origin;
   const expectedUrl = new URL(fixturePath(envelope.scenario), origin).toString();
   const startedAt = Date.now();
   const results: AssertionResult[] = [];
+  const actionResults: ActionResult[] = [];
+  let activeAction: ActionResult | undefined;
   let browser: Browser | undefined;
   let context: BrowserContext | undefined;
   let page: Page | undefined;
@@ -107,7 +116,7 @@ export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string
   const remainingMs = () => Math.max(1, limits.totalTimeoutMs - (Date.now() - startedAt));
   const setStatus = (next: Exclude<ExecutionStatus, "completed">) => { if (status === "completed") status = next; };
   const ensureRunning = () => {
-    if (status !== "completed") throw new RunnerExecutionError(runnerMessage(status), status, results);
+    if (status !== "completed") throw new RunnerExecutionError(runnerMessage(status), status, results, completeActionResults(envelope, actionResults));
   };
   const ensureOwnedPage = () => {
     ensureRunning();
@@ -173,6 +182,8 @@ export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string
     page.on("download", (download) => { setStatus("blocked"); void download.cancel().catch(() => {}); });
     for (const action of plan.actions) {
       ensureRunning();
+      activeAction = { id: action.id, status: "not-run", startedAt: new Date().toISOString(), endedAt: null, url: page?.url() ?? null };
+      actionResults.push(activeAction);
       if (action.kind === "navigate") {
         await page.goto(expectedUrl, { waitUntil: "networkidle", timeout: Math.min(limits.actionTimeoutMs, remainingMs()) });
         ensureRunning();
@@ -184,6 +195,10 @@ export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string
       if (action.kind === "click" && action.target === "checkout") await page.getByRole("button", { name: "Checkout", exact: true }).click({ timeout: Math.min(limits.actionTimeoutMs, remainingMs()) });
       if (action.kind === "click" && action.target === "continue-checkout") await page.getByRole("button", { name: "Continue", exact: true }).click({ timeout: Math.min(limits.actionTimeoutMs, remainingMs()) });
       ensureOwnedPage();
+      activeAction.status = "completed";
+      activeAction.endedAt = new Date().toISOString();
+      activeAction.url = page.url();
+      activeAction = undefined;
     }
     for (const assertion of plan.assertions) {
       ensureOwnedPage();
@@ -214,6 +229,13 @@ export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") setStatus("timed-out");
     else setStatus("failed");
+    if (activeAction) {
+      activeAction.status = status;
+      activeAction.endedAt = new Date().toISOString();
+      activeAction.url = page?.url() ?? null;
+      activeAction.error = runnerMessage(status);
+      activeAction = undefined;
+    }
     padUnobserved(results, envelope, expectedUrl);
   } finally {
     if (timer) clearTimeout(timer);
@@ -222,7 +244,7 @@ export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string
   }
   if (status !== "completed") {
     padUnobserved(results, envelope, expectedUrl);
-    throw new RunnerExecutionError(runnerMessage(status), status, results);
+    throw new RunnerExecutionError(runnerMessage(status), status, results, completeActionResults(envelope, actionResults));
   }
-  return results;
+  return { assertions: results, actionResults: completeActionResults(envelope, actionResults) };
 }
