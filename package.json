@@ -1,0 +1,19 @@
+{
+  "name": "proofpath",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "pnpm build && node dist/src/server.js",
+    "test": "pnpm build && node --test dist/tests/*.test.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "playwright": "^1.57.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  }
+}
