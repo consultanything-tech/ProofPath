@@ -64,6 +64,80 @@ compatibility, action failure/interruption records, amount formatting and raw
 snapshot agreement. Run unit/server and Chromium checks for the changed shared
 code; do not repeat passing checks without a new reason.
 
+#### Next implementation handoff: two sequential slices
+
+**Slice 1 — Action evidence.** The current runner returns only assertions.
+Introduce a result containing `assertions` and `actionResults`, and carry both
+through `RunnerExecutionError` and the server into the manifest. Each action
+record contains its approved action ID, execution status, nullable start/end
+timestamps, nullable observed URL and optional fixed sanitized error. Resolve
+action kind/target/value from the approved envelope instead of duplicating them.
+
+Record every action once, in plan order. Completed actions retain their result
+even if evidence capture or browser cleanup later fails. An interrupted active
+action records blocked/timed-out/failed status; unreached actions are `not-run`
+with null timestamps/URL. Setup failure before any action records all as
+`not-run`. Preserve the existing execution-status precedence and verdict rules;
+action success never overrides a failed or inconclusive assertion.
+
+Reach: `src/runner.ts`, `src/evidence.ts`, `src/server.ts`,
+`tests/evidence.test.ts`, `tests/safety.integration.ts`. These are the maintained
+runner/manifest callers identified in this planning pass; search again before
+editing. New manifest writers supply action results; legacy JSON remains
+unchanged. Do not introduce a general event logger or export internals solely
+to test them.
+
+Slice 1 acceptance: normal execution has all completed action records; blocked
+and timed-out execution identifies the active action and leaves later work
+not-run; sanitized failures expose no raw browser/provider error. Manifest
+writing preserves action records under its sidecar hash. All previous verdict,
+approval and egress tests still pass. Validate with `pnpm test` and
+`pnpm test:safety` after updating affected callers and fixtures.
+
+**Slice 2 — Readable UI.** Own `public/index.html`, `public/app.js`,
+`public/styles.css`, a focused `tests/ui.integration.ts`, and a `test:ui` package
+script using the existing build/Node test pattern. No new backend route,
+framework or dependency is required.
+
+Plan review order: requirement and journey/revision; planner provenance;
+numbered semantic actions; expected checks; full digest; expandable exact JSON;
+approve control. Report order: textual verdict/execution status; provenance and
+times; action outcomes; expected/observed assertion cards and screenshots;
+replay steps; readable report link and raw manifest link. Display integer cents
+as SGD currency without changing stored values; render boolean checks as plain
+sentences. Keep all source content as text, with keyboard focus and narrow-screen
+layouts checked.
+
+Reuse one report renderer for the run response and `/?run=<uuid>`. Validate the
+run ID before fetching the existing manifest endpoint; reopening a report makes
+no plan/run request. Legacy reports show an explicit action-history-unavailable
+note while retaining their actual assertions/verdict. Missing/invalid reports
+show a clear error and never fabricate a result.
+
+Capture the proposal's input version and ignore stale results after input
+changes. Disable approval/run buttons synchronously before awaiting requests;
+lock inputs while approval/execution is pending, then restore the appropriate
+controls. While an approved plan is idle, input edits may still discard the
+visible approval through existing invalidation; do not require execution to
+unlock editing. The server remains authoritative for one-use approval and
+concurrency. Do not add automatic request retries or claim an ambiguous network
+failure means execution never started.
+
+Slice 2 acceptance: a fixture-mode keyboard flow produces a readable report
+matching its exact snapshot and raw manifest; copied report links reopen the
+same evidence; duplicate clicks make one request; delayed stale proposals never
+reveal approval controls; legacy reports remain readable. UI tests use local
+fixtures/controlled responses, not Meta calls. Add assertions for currency
+formatting, sanitized text rendering, invalid IDs and visible focus. Run
+`pnpm test:ui`, affected existing checks and `git diff --check`. Update the build
+log/readiness notes with actual results after validation, not planned successes.
+
+Keep unchanged: plan schema, model prompt, digest inputs, approval lifetime,
+server-owned scenarios, deterministic verdicts and exact local fixture allowlist.
+The runner return shape is the main integration risk; complete and validate
+slice 1 before implementing slice 2. Neither slice authorizes live spending,
+hosting changes or repository publication.
+
 ### 2. Close local verification gaps — October 29–30
 
 Execute the saved Meta required-fields plan with a fresh chat-authorized
