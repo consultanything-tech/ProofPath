@@ -168,6 +168,54 @@ Sources refreshed October 27: [Meta Quickstart](https://dev.meta.ai/docs/quickst
 [Structured output](https://dev.meta.ai/docs/structured-output) and
 [Chat Completions parameters](https://dev.meta.ai/docs/protocols/chat-completions).
 
+## First real Meta smoke and approved local execution — October 27, 2026
+
+The user configured the key in ignored `.env`, authorized up to US$1 for one
+synthetic smoke test with at most one transient retry, then instructed
+"continue" after the validated plan was returned. The key was never displayed,
+logged or committed. No billing setting or payment detail was changed.
+
+At 17:31:41 SGT the adapter sent the synthetic add-to-cart requirement to
+`https://api.meta.ai/v1/chat/completions`. One attempt returned HTTP 200,
+`model=muse-spark-1.3`, `finish_reason=stop`, with 489 prompt and 671 completion
+tokens (1160 total). The response passed the production schema, scenario and
+server-owned criterion checks. No retry or fixture substitution occurred.
+
+Published standard rates were refreshed from
+[Meta pricing](https://dev.meta.ai/docs/pricing-rate-limits): US$1.25/M input and
+US$4.25/M output tokens. The conservative preflight estimate for two maximum
+attempts was US$0.043506. Actual returned usage implies an estimated token cost
+of US$0.003463 before any cache discount; invoice/credit deductions were not
+inspected. This is an estimate, not an asserted billed amount or hard account cap.
+
+The sanitized request/usage/result evidence and its SHA-256 sidecar are in
+`runs/meta-smoke-9289317a-6a32-4e4e-b35b-60093a12c329/`. They contain no key,
+authorization header or raw error body. The proposed envelope digest was
+`sha256:550b226302f6ef23948cf709be3e6e592589f59c859b6981caaf2c034ed31428`.
+
+After chat authorization to continue, the exact validated candidate was
+reconstructed and its envelope digest checked against that saved proposal.
+Approval was recorded programmatically for the controlled smoke run. No human
+UI click or approval in the running app's in-memory store is claimed. Local run
+`96568392-a714-43e6-9bfd-b74fa51cf51f` completed with PASS: `assert-qty`
+observed `1`, and `assert-total` observed `3900` cents. Screenshot and manifest
+sidecar hashes matched their files, and a second consumption was rejected.
+`approval-source.json` in the run directory links the source smoke hash and chat
+authorization. The browser execution made zero additional model requests.
+
+Local `.env` now selects Meta mode; the restarted loopback app reports the
+correct mode/provider/model. A UI refresh showed "Meta Model API —
+muse-spark-1.3" without proposing another plan. The app does not call Meta at
+startup; a future Propose action in this mode is a live model request.
+
+This clears basic live authentication/model access and one structured-plan to
+local-browser execution path. It does not verify other live journeys, six unseen
+paraphrases, ambiguous/unsupported natural-language behavior, the UI approval
+path with a live proposal, deployment or organizer evaluation. Current card and
+credit-balance state were not reinspected. No source code changed for this
+smoke; existing unit suites were not rerun. All generated evidence remains
+ignored by Git.
+
 ## Start boundary confirmed — October 27, 2026, approximately 00:23 SGT
 
 The kickoff transcript says the 10-day hacking period starts after kickoff and

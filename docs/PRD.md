@@ -2,7 +2,7 @@
 
 **Version:** 0.1 (draft)  
 **Date:** 26 October 2026, Asia/Singapore  
-**Status:** implementation authorized after the October 27 kickoff; functional progress is recorded in `BUILD_LOG.md`; no live model call is evidenced
+**Status:** implementation authorized after the October 27 kickoff; functional progress is recorded in `BUILD_LOG.md`; one live add-to-cart model call and controlled run are evidenced
 
 ## Product decision
 
@@ -140,7 +140,7 @@ The matrix tracks implementation evidence; partial results are labelled as such.
 
 | Area | Check | Required result | Status |
 | --- | --- | --- | --- |
-| Planner | Each supported journey | Covered plan with at least one assertion | All fixture plans implemented; direct Meta adapter has mock-transport evidence only |
+| Planner | Each supported journey | Covered plan with at least one assertion | All fixture plans implemented; one real Meta add-to-cart plan and its local run verified; other live journeys pending |
 | Planner | Ambiguous request | Clarification; no plan or run | HTTP/mock response path verified; actual ambiguous-language evaluation not run |
 | Planner | Login, payment, or external site | Rejection/clarification; no run | Not run |
 | Validation | Unknown key/action/target, selector, JS, shell, or external URL | Rejected before browser launch | Partial: external action and missing required action coverage rejected |
@@ -167,7 +167,7 @@ claim time savings or general reliability without a measured baseline.
   JSON Schema constrained output.
 - On 26 October, billing visibly showed `Free credits in use $150.00`, balance
   `$0.00`, and no payment method. Credits are provisioned; live calls, payment
-  readiness, spend control, and model behavior are unverified.
+  readiness and spend control were unverified then. An October 27 authorized request verified basic live model access and one controlled plan/run; current card/balance and broader language behavior remain unverified.
 - Kickoff was announced for 27 October 00:00 SGT
   [in Discord](https://discord.com/channels/1557169028080869426/1557169028626251801/1564221713284071557).
   The kickoff notes and transcript say the 10-day hack starts after kickoff and

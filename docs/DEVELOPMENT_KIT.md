@@ -1,7 +1,7 @@
 # ProofPath Development Kit
 
 **Companion to:** [PRD](PRD.md)  
-**Status:** updated 27 October 2026 (Asia/Singapore); all fixture journeys, core browser safety checks and an offline-tested Meta adapter are implemented. Live Meta behavior remains unverified.
+**Status:** updated 27 October 2026 (Asia/Singapore); all fixture journeys, core browser safety checks and an offline-tested Meta adapter are implemented. One live add-to-cart plan and its controlled browser run are verified; broader live behavior remains unverified.
 
 ## First deliverable
 
@@ -69,8 +69,9 @@ official Chat Completions guide was refreshed on October 27 and documents
 `max_completion_tokens`; the adapter caps it at 4096 with low reasoning, a
 30-second total deadline, a 64 KiB response cap and at most one transient retry.
 Response model must match the requested model. Mock tests validate request shape
-and failure handling; account access and live compatibility still require an
-authorized smoke test.
+and failure handling. A real authorized add-to-cart smoke request and its
+chat-authorized local browser run passed on October 27; broader language
+behavior still requires evaluation.
 
 Use `response_format.json_schema.strict: true`. Meta's documentation requires a
 plain-object root, `additionalProperties: false` on every object, and every
@@ -157,8 +158,8 @@ every UI/report says **Fixture planner — Meta not used**. It does not establis
 natural-language understanding or eligible Meta use. Meta mode without a local
 key fails startup; errors never fall back to fixtures. Preserve planner mode,
 provider and model in every approved envelope and report (model is null for
-fixtures). The adapter has offline tests; live access and language behavior
-remain unverified until a real call and unseen-input evaluation.
+fixtures). The adapter has offline tests and one validated real add-to-cart
+response; unseen-input evaluation remains open.
 
 ## Approval integrity
 
@@ -302,11 +303,11 @@ blocking, deterministic verdicts, evidence provenance, or logged-out review.
 | Item | Evidence updated 27 October | Status |
 | --- | --- | --- |
 | Credits | Billing showed `Free credits in use $150.00`; balance `$0.00`. | Verified visually |
-| Payment readiness | No payment method shown; guide says one is needed for API calls. | Payment setup incomplete |
-| Model integration | Native-fetch adapter and mock transport checks. | Implemented offline; live access not smoke-tested |
-| Structured response | Frozen strict schema, local contract checks and failure tests. | Verified with mocks; actual model output not evaluated |
+| Payment readiness | October 26 showed no method; October 27 authenticated request returned HTTP 200. | API access works for the smoke test; card/current balance not reinspected |
+| Model integration | Native-fetch adapter, offline tests and one HTTP 200 live response. | Live add-to-cart smoke verified; broader evaluation pending |
+| Structured response | Strict schema/local checks accepted one real model plan. | One live response verified; other journeys/paraphrases pending |
 | Public repository/deployment | Private GitHub repository is configured; no deployment exists. | Publication/deployment not started |
-| Functional ProofPath | Fixture-backed checkout journeys. | All three fixture journeys and core local safety matrix verified; live Meta and broader edge cases remain open |
+| Functional ProofPath | Three fixture journeys, local safety matrix and one real Meta-plan browser run. | Local basic live path verified; full language evaluation/deployment remain open |
 
 ## Build handoff
 

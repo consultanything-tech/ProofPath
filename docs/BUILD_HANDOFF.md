@@ -78,14 +78,18 @@ remain incomplete; keep recording exact verified behavior and gaps.
 
 ## Open owner decisions
 
-The direct Meta planner adapter is implemented and tested with fake transport
-only. Startup mode is explicit, a Meta key is required locally, clarifications
-produce no approval, and provider failures cannot fall back to fixtures. No real
-key was configured and no live call was made. The next live gate requires local
-owner configuration, account readiness and a smoke-test spending boundary.
+The direct Meta planner adapter has offline tests plus one successful real
+`muse-spark-1.3` add-to-cart response on October 27. The user authorized a smoke
+test up to US$1; one request, no retry, used 1160 tokens at an estimated
+US$0.003463 token cost. The exact returned envelope was reconstructed with an
+identical digest and run after the user authorized continuation in chat. Both
+browser assertions passed; no UI approval click is claimed. This proves basic
+live access and one local model-plan execution, not full language evaluation.
+The local app is now configured for Meta mode. Broader live tests require a new
+bounded test scope; deployment and public execution budgets remain undecided.
 
-Payment readiness and live API access remain unverified. The prior Billing check
-showed $150 free credits and no payment method. Never paste keys in chat; configure
+Basic live API access is verified. The prior Billing check showed $150 free
+credits and no payment method; current card/balance state was not reinspected. Never paste keys in chat; configure
 locally in an ignored environment file. No billing changes are authorized here.
 The submission requires a public GitHub repository and a three-minute narrated
 demo video. Keep the repository private during active work if desired, but make
