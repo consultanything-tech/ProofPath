@@ -297,6 +297,75 @@ deployment readiness. Next: readable plan/report UI, retaining exact snapshots
 and evidence links. Full report:
 [Saved quantity browser runs v1](evaluations/saved-quantity-runs-v1.md).
 
+## Action evidence and readable reports — October 28, 2026
+
+Completed stage 1 of the remaining-work plan in two sequential implementation
+slices. The planner reviewed scope/interfaces; the implementer changed the
+runner/evidence path first, followed by the UI. Primary-agent diff review,
+failure-path checks, Chromium safety validation and a local UI walkthrough
+followed. No production dependency was added.
+
+New manifests contain one ordered `actionResults` record per approved action:
+completed/blocked/timed-out/failed/not-run, timestamps, observed URL and optional
+fixed local error. The runner and execution error carry action results alongside
+assertions; server fallbacks record unexecuted actions without raw errors.
+Completed steps remain intact if a later stage fails. Plan contracts, digest
+inputs, one-use approval, deterministic verdicts and fixture egress rules are
+unchanged. Earlier manifests and their hashes were not rewritten.
+
+The review UI now shows the returned requirement, scenario/revision, planner,
+semantic steps, expected checks and full digest, with expandable exact JSON.
+Reports show execution/verdict, action history, readable SGD and boolean checks,
+timestamps/URLs, screenshots, replay and raw evidence. A `/?run=<id>` link opens
+the saved report without planning or running again. Older reports explicitly
+label absent action history. Missing screenshots do not render an image link.
+All source text uses text nodes; evidence paths are constrained local paths.
+
+Approval/run controls lock synchronously while requests are pending. Inputs are
+editable again after approval completes; changing them invalidates the visible
+approval. Stale proposal and saved-report responses cannot overwrite a newer
+journey. Keyboard focus moves to review/report headings, and the 390px layout
+was checked for horizontal overflow. This is targeted UI hardening, not an
+exhaustive race or accessibility audit.
+
+Verification:
+
+- The 24-test unit/server/adapter suite passed after action-evidence changes.
+  An added setup-failure test and the other five runner unit tests then passed:
+  all actions are not-run with null timestamps/URL and the raw launch error is
+  absent. TypeScript checks and JavaScript syntax checks passed.
+- All 10 local Chromium safety tests passed after the runner change. Ordered
+  completed/blocked/timed-out/not-run records and sanitized errors were checked,
+  including completed navigation before a blocked click. Screenshot/manifest
+  hash checks remain in the safety harness. The suite was not repeated for
+  frontend-only changes.
+- Final `pnpm test:ui` passed (one integrated regression, about 7.6 seconds).
+  The normal fixed-quantity journey uses the real fixture server/runner and
+  keyboard controls; controlled route responses cover delayed/stale requests,
+  duplicate clicks and synthetic legacy data. Exact review/manifest envelope and
+  digest agreement, manifest sidecar, loaded screenshots, mobile overflow,
+  escaped text, missing images and invalid/unavailable run links were checked.
+- Primary-agent supported-browser walkthrough: fixture proposal, automated UI
+  approval click, run and report reopening passed. Run
+  `c015d73a-5459-4593-9584-e9220c1d29d8` completed with quantity 2 / 7800 cents,
+  both assertions PASS and all three actions completed. Manifest SHA-256
+  `ad9df25a22e7689f59e87e13daf07a83955d444fd9ae2c6019e7195adac31427`
+  and both screenshot hashes matched. This was an automated fixture UI check;
+  no human approval click or fresh Meta proposal is claimed.
+
+Latest local UI screenshots are in ignored
+`runs/ui-verification-ec128e96-4291-4189-b3ed-0595b242c8c6/`:
+desktop review/report, mobile report and compact result summary. Desktop/mobile
+screenshots and the result summary were visually reviewed. Chromium required
+execution outside the restricted shell sandbox; no safety policy in the runner
+was relaxed. `git diff --check` passed.
+
+The local preview is running at `http://127.0.0.1:3000/` in explicit fixture mode;
+the ignored `.env` was not changed. Zero new Meta requests or API spend. No
+billing, deployment or visibility change occurred. The next stage is saved Meta
+required-fields execution; fresh live-proposal UI approval, hosted ingress/budget
+controls, independent review and submission artifacts remain open.
+
 ## Start boundary confirmed — October 27, 2026, approximately 00:23 SGT
 
 The kickoff transcript says the 10-day hacking period starts after kickoff and

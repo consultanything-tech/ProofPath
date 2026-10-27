@@ -1,7 +1,45 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/styles.css"><title>ProofPath</title></head>
-<body><main><p class="label" id="planner-label">Loading planner configuration…</p><h1>ProofPath</h1><p>Turn one checkout requirement into an approved, evidence-linked browser verdict.</p><p class="notice" id="planner-notice">Use synthetic requirements only. Review and approve each plan before running it.</p>
-<label for="scenario">Journey</label><select id="scenario"><option value="add-to-cart">Add to cart</option><option value="quantity-update">Quantity update</option><option value="required-fields">Required checkout fields</option></select><label for="revision">Fixture revision</label><select id="revision"><option value="baseline">Baseline</option><option value="seeded-bug">Seeded quantity defect</option><option value="fixed">Fixed quantity defect</option></select><label for="requirement">Requirement</label><textarea id="requirement" maxlength="2000">Add one Desk Lamp; cart quantity is 1 and total is S$39.</textarea><button id="plan" disabled>Propose plan</button>
-<section id="review" hidden><h2>Review exact plan</h2><pre id="plan-output"></pre><button id="approve">Approve this snapshot</button></section>
-<section id="run" hidden><p id="approval"></p><button id="execute">Run approved plan</button></section>
-<section id="report" hidden><h2>Evidence report</h2><div id="report-output"></div></section><p id="status" role="status" aria-live="polite"></p></main><script src="/app.js"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/styles.css">
+  <title>ProofPath</title>
+</head>
+<body class="proofpath-app">
+  <main class="app-shell">
+    <header class="app-header">
+      <p class="label" id="planner-label">Loading planner configuration…</p>
+      <h1>ProofPath</h1>
+      <p>Turn one checkout requirement into an approved, evidence-linked browser verdict.</p>
+      <p class="notice" id="planner-notice">Use synthetic requirements only. Review and approve each plan before running it.</p>
+    </header>
+    <section class="input-panel" aria-labelledby="journey-heading">
+      <h2 id="journey-heading">Describe the journey</h2>
+      <label for="scenario">Journey</label>
+      <select id="scenario"><option value="add-to-cart">Add to cart</option><option value="quantity-update">Quantity update</option><option value="required-fields">Required checkout fields</option></select>
+      <label for="revision">Fixture revision</label>
+      <select id="revision"><option value="baseline">Baseline</option><option value="seeded-bug">Seeded quantity defect</option><option value="fixed">Fixed quantity defect</option></select>
+      <label for="requirement">Requirement</label>
+      <textarea id="requirement" maxlength="2000">Add one Desk Lamp; cart quantity is 1 and total is S$39.</textarea>
+      <button id="plan" disabled>Propose plan</button>
+    </section>
+    <section id="review" hidden aria-labelledby="review-heading">
+      <h2 id="review-heading" tabindex="-1">Review exact plan</h2>
+      <div id="review-output"></div>
+      <button id="approve">Approve this snapshot</button>
+    </section>
+    <section id="run" hidden aria-labelledby="run-heading">
+      <h2 id="run-heading">Run approved plan</h2>
+      <p id="approval"></p>
+      <button id="execute">Run approved plan</button>
+    </section>
+    <section id="report" hidden aria-labelledby="report-heading">
+      <h2 id="report-heading" tabindex="-1">Evidence report</h2>
+      <div id="report-output"></div>
+    </section>
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

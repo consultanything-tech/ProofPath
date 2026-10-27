@@ -148,6 +148,8 @@ The matrix tracks implementation evidence; partial results are labelled as such.
 | Origin | Redirect or resource leaves allowed origin | Aborted and reported | Core local Chromium matrix passed, including zero-hit redirect/escape destinations and explicit execution status |
 | Verdict | All true / one false / missing observation | `PASS` / `FAIL` / `INCONCLUSIVE` | Local fixture PASS/FAIL and unit checks for missing/false markers and incomplete execution verified |
 | Evidence | Each completed assertion | Expected/observed, timestamp, URL, screenshot reference and hashes | Verified locally for all three fixture journeys; see BUILD_LOG.md |
+| Action evidence | Every planned action | Ordered outcome, timestamps, URL and sanitized error; unreached steps not-run | New manifests record action results; normal/blocked/timeout and setup-failure checks passed locally; historical manifests remain unchanged |
+| Review UI | Readable plan, exact snapshot, approval, report and reopening | Readable/raw agreement; duplicate and stale responses do not authorize extra runs | Local fixture browser regression and automated UI walkthrough passed; fresh live-proposal UI approval remains unverified |
 | Reliability | Seeded quantity three times | Three `FAIL`s observing `S$39` | Verified: three local runs; screenshot and manifest hashes matched |
 | Reliability | Fixed quantity three times | Three `PASS`es observing `S$78` | Verified: three local runs; screenshot and manifest hashes matched |
 | Review | Logged-out reviewer | Public source, demo, and video accessible | Not run |

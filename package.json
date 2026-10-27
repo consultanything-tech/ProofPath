@@ -8,6 +8,7 @@
     "dev": "pnpm build && node --env-file-if-exists=.env dist/src/server.js",
     "test": "pnpm build && node --test dist/tests/*.test.js",
     "test:safety": "pnpm build && node --test dist/tests/safety.integration.js",
+    "test:ui": "pnpm build && node --test dist/tests/ui.integration.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

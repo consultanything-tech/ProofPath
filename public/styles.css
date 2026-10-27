@@ -1,2 +1,38 @@
-:root { font-family: system-ui, sans-serif; color: #17202a; background: #f5f7fb; } body { margin: 0; } main { max-width: 760px; margin: 3rem auto; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 8px 30px #17202a16; } textarea, input, select { display:block; box-sizing:border-box; width:100%; margin:.5rem 0 1rem; padding:.7rem; font:inherit; } textarea { min-height: 7rem; } button { padding:.65rem 1rem; font:inherit; font-weight: 700; cursor:pointer; } section { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #dde3ed; } .label { color:#6941c6; font-weight:700; } img { display:block; max-width:100%; margin-top:.6rem; border:1px solid #dde3ed; } #status { min-height:1.5rem; font-weight:600; }
-pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; }
+:root { font-family: system-ui, sans-serif; color: #17202a; background: #f5f7fb; }
+body { margin: 0; }
+main { max-width: 760px; margin: 3rem auto; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 8px 30px #17202a16; }
+textarea, input, select { display: block; box-sizing: border-box; width: 100%; margin: .5rem 0 1rem; padding: .7rem; font: inherit; }
+textarea { min-height: 7rem; }
+button { padding: .65rem 1rem; font: inherit; font-weight: 700; cursor: pointer; }
+section { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #dde3ed; }
+.label { color: #6941c6; font-weight: 700; }
+img { display: block; max-width: 100%; margin-top: .6rem; border: 1px solid #dde3ed; }
+
+.proofpath-app .app-shell { max-width: 820px; }
+.proofpath-app h1, .proofpath-app h2, .proofpath-app h3, .proofpath-app h4 { line-height: 1.2; text-wrap: balance; }
+.proofpath-app h2:focus, .proofpath-app button:focus-visible, .proofpath-app select:focus-visible, .proofpath-app textarea:focus-visible, .proofpath-app summary:focus-visible, .proofpath-app a:focus-visible { outline: 3px solid #6941c6; outline-offset: 3px; }
+.proofpath-app .app-header > :first-child { margin-top: 0; }
+.proofpath-app .notice { padding: .8rem 1rem; border-left: 4px solid #6941c6; background: #f1eeff; }
+.proofpath-app section { padding-top: 1.25rem; }
+.proofpath-app .report-panel { margin: 1rem 0 0; padding: 1rem; border: 1px solid #dde3ed; border-radius: 8px; background: #fff; }
+.proofpath-app .report-panel h3 { margin-top: 0; }
+.proofpath-app .report-panel p { overflow-wrap: anywhere; text-wrap: pretty; }
+.proofpath-app .steps, .proofpath-app .checks, .proofpath-app .replay, .proofpath-app .action-timeline { padding-left: 1.4rem; }
+.proofpath-app .steps li, .proofpath-app .checks li, .proofpath-app .replay li, .proofpath-app .action-result { margin-bottom: .7rem; }
+.proofpath-app .digest, .proofpath-app pre, .proofpath-app .action-result { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.proofpath-app .raw-details { margin-top: 1rem; }
+.proofpath-app .raw-details pre { max-width: 100%; max-height: 22rem; overflow: auto; padding: 1rem; background: #f5f7fb; border: 1px solid #dde3ed; }
+.proofpath-app .verdict { font-size: 1.15rem; font-weight: 800; }
+.proofpath-app .verdict-pass { color: #146c43; }
+.proofpath-app .verdict-fail { color: #b42318; }
+.proofpath-app .verdict-inconclusive { color: #7a5b00; }
+.proofpath-app .assertion-card { margin-top: .8rem; padding: .9rem; border: 1px solid #dde3ed; border-radius: 8px; }
+.proofpath-app .assertion-card h4 { margin: 0 0 .5rem; }
+.proofpath-app .assertion-card p { margin: .45rem 0; }
+.proofpath-app .report-panel a { display: block; width: fit-content; margin-top: .7rem; color: #4f2db8; font-weight: 700; }
+.proofpath-app #status { min-height: 1.5rem; margin-top: 1.5rem; font-weight: 600; }
+
+@media (max-width: 640px) {
+  main { margin: 0; min-height: 100dvh; padding: 1.25rem; border-radius: 0; box-shadow: none; }
+  .proofpath-app .report-panel { padding: .85rem; }
+}

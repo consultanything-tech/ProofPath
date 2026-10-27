@@ -7,7 +7,7 @@ ProofPath turns a plain-language browser journey into an approved run and an evi
 - Event: Meta Global AI Developer Hackathon
 - Track: Indie Developer — Build for Your World
 - Participation: accepted and solo; acceptance was confirmed in the setup conversation on 26 October 2026.
-- Status: all fixture journeys and core local safety checks are implemented. One live-generated add-to-cart browser run passed, and eight fixed live planning cases met their declared expectations (six plans, two clarifications). The same saved Meta quantity plan produced seeded FAIL and fixed PASS with separate chat-authorized approvals and no new model requests; see [browser evidence](docs/evaluations/saved-quantity-runs-v1.md). Broader reliability and deployment remain open.
+- Status: all fixture journeys and core local safety checks are implemented. One live-generated add-to-cart browser run passed, and eight fixed live planning cases met their declared expectations (six plans, two clarifications). The same saved Meta quantity plan produced seeded FAIL and fixed PASS with separate chat-authorized approvals and no new model requests; see [browser evidence](docs/evaluations/saved-quantity-runs-v1.md). Readable review/report UI and per-action evidence are verified locally in fixture mode. Broader reliability and deployment remain open.
 
 The planned demo is deliberately narrow:
 
@@ -39,6 +39,9 @@ PLANNER_MODE=fixture pnpm dev
 Open `http://127.0.0.1:3000/`. This exact local host is required. Run `pnpm test`
 for focused unit/server checks and `pnpm test:safety` for the loopback-only
 Chromium harness. Generated screenshots and manifests stay in ignored `runs/`.
+Use `pnpm test:ui` for the loopback UI regression covering review, approval,
+execution, saved-report reopening, duplicate/stale requests and legacy evidence.
+Both browser suites require permission to launch Chromium on the local machine.
 
 For a future live test, copy `.env.example` to the ignored `.env` and configure
 the key locally; `pnpm dev` loads that optional file. Meta mode requires

@@ -31,6 +31,11 @@ See [build log](BUILD_LOG.md) and [saved quantity evidence](evaluations/saved-qu
 
 ### 1. Readable review and complete reports — October 28–29
 
+Completed locally on October 28: action outcomes, readable review/report,
+reopenable report links, legacy handling and targeted UI race protection are
+implemented and verified. See `BUILD_LOG.md` for evidence and limits. Stage 2
+is next; fresh live-proposal UI approval remains a separate hosted smoke gate.
+
 Scope: `public/index.html`, `public/app.js`, `public/styles.css`; the action
 evidence gap also reaches `src/runner.ts`, `src/evidence.ts`, `src/server.ts`
 and their callers/tests. Reuse native HTML and installed packages; no new

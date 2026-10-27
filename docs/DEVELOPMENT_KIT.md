@@ -257,6 +257,14 @@ and S$78 and escape all requirement/model text as text, never HTML. It must neve
 record keys, authorization headers, card details, cookies, browser storage, or
 unrelated content.
 
+New manifests include `actionResults` in approved plan order. Each record has
+the action ID, `completed`/`blocked`/`timed-out`/`failed`/`not-run` status,
+nullable start/end timestamps, nullable observed URL and an optional sanitized
+local error. The approved envelope supplies the action kind, target and value.
+Completed steps remain completed if later evidence capture or cleanup fails;
+unreached steps have null timestamps/URL. Historical manifests are unchanged
+and may lack action history; readers must label that absence explicitly.
+
 ## Evaluation plan
 
 | Layer | Minimum proof | Status |
@@ -268,6 +276,7 @@ unrelated content.
 | Journey | Add to cart, seeded quantity, fixed quantity, blank required fields | All three fixture journeys have local browser evidence; blank checkout shows both errors and stays active; run IDs and hash checks are in BUILD_LOG.md |
 | Reliability | Three seeded `FAIL`s at `S$39`; three fixed `PASS`es at `S$78` | Verified locally: three per revision, with screenshot and manifest hashes checked |
 | Live language | Six supported paraphrases, one ambiguous, one unsupported | 8/8 fixed cases met expectations: six covered plans, two appropriate clarifications; no browser runs in this batch; see evaluations/live-results-v1.md |
+| Action evidence / UI | Ordered action records; readable/raw agreement; saved/legacy reports; duplicate/stale UI behavior | Verified locally in fixture mode on October 28; no new Meta requests; see BUILD_LOG.md |
 | Human review | Fresh logged-out review of public source, deployment, and video | Not run |
 
 Use eight evaluation inputs: six unseen requirements (two paraphrases for each
