@@ -216,6 +216,48 @@ credit-balance state were not reinspected. No source code changed for this
 smoke; existing unit suites were not rerun. All generated evidence remains
 ignored by Git.
 
+## Eight-case live planning evaluation — October 27, 2026, 19:53 SGT
+
+The user authorized the recommended eight-case evaluation with a new US$1 total
+cap. Cases and expected outcomes were committed as `87aa53e` before any request
+in `docs/evaluations/live-cases-v1.json`. Six supported paraphrases (two per
+journey), one explicitly ambiguous request and one unsupported external
+sign-in/payment request were submitted through the unchanged production adapter.
+No prompt tuning, semantic retry or case removal occurred.
+
+All eight requests returned HTTP 200 from `muse-spark-1.3`, one attempt each.
+The six supported responses passed local schema/scenario/coverage checks and
+analytical action-sequence review. The ambiguous response explicitly asked
+whether quantity should be 1 or 2. The unsupported response excluded external
+sign-in/payment, offered the supported synthetic alternative, and requested no
+credentials/payment details. Primary-agent semantic review found all eight met
+their predeclared expectations. This review is not a user approval.
+
+Usage totaled 9,775 tokens. Estimated token cost at the refreshed published
+standard rates was US$0.02960075 before cache discounts; no invoice/credit
+deduction was inspected. Conservative preflight maximum for 16 potential
+attempts was US$0.349383; actual request count was 8 with zero retries.
+Observed planning latency: median 3.0335 seconds, range 2.009–4.457 seconds.
+
+Local ignored evidence is in
+`runs/live-evaluation-65d12830-06a6-4e45-b28d-25c752e2d019/`. Results, usage,
+request hashes, planner source/runtime hashes and semantic review were preserved
+with verified SHA-256 sidecars. Case-file hash:
+`e6b033ebe2db70cf8d50ecf80b89126f381b61e83b86b2c47d3c378e0bc8e70d`.
+Results hash:
+`735e0eb6ac74c3eadaacef8918941ea958adae22a3dbeeae942dc0fd5eb73978`.
+No secret, authorization header or raw provider error was recorded.
+
+No approvals or browser executions were made in this batch. A planning pass
+does not imply a browser PASS. Selected scenarios and server-owned criteria
+were supplied; each case was sampled once, so 8/8 is a narrow demo result,
+not an independent benchmark or a general reliability estimate. No production
+code changed, and previously passing unit/browser suites were not rerun.
+The next milestone is approved seeded/fixed execution of a returned quantity
+plan; saved outputs can be reused without another model request.
+
+Full report: [Live evaluation v1](evaluations/live-results-v1.md).
+
 ## Start boundary confirmed — October 27, 2026, approximately 00:23 SGT
 
 The kickoff transcript says the 10-day hacking period starts after kickoff and

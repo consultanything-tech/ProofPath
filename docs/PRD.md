@@ -140,9 +140,9 @@ The matrix tracks implementation evidence; partial results are labelled as such.
 
 | Area | Check | Required result | Status |
 | --- | --- | --- | --- |
-| Planner | Each supported journey | Covered plan with at least one assertion | All fixture plans implemented; one real Meta add-to-cart plan and its local run verified; other live journeys pending |
-| Planner | Ambiguous request | Clarification; no plan or run | HTTP/mock response path verified; actual ambiguous-language evaluation not run |
-| Planner | Login, payment, or external site | Rejection/clarification; no run | Not run |
+| Planner | Each supported journey | Covered plan with at least one assertion | Six live paraphrases returned covered plans across all three journeys; only the live add-to-cart browser smoke is executed so far |
+| Planner | Ambiguous request | Clarification; no plan or run | One fixed live case asked which quantity (1 or 2); no plan or run |
+| Planner | Login, payment, or external site | Rejection/clarification; no run | One fixed live case excluded external sign-in/payment and offered the synthetic alternative; no credentials requested, plan or run |
 | Validation | Unknown key/action/target, selector, JS, shell, or external URL | Rejected before browser launch | Partial: external action and missing required action coverage rejected |
 | Approval | Run before approval or after plan/scenario change | Rejected; no run artefact | Local checks cover one-use, revision binding, exact expiry, stored-envelope tamper and overlap without consuming the rejected run's approval |
 | Origin | Redirect or resource leaves allowed origin | Aborted and reported | Core local Chromium matrix passed, including zero-hit redirect/escape destinations and explicit execution status |

@@ -28,7 +28,7 @@ The user chose to wait for the permitted coding start on October 26. The October
 
 On 26 October 2026, the signed-in Meta Billing page showed $150 free credits in use and a $0 balance. It also showed no payment method on file. The participant already submitted the claim; no duplicate is needed. The guide requires a credit card to use the credits for API calls. A spending email alert is not a verified hard cap. Free-credit content may be used for product improvement: use synthetic test data only. No live model call had been made at that inspection. On October 27 an authorized real add-to-cart planning request and its chat-authorized local browser execution passed; see BUILD_LOG for the exact evidence and limitations.
 
-The [PRD](PRD.md) and [development kit](DEVELOPMENT_KIT.md) refine this plan with contracts, evaluation gates, and the 27-hour schedule. Model `muse-spark-1.3` and the Chat Completions endpoint are documented candidates verified in official docs; basic account-level planning access is now verified for one add-to-cart smoke test; broader evaluation remains open.
+The [PRD](PRD.md) and [development kit](DEVELOPMENT_KIT.md) refine this plan with contracts, evaluation gates, and the 27-hour schedule. Model `muse-spark-1.3` and the Chat Completions endpoint are documented candidates verified in official docs; basic account-level planning access and the initial eight-case selected-scenario evaluation are verified; broader language reliability remains open.
 
 ## Schedule
 

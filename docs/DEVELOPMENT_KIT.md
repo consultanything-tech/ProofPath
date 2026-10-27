@@ -1,7 +1,7 @@
 # ProofPath Development Kit
 
 **Companion to:** [PRD](PRD.md)  
-**Status:** updated 27 October 2026 (Asia/Singapore); all fixture journeys, core browser safety checks and an offline-tested Meta adapter are implemented. One live add-to-cart plan and its controlled browser run are verified; broader live behavior remains unverified.
+**Status:** updated 27 October 2026 (Asia/Singapore); all fixture journeys, core browser safety checks and an offline-tested Meta adapter are implemented. One live add-to-cart browser run and eight fixed live planning cases are verified; broader live reliability remains unverified.
 
 ## First deliverable
 
@@ -159,7 +159,7 @@ natural-language understanding or eligible Meta use. Meta mode without a local
 key fails startup; errors never fall back to fixtures. Preserve planner mode,
 provider and model in every approved envelope and report (model is null for
 fixtures). The adapter has offline tests and one validated real add-to-cart
-response; unseen-input evaluation remains open.
+response; the initial eight-case selected-scenario evaluation passed; broader language coverage remains open.
 
 ## Approval integrity
 
@@ -267,6 +267,7 @@ unrelated content.
 | Verdict | All true; known false plus missing observation; only missing observation | Local fixture PASS/FAIL verified; unit checks distinguish missing/false markers, preserve known failure and prevent incomplete execution from passing |
 | Journey | Add to cart, seeded quantity, fixed quantity, blank required fields | All three fixture journeys have local browser evidence; blank checkout shows both errors and stays active; run IDs and hash checks are in BUILD_LOG.md |
 | Reliability | Three seeded `FAIL`s at `S$39`; three fixed `PASS`es at `S$78` | Verified locally: three per revision, with screenshot and manifest hashes checked |
+| Live language | Six supported paraphrases, one ambiguous, one unsupported | 8/8 fixed cases met expectations: six covered plans, two appropriate clarifications; no browser runs in this batch; see evaluations/live-results-v1.md |
 | Human review | Fresh logged-out review of public source, deployment, and video | Not run |
 
 Use eight evaluation inputs: six unseen requirements (two paraphrases for each
@@ -304,10 +305,10 @@ blocking, deterministic verdicts, evidence provenance, or logged-out review.
 | --- | --- | --- |
 | Credits | Billing showed `Free credits in use $150.00`; balance `$0.00`. | Verified visually |
 | Payment readiness | October 26 showed no method; October 27 authenticated request returned HTTP 200. | API access works for the smoke test; card/current balance not reinspected |
-| Model integration | Native-fetch adapter, offline tests and one HTTP 200 live response. | Live add-to-cart smoke verified; broader evaluation pending |
-| Structured response | Strict schema/local checks accepted one real model plan. | One live response verified; other journeys/paraphrases pending |
+| Model integration | Native-fetch adapter, offline tests, one smoke and eight live evaluation responses. | Initial fixed evaluation passed; broader reliability unproven |
+| Structured response | Strict schema/local checks accepted six evaluation plans and two clarifications. | All eight fixed planning cases met declared expectations |
 | Public repository/deployment | Private GitHub repository is configured; no deployment exists. | Publication/deployment not started |
-| Functional ProofPath | Three fixture journeys, local safety matrix and one real Meta-plan browser run. | Local basic live path verified; full language evaluation/deployment remain open |
+| Functional ProofPath | Three fixture journeys, local safety matrix, live smoke browser run and fixed live planning evaluation. | Initial planning evaluation passed; live seeded/fixed demonstration and deployment remain open |
 
 ## Build handoff
 

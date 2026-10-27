@@ -85,8 +85,12 @@ US$0.003463 token cost. The exact returned envelope was reconstructed with an
 identical digest and run after the user authorized continuation in chat. Both
 browser assertions passed; no UI approval click is claimed. This proves basic
 live access and one local model-plan execution, not full language evaluation.
-The local app is now configured for Meta mode. Broader live tests require a new
-bounded test scope; deployment and public execution budgets remain undecided.
+The local app is configured for Meta mode. A subsequent separately authorized
+eight-case live planning evaluation met all declared expectations: six valid
+plans and two appropriate clarifications, with no browser execution. See
+`evaluations/live-results-v1.md`. Next, review and approve the returned quantity
+plan for seeded/fixed browser execution, with a fresh approval for each revision;
+no new model call is required. Deployment/public execution budgets remain undecided.
 
 Basic live API access is verified. The prior Billing check showed $150 free
 credits and no payment method; current card/balance state was not reinspected. Never paste keys in chat; configure

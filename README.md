@@ -7,7 +7,7 @@ ProofPath turns a plain-language browser journey into an approved run and an evi
 - Event: Meta Global AI Developer Hackathon
 - Track: Indie Developer — Build for Your World
 - Participation: accepted and solo; acceptance was confirmed in the setup conversation on 26 October 2026.
-- Status: all fixture journeys and core local safety checks are implemented. One real Meta add-to-cart plan was validated and its chat-authorized local browser run passed. Broader live language evaluation and deployment remain open.
+- Status: all fixture journeys and core local safety checks are implemented. One live-generated add-to-cart browser run passed, and eight fixed live planning cases met their declared expectations (six plans, two clarifications). Broader reliability and deployment remain open.
 
 The planned demo is deliberately narrow:
 
@@ -55,7 +55,7 @@ The stack is Node.js, TypeScript, pnpm, Playwright and a thin local server. Fixt
 
 The server hashes the requirement, scenario revision, target registry, planner provenance and validated plan into a one-use ten-minute approval. A fresh browser context permits only the synthetic shop and its two assets. Runs are serialized, bounded and reported as completed, blocked, timed-out or failed. The seeded quantity revision observes 3900 cents for quantity 2 and fails; the fixed revision observes 7800 and passes. Blank checkout requires both visible errors and an active checkout state. Reports retain approval snapshots, replay, URL/time, screenshots and hashes. Missing evidence cannot produce PASS, and a known failure survives interrupted execution.
 
-The October 26 Billing inspection showed $150 free credits, $0 balance and no payment method. On October 27 one authenticated Meta request returned a valid plan (estimated token cost US$0.003463), and the exact plan passed its controlled local browser run. Current card/credit balance was not reinspected and no billing setting changed. Unseen-language evaluation and public deployment remain open; see BUILD_LOG for exact evidence and limitations.
+The October 26 Billing inspection showed $150 free credits, $0 balance and no payment method. On October 27 one authenticated Meta request returned a valid plan (estimated token cost US$0.003463), and the exact plan passed its controlled local browser run. Current card/credit balance was not reinspected and no billing setting changed. The initial eight-case live planning evaluation passed; broader language reliability and public deployment remain open. See [evaluation results](docs/evaluations/live-results-v1.md) and BUILD_LOG for exact evidence and limitations.
 
 ## Submission checklist
 
