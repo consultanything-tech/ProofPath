@@ -84,11 +84,14 @@ fresh live-proposal UI check with stage 3 to avoid duplicate paid smoke tests.
 
 ### 3. Bounded interactive deployment — October 30–November 1
 
-Owner decisions required before deployment: hosting provider and cost limit;
-who can run live requests; numerical per-run/total API spending boundaries;
-request/attempt and ingress limits. Recommended access is restricted reviewers
-with limited attempts, without building a team-account system. This is a
-recommendation, not a selected policy or spending authorization.
+Access decision confirmed by the user on October 28: reviewers with an access
+code and limited attempts may run live Meta requests. Anonymous live requests
+remain disabled; no team-account system is needed.
+
+Owner decisions still required before deployment: hosting provider and cost
+limit; numerical per-run/total API spending boundaries; attempt counts and
+ingress limits. Selecting the access policy does not authorize API spending
+or paid hosting.
 
 The current server hardcodes exact localhost Host/Origin checks. Deployment
 therefore reaches `src/server.ts`, relevant HTTP-policy tests, minimal hosting
