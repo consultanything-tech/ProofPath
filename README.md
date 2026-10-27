@@ -7,7 +7,7 @@ ProofPath turns a plain-language browser journey into an approved run and an evi
 - Event: Meta Global AI Developer Hackathon
 - Track: Indie Developer — Build for Your World
 - Participation: accepted and solo; acceptance was confirmed in the setup conversation on 26 October 2026.
-- Status: all fixture journeys and core local safety checks are implemented. One live-generated add-to-cart browser run passed, and eight fixed live planning cases met their declared expectations (six plans, two clarifications). Broader reliability and deployment remain open.
+- Status: all fixture journeys and core local safety checks are implemented. One live-generated add-to-cart browser run passed, and eight fixed live planning cases met their declared expectations (six plans, two clarifications). The same saved Meta quantity plan produced seeded FAIL and fixed PASS with separate chat-authorized approvals and no new model requests; see [browser evidence](docs/evaluations/saved-quantity-runs-v1.md). Broader reliability and deployment remain open.
 
 The planned demo is deliberately narrow:
 
@@ -51,7 +51,7 @@ no approvable plan, and provider errors never substitute a fixture.
 
 ## Implementation
 
-The stack is Node.js, TypeScript, pnpm, Playwright and a thin local server. Fixture mode creates canned plans and explicitly says it does not interpret text or call Meta. Meta mode uses a direct Model API adapter with strict schema validation and no fallback; one live add-to-cart plan and its controlled local run are verified. UI labels and immutable approval/report provenance identify the selected mode.
+The stack is Node.js, TypeScript, pnpm, Playwright and a thin local server. Fixture mode creates canned plans and explicitly says it does not interpret text or call Meta. Meta mode uses a direct Model API adapter with strict schema validation and no fallback; live-generated add-to-cart and saved quantity plans have controlled local browser evidence. UI labels and immutable approval/report provenance identify the selected mode.
 
 The server hashes the requirement, scenario revision, target registry, planner provenance and validated plan into a one-use ten-minute approval. A fresh browser context permits only the synthetic shop and its two assets. Runs are serialized, bounded and reported as completed, blocked, timed-out or failed. The seeded quantity revision observes 3900 cents for quantity 2 and fails; the fixed revision observes 7800 and passes. Blank checkout requires both visible errors and an active checkout state. Reports retain approval snapshots, replay, URL/time, screenshots and hashes. Missing evidence cannot produce PASS, and a known failure survives interrupted execution.
 

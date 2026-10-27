@@ -1,7 +1,7 @@
 # ProofPath Development Kit
 
 **Companion to:** [PRD](PRD.md)  
-**Status:** updated 27 October 2026 (Asia/Singapore); all fixture journeys, core browser safety checks and an offline-tested Meta adapter are implemented. One live add-to-cart browser run and eight fixed live planning cases are verified; broader live reliability remains unverified.
+**Status:** updated 28 October 2026 (Asia/Singapore); all fixture journeys, core browser safety checks and the Meta adapter are implemented. One live add-to-cart run, eight fixed live planning cases and a saved Meta quantity plan's seeded FAIL/fixed PASS are verified; broader live reliability remains unverified.
 
 ## First deliverable
 
@@ -308,7 +308,7 @@ blocking, deterministic verdicts, evidence provenance, or logged-out review.
 | Model integration | Native-fetch adapter, offline tests, one smoke and eight live evaluation responses. | Initial fixed evaluation passed; broader reliability unproven |
 | Structured response | Strict schema/local checks accepted six evaluation plans and two clarifications. | All eight fixed planning cases met declared expectations |
 | Public repository/deployment | Private GitHub repository is configured; no deployment exists. | Publication/deployment not started |
-| Functional ProofPath | Three fixture journeys, local safety matrix, live smoke browser run and fixed live planning evaluation. | Initial planning evaluation passed; live seeded/fixed demonstration and deployment remain open |
+| Functional ProofPath | Three fixture journeys, local safety matrix, live smoke browser run, fixed planning evaluation and saved Meta-plan seeded/fixed browser pair. | Saved quantity plan gave seeded FAIL/fixed PASS; UI approval of a live proposal and deployment remain open; see evaluations/saved-quantity-runs-v1.md |
 
 ## Build handoff
 

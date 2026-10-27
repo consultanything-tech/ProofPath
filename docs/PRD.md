@@ -2,7 +2,7 @@
 
 **Version:** 0.1 (draft)  
 **Date:** 26 October 2026, Asia/Singapore  
-**Status:** implementation authorized after the October 27 kickoff; functional progress is recorded in `BUILD_LOG.md`; one live add-to-cart model call and controlled run are evidenced
+**Status:** implementation authorized after the October 27 kickoff; live planning evaluation and saved Meta-plan seeded FAIL/fixed PASS are evidenced in `BUILD_LOG.md`
 
 ## Product decision
 
@@ -92,7 +92,7 @@ blocked safety action.
 
 | Area | MVP rule |
 | --- | --- |
-| Model access | Server-side Meta Model API only. Documented candidate: Chat Completions at `https://api.meta.ai/v1/chat/completions` with `muse-spark-1.3`; not live-tested. |
+| Model access | Server-side Meta Model API only. Chat Completions at `https://api.meta.ai/v1/chat/completions` with `muse-spark-1.3`; authenticated smoke and eight-case planning evaluation verified. |
 | Data | Synthetic requirements and fixtures only. The dashboard says free-credit content may be used for product improvement; do not send private, client, or production data. |
 | Browser | Fresh context per run; fixed timeouts and bounded retry; block downloads, popups, permissions, WebSocket and service-worker egress. |
 | Network | Exact origin and route allowlist. Abort external redirects and subresources before they leave the browser. |
@@ -140,7 +140,7 @@ The matrix tracks implementation evidence; partial results are labelled as such.
 
 | Area | Check | Required result | Status |
 | --- | --- | --- | --- |
-| Planner | Each supported journey | Covered plan with at least one assertion | Six live paraphrases returned covered plans across all three journeys; only the live add-to-cart browser smoke is executed so far |
+| Planner | Each supported journey | Covered plan with at least one assertion | Six live paraphrases returned covered plans across all three journeys; live-generated add-to-cart and saved quantity seeded/fixed plans have browser evidence; required-fields model plan execution remains open |
 | Planner | Ambiguous request | Clarification; no plan or run | One fixed live case asked which quantity (1 or 2); no plan or run |
 | Planner | Login, payment, or external site | Rejection/clarification; no run | One fixed live case excluded external sign-in/payment and offered the synthetic alternative; no credentials requested, plan or run |
 | Validation | Unknown key/action/target, selector, JS, shell, or external URL | Rejected before browser launch | Partial: external action and missing required action coverage rejected |

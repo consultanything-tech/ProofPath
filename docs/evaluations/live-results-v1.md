@@ -46,5 +46,7 @@ set, not an independent benchmark or a statistical reliability estimate. No
 prompt tuning, generalization claim, UI approval claim or browser verdict is
 inferred from the 8/8 result.
 
-Next: review and approve the returned quantity plans for seeded/fixed browser
-execution. Their saved plans can be reused without another model request.
+Follow-up on October 28: the saved `quantity-a` plan completed seeded FAIL and
+fixed PASS runs with separate chat-authorized approvals and no new model
+request. See [saved-plan browser evidence](saved-quantity-runs-v1.md). This does
+not change the planning-only scope of the original eight-case batch.

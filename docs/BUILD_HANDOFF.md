@@ -88,9 +88,11 @@ live access and one local model-plan execution, not full language evaluation.
 The local app is configured for Meta mode. A subsequent separately authorized
 eight-case live planning evaluation met all declared expectations: six valid
 plans and two appropriate clarifications, with no browser execution. See
-`evaluations/live-results-v1.md`. Next, review and approve the returned quantity
-plan for seeded/fixed browser execution, with a fresh approval for each revision;
-no new model call is required. Deployment/public execution budgets remain undecided.
+`evaluations/live-results-v1.md`. On October 28, the same saved quantity plan
+completed seeded FAIL and fixed PASS with separate chat-authorized approvals
+and no new model call; see `evaluations/saved-quantity-runs-v1.md`. Next: improve
+plan/report readability and verify the live-proposal UI approval path.
+Deployment/public execution budgets remain undecided.
 
 Basic live API access is verified. The prior Billing check showed $150 free
 credits and no payment method; current card/balance state was not reinspected. Never paste keys in chat; configure

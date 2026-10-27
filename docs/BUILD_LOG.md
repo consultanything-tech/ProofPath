@@ -258,6 +258,45 @@ plan; saved outputs can be reused without another model request.
 
 Full report: [Live evaluation v1](evaluations/live-results-v1.md).
 
+## Saved Meta quantity plan: seeded/fixed browser pair — October 28, 2026
+
+Reused the exact validated `quantity-a` response and original requirement from
+the eight-case batch. The source results sidecar, case-file hash and planner
+source/runtime hashes matched before execution. A temporary fixture-mode server
+served the synthetic checkout on `127.0.0.1:3001`; no planner was called, no
+environment file changed, and no additional API spend occurred.
+
+Fresh separate approvals were recorded programmatically under the user's chat
+instruction to proceed to this next step. The seeded envelope reproduced the
+original evaluation digest; the fixed revision produced a different digest.
+Consumption before approval and reuse after consumption were rejected for both.
+No human UI approval click is claimed.
+
+- Seeded run `693b4ad3-1a2c-45b5-aa0f-0a57cfae0778`: completed, quantity 2,
+  total 3900 cents versus expected 7800, overall **FAIL**.
+- Fixed run `37668def-4602-49b9-a7be-f951f54748fd`: completed, quantity 2,
+  total 7800 cents, overall **PASS**.
+
+Both used identical actions, assertions, requirement and Meta provenance.
+The existing fixture revision was selected; no application repair was made.
+Screenshot/manifest hashes, exact observed URLs and comparison sidecar were
+verified, and both screenshots were visually reviewed. Comparison evidence:
+`runs/saved-quantity-pair-e56f453f-7592-49ab-af15-337dbf66b506/`.
+Per-run approval-source records link the source evaluation and chat approval.
+
+Initial restricted-shell run `1b3754b7-67b7-4d3b-9798-44a68211aad9` failed to
+launch Chromium because macOS denied Mach-port registration; it remains an
+INCONCLUSIVE report with no observations/screenshots. The harness stopped on
+its missing-screenshot check. The successful pair used browser launch permission
+and fresh approvals. The temporary server was stopped after verification.
+
+No production code changed, so prior passing unit/browser safety suites were
+not repeated. This pair adds local execution evidence for one saved Meta plan;
+it does not establish broad reliability, UI approval of a live proposal or
+deployment readiness. Next: readable plan/report UI, retaining exact snapshots
+and evidence links. Full report:
+[Saved quantity browser runs v1](evaluations/saved-quantity-runs-v1.md).
+
 ## Start boundary confirmed — October 27, 2026, approximately 00:23 SGT
 
 The kickoff transcript says the 10-day hacking period starts after kickoff and
