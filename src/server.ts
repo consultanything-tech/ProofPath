@@ -10,6 +10,10 @@ import { createPlanner, plannerLabel, type Planner } from "./planner.js";
 import { RunnerExecutionError, runApprovedPlan } from "./runner.js";
 import { getScenario } from "./scenarios.js";
 import { aggregate, type AssertionResult } from "./verdict.js";
+import { createV2Context } from "./v2-checkout.js";
+import { handleV2Request } from "./v2-http.js";
+import { createV2Runtime } from "./v2-runner.js";
+import { V2Store } from "./v2-store.js";
 
 const host = "127.0.0.1";
 const publicRoot = resolve(process.cwd(), "public");
@@ -57,11 +61,16 @@ export function createProofPathServer(port: number, planner: Planner = createPla
   const origin = `http://${host}:${port}`;
   const store = new PlanStore();
   const gate = new RunGate();
+  const v2Store = new V2Store(process.env.DATA_DIR ?? process.cwd());
+  const v2Context = createV2Context(origin);
+  const v2Runtime = createV2Runtime(v2Store, origin, { gate });
+  void v2Store.recoverInterruptedJobs().catch(() => {});
   const server = createServer(async (req, res) => {
     try {
       if (req.headers.host !== `${host}:${port}`) throw new Error("Exact local Host header required.");
       const url = new URL(req.url ?? "/", origin);
       if (url.origin !== origin) throw new Error("Local request URL required.");
+      if (await handleV2Request(req, res, { origin, store: v2Store, runtime: v2Runtime, v2: v2Context })) return;
       if (req.method === "GET" && url.pathname === "/api/config") return send(res, 200, { planner: planner.provenance, plannerLabel: plannerLabel(planner.provenance) });
       if (req.method === "POST" && url.pathname === "/api/plans") {
         mutation(req, origin);

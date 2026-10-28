@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { chromium } from "playwright";
 import { createPlanner } from "../src/planner.js";
 import { createProofPathServer } from "../src/server.js";
 import { createV2Context, digestV2, type ReleaseRef, type V2Context } from "../src/v2-checkout.js";
 import { inspectRegisteredTarget } from "../src/v2-planner.js";
+import { validateSuiteProposal } from "../src/v2-planner.js";
+import { V2Store } from "../src/v2-store.js";
+import { createV2Runtime } from "../src/v2-runner.js";
 
 async function availablePort() {
   const probe = createServer();
@@ -145,5 +151,43 @@ test("readonly inspection records only rendered visible controls and blocks egre
     assert.equal(blocked.unregisteredRequests(), 0);
   } finally {
     await blocked.close();
+  }
+});
+
+test("paired execution records fresh per-release evidence and exposes the seeded delivery regression", { timeout: 60_000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofpath-v2-browser-"));
+  let server: Awaited<ReturnType<typeof app>> | undefined;
+  try {
+    server = await app();
+    const context = createV2Context(server.origin);
+    const proposal = validateSuiteProposal({
+      kind: "proposal",
+      requirement: { version: "2", originalText: context.requirement.originalText, criteria: context.requirement.criteria, numericRuleChanges: [], expectationScope: context.requirement.expectationScope, coverageGaps: [] },
+      cases: [{ id: "delivery", criterionIds: ["cart", "coupon", "delivery", "contact"], category: "interaction", rationale: "Checks discounted delivery against the reviewed oracle.", actions: [
+        { id: "open", kind: "open-app", target: "checkout", value: null }, { id: "lamp-one", kind: "add-product", target: "desk-lamp", value: null }, { id: "lamp-two", kind: "add-product", target: "desk-lamp", value: null },
+        { id: "coupon", kind: "fill-coupon", target: "coupon", value: "SAVE10" }, { id: "apply", kind: "apply-coupon", target: "coupon", value: null }
+      ], assertions: [{ id: "total", predicate: "total-minor" }] }], gaps: []
+    }, context);
+    const review = { decisions: context.requirement.criteria.map((criterion) => ({ criterionId: criterion.id, interpretation: criterion.normalizedRule, scope: "unchanged" as const, adoptedReferenceIds: ["checkout-reference-v2"], acceptedGaps: [], acceptedNumericRuleChanges: [] })) };
+    const store = new V2Store(root);
+    const prepared = await store.createProposal(proposal, context);
+    const suite = await store.reviewProposal(prepared.id, review);
+    const approval = await store.approveSuite(suite.id);
+    const runtime = createV2Runtime(store, server.origin);
+    const { runId } = await runtime.start(approval.id);
+    let run = await runtime.read(runId);
+    for (let attempts = 0; run.status !== "completed" && attempts < 100; attempts += 1) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 100));
+      run = await runtime.read(runId);
+    }
+    assert.equal(run.status, "completed");
+    assert.deepEqual(run.records.map((record) => [record.releaseId, record.verdict]), [["r1", "PASS"], ["r2", "FAIL"]]);
+    assert.match(run.records[0]!.assertions[0]!.screenshotSha256 ?? "", /^sha256:[a-f0-9]{64}$/);
+    const manifest = JSON.parse(await readFile(join(root, "runs", "v2", runId, "manifest.json"), "utf8"));
+    assert.equal(manifest.approvalDigest, suite.digest);
+    assert.equal(await readFile(join(root, "runs", "v2", runId, "manifest.sha256"), "utf8"), `${createHash("sha256").update(JSON.stringify(manifest, null, 2)).digest("hex")}\n`);
+  } finally {
+    await server?.close();
+    await rm(root, { recursive: true, force: true });
   }
 });

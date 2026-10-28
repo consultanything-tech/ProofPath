@@ -115,9 +115,12 @@ export interface CriterionReviewDecision { readonly criterionId: string; readonl
 export interface ReviewDecision { readonly decisions: readonly CriterionReviewDecision[]; }
 export interface SuiteDefinition { readonly version: "2"; readonly requirement: RequirementContract; readonly rules: CheckoutRules; readonly referenceId: string; readonly cases: readonly CaseDefinition[]; readonly app: AppContract; readonly releases: readonly [ReleaseRef, ReleaseRef]; }
 export interface SuiteApproval { readonly definition: SuiteDefinition; readonly rules: CheckoutRules; readonly referenceId: string; readonly expectations: readonly ExpectedCase[]; readonly grounding: GroundingBundle; readonly provenance: readonly string[]; readonly digest: string; readonly expiresAt: string; readonly consumed: boolean; }
-export interface SuiteRun { readonly id: string; readonly approvalDigest: string; readonly status: "pending" | "completed" | "interrupted"; readonly records: readonly unknown[]; readonly coverage: readonly string[]; }
-export interface SavedRegression { readonly definition: SuiteDefinition; readonly provenance: readonly string[]; }
-export interface PreparedProposal { readonly id: string; readonly proposal: ProposalResult; readonly context: RequirementContract; }
+export interface V2ActionResult { readonly id: string; readonly status: "completed" | "blocked" | "timed-out" | "failed" | "not-run"; readonly startedAt: string | null; readonly endedAt: string | null; readonly url: string | null; readonly error?: string; }
+export interface V2AssertionResult { readonly id: string; readonly expected: unknown; readonly observed: unknown | null; readonly verdict: "PASS" | "FAIL" | "INCONCLUSIVE"; readonly screenshot: string; readonly screenshotSha256?: string; readonly timestamp: string; readonly url: string; }
+export interface CaseReleaseRecord { readonly caseId: string; readonly releaseId: V2ReleaseId; readonly actions: readonly V2ActionResult[]; readonly assertions: readonly V2AssertionResult[]; readonly verdict: "PASS" | "FAIL" | "INCONCLUSIVE"; readonly startedAt: string; readonly endedAt: string; }
+export interface SuiteRun { readonly id: string; readonly approvalDigest: string; readonly status: "accepted" | "running" | "completed" | "interrupted"; readonly records: readonly CaseReleaseRecord[]; readonly coverage: readonly string[]; readonly verdict: "PASS" | "FAIL" | "INCONCLUSIVE"; readonly startedAt: string; readonly endedAt: string | null; }
+export interface SavedRegression { readonly id: string; readonly definition: SuiteDefinition; readonly provenance: readonly string[]; }
+export interface PreparedProposal { readonly id: string; readonly proposal: ProposalResult; readonly context: V2Context; }
 export interface PreparedSuite { readonly id: string; readonly definition: SuiteDefinition; readonly expectations: readonly ExpectedCase[]; readonly digest: string; }
 export interface ApprovalReceipt { readonly id: string; readonly digest: string; readonly expiresAt: string; }
 
