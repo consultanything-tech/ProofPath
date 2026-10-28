@@ -11,7 +11,7 @@ export interface ReleaseRef {
   readonly fingerprint: string;
 }
 
-export interface SemanticTarget { readonly id: string; readonly role: "button" | "input" | "status"; }
+export interface SemanticTarget { readonly id: string; readonly role: "button" | "input" | "status" | "region"; }
 export interface AppContract {
   readonly appId: "registered-checkout";
   readonly adapterVersion: "2";
@@ -60,7 +60,14 @@ export interface CaseInput {
   readonly cart: readonly { readonly sku: V2Sku; readonly quantity: number }[];
   readonly coupon: string | null;
   readonly contact: { readonly email: string; readonly postalCode: string };
-  readonly state: { readonly contactOpen: boolean; readonly syntheticConfirmed: boolean };
+  readonly state: {
+    readonly contactOpen: boolean;
+    readonly couponAttempted: boolean;
+    readonly appliedCoupon: string | null;
+    readonly confirmationAttempted: boolean;
+    readonly confirmationContact: { readonly email: string; readonly postalCode: string } | null;
+    readonly syntheticConfirmed: boolean;
+  };
 }
 
 export interface ExpectedCase {
@@ -78,6 +85,7 @@ export interface RequirementContract {
   readonly version: "2";
   readonly originalText: string;
   readonly criteria: readonly { readonly id: string; readonly sourceQuote: string; readonly normalizedRule: string }[];
+  readonly normalizedRules: CheckoutRules;
   readonly adoptedReferenceIds: readonly string[];
   readonly expectationScope: readonly { readonly criterionId: string; readonly scope: "unchanged" | "new-or-changed" }[];
   readonly coverageGaps: readonly string[];
@@ -92,8 +100,8 @@ export interface GroundingBundle {
 
 export interface ProposalResult { readonly kind: "proposal" | "clarification"; readonly requirement: RequirementContract; readonly cases: readonly CaseDefinition[]; readonly gaps: readonly string[]; }
 export interface ReviewDecision { readonly criterionId: string; readonly interpretation: string; readonly scope: "unchanged" | "new-or-changed"; readonly adoptedReferenceIds: readonly string[]; readonly acceptedGaps: readonly string[]; }
-export interface SuiteDefinition { readonly version: "2"; readonly requirement: RequirementContract; readonly cases: readonly CaseDefinition[]; readonly app: AppContract; readonly releases: readonly [ReleaseRef, ReleaseRef]; }
-export interface SuiteApproval { readonly definition: SuiteDefinition; readonly expectations: readonly ExpectedCase[]; readonly grounding: GroundingBundle; readonly provenance: readonly string[]; readonly digest: string; readonly expiresAt: string; readonly consumed: boolean; }
+export interface SuiteDefinition { readonly version: "2"; readonly requirement: RequirementContract; readonly rules: CheckoutRules; readonly referenceId: string; readonly cases: readonly CaseDefinition[]; readonly app: AppContract; readonly releases: readonly [ReleaseRef, ReleaseRef]; }
+export interface SuiteApproval { readonly definition: SuiteDefinition; readonly rules: CheckoutRules; readonly referenceId: string; readonly expectations: readonly ExpectedCase[]; readonly grounding: GroundingBundle; readonly provenance: readonly string[]; readonly digest: string; readonly expiresAt: string; readonly consumed: boolean; }
 export interface SuiteRun { readonly id: string; readonly approvalDigest: string; readonly status: "pending" | "completed" | "interrupted"; readonly records: readonly unknown[]; readonly coverage: readonly string[]; }
 export interface SavedRegression { readonly definition: SuiteDefinition; readonly provenance: readonly string[]; }
 export interface PreparedProposal { readonly id: string; readonly proposal: ProposalResult; readonly context: RequirementContract; }

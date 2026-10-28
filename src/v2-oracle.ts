@@ -17,13 +17,14 @@ export function calculateCheckout(input: CaseInput, rules: CheckoutRules, catalo
     if (unitPriceMinor === undefined) throw new Error("Cart contains an unknown SKU.");
     subtotalMinor += checkedMinor(unitPriceMinor * line.quantity, "Line total");
   }
-  const couponError = input.coupon !== null && input.coupon !== rules.couponCode ? "invalid-coupon" : null;
-  const discountMinor = input.coupon === rules.couponCode ? Math.floor((subtotalMinor * rules.couponBasisPoints + 5_000) / 10_000) : 0;
+  const couponError = input.state.couponAttempted && input.state.appliedCoupon !== rules.couponCode ? "invalid-coupon" : null;
+  const discountMinor = input.state.appliedCoupon === rules.couponCode ? Math.floor((subtotalMinor * rules.couponBasisPoints + 5_000) / 10_000) : 0;
   const discountedSubtotalMinor = subtotalMinor - discountMinor;
   const deliveryMinor = discountedSubtotalMinor >= rules.deliveryThresholdMinor ? 0 : rules.deliveryFeeMinor;
-  const email = input.contact.email.trim() ? null : "required";
-  const postalCode = input.contact.postalCode.trim() ? null : "required";
+  const submittedContact = input.state.confirmationContact;
+  const email = input.state.confirmationAttempted && rules.requiredContactFields.includes("email") && !submittedContact?.email.trim() ? "required" : null;
+  const postalCode = input.state.confirmationAttempted && rules.requiredContactFields.includes("postal-code") && !submittedContact?.postalCode.trim() ? "required" : null;
   const contactErrors = { email, postalCode } as const;
-  const syntheticConfirmation = !input.state.syntheticConfirmed ? "not-requested" : email || postalCode ? "blocked" : "confirmed";
+  const syntheticConfirmation = !input.state.confirmationAttempted ? "not-requested" : input.state.syntheticConfirmed ? "confirmed" : "blocked";
   return { subtotalMinor, discountMinor, discountedSubtotalMinor, deliveryMinor, totalMinor: discountedSubtotalMinor + deliveryMinor, couponError, contactErrors, syntheticConfirmation };
 }

@@ -22,27 +22,40 @@ async function app() {
 }
 
 test("frozen checkout releases expose real totals and isolated synthetic state", { timeout: 15_000 }, async () => {
-  const server = await app();
-  const browser = await chromium.launch({ headless: true, timeout: 10_000 });
+  let server: Awaited<ReturnType<typeof app>> | undefined;
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   try {
+    server = await app();
+    browser = await chromium.launch({ headless: true, timeout: 10_000 });
     for (const [release, expected] of [["r1", "7700"], ["r2", "7200"], ["r3", "7700"]] as const) {
       const page = await browser.newPage();
       await page.goto(`${server.origin}/v2-target/${release}/index.html`);
       await page.getByRole("button", { name: "Add Desk Lamp" }).click();
       await page.getByRole("button", { name: "Add Desk Lamp" }).click();
       await page.getByLabel("Coupon").fill("SAVE10");
+      assert.equal(await page.locator("#total-minor").textContent(), "8000");
       await page.getByRole("button", { name: "Apply coupon" }).click();
       assert.equal(await page.locator("#total-minor").textContent(), expected);
       await page.close();
     }
     const page = await browser.newPage();
     await page.goto(`${server.origin}/v2-target/r1/index.html`);
+    await page.getByRole("button", { name: "Add Desk Lamp" }).click();
+    await page.getByRole("button", { name: "Add Notebook" }).click();
+    await page.getByLabel("Desk Lamp quantity").fill("2");
+    await page.getByLabel("Desk Lamp quantity").press("Tab");
+    await page.getByRole("button", { name: "Remove Notebook" }).click();
+    assert.equal(await page.locator("#total-minor").textContent(), "8000");
+    await page.getByRole("button", { name: "Remove Desk Lamp" }).click();
+    assert.equal(await page.locator("#cart-lines").textContent(), "Cart is empty.");
     await page.getByRole("button", { name: "Add Notebook" }).click();
     await page.getByRole("button", { name: "Checkout" }).click();
     await page.getByRole("button", { name: "Confirm synthetic order" }).click();
     await page.getByText("Email is required.").waitFor();
     await page.getByLabel("Email").fill("qa@example.test");
     await page.getByLabel("Postal code").fill("018989");
+    assert.equal(await page.locator("#confirmation").isHidden(), true);
+    assert.equal(await page.locator("#email-error").isHidden(), false);
     await page.getByRole("button", { name: "Confirm synthetic order" }).click();
     await page.getByText("Synthetic order confirmed.").waitFor();
     const isolated = await browser.newPage();
@@ -56,7 +69,7 @@ test("frozen checkout releases expose real totals and isolated synthetic state",
     await isolated.close();
     await page.close();
   } finally {
-    await browser.close();
-    await server.close();
+    await browser?.close();
+    await server?.close();
   }
 });

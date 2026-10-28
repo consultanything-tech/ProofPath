@@ -41,16 +41,18 @@ export const REFERENCE_RULES: CheckoutRules = {
   syntheticConfirmationOnly: true
 };
 
-const releaseResources = (id: V2ReleaseId) => [`/v2-target/${id}/index.html`, `/v2-target/${id}/shop.js`];
+const releaseResources = (id: V2ReleaseId) => [`/v2-target/${id}/index.html`, `/v2-target/${id}/shop.js`, "/v2-target/runtime.js"];
 const releases: Record<V2ReleaseId, ReleaseRef> = {
-  r1: { id: "r1", documentPath: "/v2-target/r1/index.html", resources: releaseResources("r1"), fingerprint: "sha256:0fa63905e4170781fbbd1683c865ae249c4e971caec96a13a2440c8ab77fa9eb" },
-  r2: { id: "r2", documentPath: "/v2-target/r2/index.html", resources: releaseResources("r2"), fingerprint: "sha256:4d58161b7a7c866ce73fb5f58f2078971492ad6806e2981ad265ef6db7d13f4d" },
-  r3: { id: "r3", documentPath: "/v2-target/r3/index.html", resources: releaseResources("r3"), fingerprint: "sha256:7e888e6527106f15fa7b43afb0b5900efce5f58fcc5103f1dc5eb13b1c4b2686" }
+  r1: { id: "r1", documentPath: "/v2-target/r1/index.html", resources: releaseResources("r1"), fingerprint: "sha256:9ffb5482c609961a3e2c31b3779610cb7ecbb282819c191ec00ae4db2f7e3ad2" },
+  r2: { id: "r2", documentPath: "/v2-target/r2/index.html", resources: releaseResources("r2"), fingerprint: "sha256:69f88691818dfe67312ff9ad596fd3f18b1bf51c7deb53e2b393c2ae199c56a9" },
+  r3: { id: "r3", documentPath: "/v2-target/r3/index.html", resources: releaseResources("r3"), fingerprint: "sha256:889b46a51f6f606cc3e86d67578effac9b888764ec5d5fe300353d6b489f64fb" }
 };
 
 const semanticTargets = [
   { id: "add-desk-lamp", role: "button" }, { id: "add-notebook", role: "button" }, { id: "add-cable", role: "button" },
-  { id: "coupon", role: "input" }, { id: "checkout", role: "button" }, { id: "email", role: "input" },
+  { id: "quantity-desk-lamp", role: "input" }, { id: "quantity-notebook", role: "input" }, { id: "quantity-cable", role: "input" },
+  { id: "remove-desk-lamp", role: "button" }, { id: "remove-notebook", role: "button" }, { id: "remove-cable", role: "button" },
+  { id: "coupon", role: "input" }, { id: "checkout", role: "button" }, { id: "contact", role: "region" }, { id: "email", role: "input" },
   { id: "postal-code", role: "input" }, { id: "confirm-synthetic-order", role: "button" }, { id: "total-minor", role: "status" }
 ] as const;
 
@@ -104,7 +106,11 @@ export function deriveCaseInput(actions: SemanticAction[], context: V2Context): 
   const cart = new Map<V2Sku, number>();
   let coupon: string | null = null;
   let couponFilled = false;
+  let couponAttempted = false;
+  let appliedCoupon: string | null = null;
   let contactOpen = false;
+  let confirmationAttempted = false;
+  let confirmationContact: CaseInput["state"]["confirmationContact"] = null;
   let syntheticConfirmed = false;
   let email = "";
   let postalCode = "";
@@ -124,7 +130,11 @@ export function deriveCaseInput(actions: SemanticAction[], context: V2Context): 
       cart.set(action.target, action.value);
     }
     if (action.kind === "fill-coupon") { coupon = action.value; couponFilled = true; }
-    if (action.kind === "apply-coupon" && !couponFilled) throw new Error("Coupon must be filled before it is applied.");
+    if (action.kind === "apply-coupon") {
+      if (!couponFilled) throw new Error("Coupon must be filled before it is applied.");
+      couponAttempted = true;
+      appliedCoupon = coupon;
+    }
     if (action.kind === "open-contact") {
       if (cart.size === 0) throw new Error("Contact cannot open with an empty cart.");
       contactOpen = true;
@@ -136,18 +146,22 @@ export function deriveCaseInput(actions: SemanticAction[], context: V2Context): 
     }
     if (action.kind === "confirm-synthetic-order") {
       if (!contactOpen) throw new Error("Synthetic confirmation requires an open contact form.");
-      syntheticConfirmed = true;
+      confirmationAttempted = true;
+      confirmationContact = { email, postalCode };
+      const emailRequired = context.rules.requiredContactFields.includes("email");
+      const postalRequired = context.rules.requiredContactFields.includes("postal-code");
+      syntheticConfirmed = (!emailRequired || Boolean(email.trim())) && (!postalRequired || Boolean(postalCode.trim()));
     }
   }
-  return { cart: [...cart].map(([sku, quantity]) => ({ sku, quantity })), coupon, contact: { email, postalCode }, state: { contactOpen, syntheticConfirmed } };
+  return { cart: [...cart].map(([sku, quantity]) => ({ sku, quantity })), coupon, contact: { email, postalCode }, state: { contactOpen, couponAttempted, appliedCoupon, confirmationAttempted, confirmationContact, syntheticConfirmed } };
 }
 
 export function validateCase(value: unknown, context: V2Context): CaseDefinition {
-  if (!isRecord(value) || !only(value, ["id", "criterionIds", "category", "rationale", "actions", "assertions"]) || !validId(value.id) || !Array.isArray(value.criterionIds) || value.criterionIds.length === 0 || value.criterionIds.length > 6 || !value.criterionIds.every(validId) || !["happy", "negative", "boundary", "interaction"].includes(String(value.category)) || !validText(value.rationale, 500) || !Array.isArray(value.actions) || !Array.isArray(value.assertions) || value.assertions.length === 0 || value.assertions.length > 6) throw new Error("Case has an invalid shape.");
+  if (!isRecord(value) || !only(value, ["id", "criterionIds", "category", "rationale", "actions", "assertions"]) || !validId(value.id) || !Array.isArray(value.criterionIds) || value.criterionIds.length === 0 || value.criterionIds.length > 6 || !value.criterionIds.every(validId) || typeof value.category !== "string" || !["happy", "negative", "boundary", "interaction"].includes(value.category) || !validText(value.rationale, 500) || !Array.isArray(value.actions) || !Array.isArray(value.assertions) || value.assertions.length === 0 || value.assertions.length > 6) throw new Error("Case has an invalid shape.");
   if (new Set(value.criterionIds).size !== value.criterionIds.length || !value.criterionIds.every((id) => context.requirement.criteria.some((criterion) => criterion.id === id))) throw new Error("Case criterion links must be unique reviewed criteria.");
   const actions = validateActions(value.actions, context);
   const assertions = value.assertions.map((assertion) => {
-    if (!isRecord(assertion) || !only(assertion, ["id", "predicate"]) || !validId(assertion.id) || !["total-minor", "coupon-error", "contact-errors", "synthetic-confirmation"].includes(String(assertion.predicate))) throw new Error("Case assertion has an invalid shape.");
+    if (!isRecord(assertion) || !only(assertion, ["id", "predicate"]) || !validId(assertion.id) || typeof assertion.predicate !== "string" || !["total-minor", "coupon-error", "contact-errors", "synthetic-confirmation"].includes(assertion.predicate)) throw new Error("Case assertion has an invalid shape.");
     return assertion as unknown as CaseDefinition["assertions"][number];
   });
   if (new Set(assertions.map((assertion) => assertion.id)).size !== assertions.length) throw new Error("Case assertion IDs must be unique.");
@@ -163,6 +177,7 @@ const referenceRequirement: RequirementContract = {
     { id: "delivery", sourceQuote: "Delivery is free at discounted subtotal S$75.00 or more.", normalizedRule: "Delivery evaluates the discounted subtotal inclusively." },
     { id: "contact", sourceQuote: "Contact fields are required before synthetic confirmation.", normalizedRule: "Blank required fields block confirmation." }
   ],
+  normalizedRules: REFERENCE_RULES,
   adoptedReferenceIds: ["checkout-reference-v2"],
   expectationScope: [{ criterionId: "cart", scope: "unchanged" }, { criterionId: "coupon", scope: "unchanged" }, { criterionId: "delivery", scope: "unchanged" }, { criterionId: "contact", scope: "unchanged" }],
   coverageGaps: []
