@@ -136,10 +136,12 @@ test("readonly inspection records only rendered visible controls and blocks egre
   } finally {
     await instance.close();
   }
-  const egress = "<!doctype html><script src='/unregistered.js'></script><button id=checkout>Checkout</button>";
+  const sibling = "/v2-target/r3/sibling.js";
+  const egress = `<!doctype html><script src='${sibling}'></script><button id=checkout>Checkout</button>`;
   const blocked = await inspectionTarget({ r1: egress, r2: egress });
   try {
-    await assert.rejects(inspectRegisteredTarget(inspectionContext(blocked.origin, { r1: egress, r2: egress })), /unregistered|blocked/i);
+    const context = inspectionContext(blocked.origin, { r1: egress, r2: egress });
+    await assert.rejects(inspectRegisteredTarget({ ...context, app: { ...context.app, inspectionPolicy: { ...context.app.inspectionPolicy, readonlyResources: [...context.app.inspectionPolicy.readonlyResources, sibling] } } }), /unregistered|blocked/i);
     assert.equal(blocked.unregisteredRequests(), 0);
   } finally {
     await blocked.close();

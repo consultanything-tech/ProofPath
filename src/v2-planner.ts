@@ -32,6 +32,7 @@ export async function inspectRegisteredTarget(context: V2Context): Promise<Groun
   const observedByRelease: string[][] = [];
   try {
     for (const release of releases) {
+      const releaseResources = new Set(release.resources);
       const bodies = new Map<string, Buffer>();
       let blocked: string | undefined;
       const inspection = await browser.newContext({ serviceWorkers: "block", acceptDownloads: false, permissions: [] });
@@ -44,7 +45,7 @@ export async function inspectRegisteredTarget(context: V2Context): Promise<Groun
           const resource = url.pathname;
           const exactResource = new URL(resource, context.app.origin).toString() === url.toString();
           const isDocument = request.resourceType() === "document";
-          if (request.method() !== "GET" || url.origin !== context.app.origin || !permitted.has(resource) || !exactResource || (isDocument && resource !== release.documentPath)) {
+          if (request.method() !== "GET" || url.origin !== context.app.origin || !releaseResources.has(resource) || !exactResource || (isDocument && resource !== release.documentPath)) {
             blocked = "Inspection blocked an unregistered request.";
             await route.abort();
             return;
