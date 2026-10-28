@@ -30,6 +30,8 @@ test("frozen checkout releases expose real totals and isolated synthetic state",
     for (const [release, expected] of [["r1", "7700"], ["r2", "7200"], ["r3", "7700"]] as const) {
       const page = await browser.newPage();
       await page.goto(`${server.origin}/v2-target/${release}/index.html`);
+      assert.equal(await page.locator("#contact").isHidden(), true);
+      assert.equal(await page.locator("#quantity-desk-lamp").count(), 0);
       await page.getByRole("button", { name: "Add Desk Lamp" }).click();
       await page.getByRole("button", { name: "Add Desk Lamp" }).click();
       await page.getByLabel("Coupon").fill("SAVE10");

@@ -99,7 +99,8 @@ export interface GroundingBundle {
 }
 
 export interface ProposalResult { readonly kind: "proposal" | "clarification"; readonly requirement: RequirementContract; readonly cases: readonly CaseDefinition[]; readonly gaps: readonly string[]; }
-export interface ReviewDecision { readonly criterionId: string; readonly interpretation: string; readonly scope: "unchanged" | "new-or-changed"; readonly adoptedReferenceIds: readonly string[]; readonly acceptedGaps: readonly string[]; }
+export interface CriterionReviewDecision { readonly criterionId: string; readonly interpretation: string; readonly scope: "unchanged" | "new-or-changed"; readonly adoptedReferenceIds: readonly string[]; readonly acceptedGaps: readonly string[]; }
+export interface ReviewDecision { readonly decisions: readonly CriterionReviewDecision[]; }
 export interface SuiteDefinition { readonly version: "2"; readonly requirement: RequirementContract; readonly rules: CheckoutRules; readonly referenceId: string; readonly cases: readonly CaseDefinition[]; readonly app: AppContract; readonly releases: readonly [ReleaseRef, ReleaseRef]; }
 export interface SuiteApproval { readonly definition: SuiteDefinition; readonly rules: CheckoutRules; readonly referenceId: string; readonly expectations: readonly ExpectedCase[]; readonly grounding: GroundingBundle; readonly provenance: readonly string[]; readonly digest: string; readonly expiresAt: string; readonly consumed: boolean; }
 export interface SuiteRun { readonly id: string; readonly approvalDigest: string; readonly status: "pending" | "completed" | "interrupted"; readonly records: readonly unknown[]; readonly coverage: readonly string[]; }

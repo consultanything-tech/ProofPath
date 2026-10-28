@@ -8,13 +8,14 @@ import type {
   GroundingBundle,
   ReleaseRef,
   RequirementContract,
+  ReviewDecision,
   SemanticAction,
   V2Context,
   V2ReleaseId,
   V2Sku
 } from "./v2-contracts.js";
 
-export type { AppContract, CaseDefinition, CaseInput, Catalog, CheckoutRules, ReleaseRef, SemanticAction, V2Context } from "./v2-contracts.js";
+export type { AppContract, CaseDefinition, CaseInput, Catalog, CheckoutRules, ReleaseRef, ReviewDecision, SemanticAction, V2Context } from "./v2-contracts.js";
 
 export const REFERENCE_CATALOG: Catalog = {
   version: "2",
