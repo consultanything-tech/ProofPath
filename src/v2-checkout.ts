@@ -193,8 +193,9 @@ const referenceRequirement: RequirementContract = {
   coverageGaps: []
 };
 
-export function createV2Context(origin = "http://127.0.0.1:4173"): V2Context {
-  const pair = [resolveRelease("r1"), resolveRelease("r2")] as const;
+export function createV2Context(origin = "http://127.0.0.1:4173", releaseIds: readonly [string, string] = ["r1", "r2"]): V2Context {
+  const pair = [resolveRelease(releaseIds[0]), resolveRelease(releaseIds[1])] as const;
+  if (pair[0].id === pair[1].id) throw new Error("V2 execution requires two distinct registered releases.");
   const grounding: GroundingBundle = { releases: pair, observedTargets: [], declaredTargets: semanticTargets.map((target) => target.id), pairFingerprint: digestV2(pair.map((release) => release.fingerprint)) };
   return { app: registeredCheckoutApp(origin), catalog: REFERENCE_CATALOG, rules: REFERENCE_RULES, releases: Object.values(releases), grounding, requirement: referenceRequirement };
 }

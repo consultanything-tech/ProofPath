@@ -2,41 +2,47 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { calculateCheckout } from "./v2-oracle.js";
-import { deriveCaseInput, digestV2 } from "./v2-checkout.js";
+import { deriveCaseInput, digestV2, validateCase } from "./v2-checkout.js";
 import { compileReviewedSuite } from "./v2-planner.js";
-import type { ApprovalReceipt, CaseReleaseRecord, PreparedProposal, PreparedSuite, ProposalResult, ReviewDecision, SavedRegression, SuiteApproval, SuiteDefinition, SuiteRun, V2Context } from "./v2-contracts.js";
+import type { ApprovalReceipt, CaseComparison, CaseReleaseRecord, PreparedProposal, PreparedSuite, ProposalResult, ReviewDecision, SavedRegression, SuiteApproval, SuiteDefinition, SuiteRun, V2Context } from "./v2-contracts.js";
 
-type DurableSuite = { definition: SuiteDefinition; expectations: PreparedSuite["expectations"]; grounding: V2Context["grounding"]; provenance: string[]; digest: string };
+type DurableSuite = { definition: SuiteDefinition; expectations: PreparedSuite["expectations"]; grounding: V2Context["grounding"]; context: V2Context; provenance: string[]; digest: string };
 type DurableState = { version: "2"; executionCount: number; suites: Record<string, DurableSuite>; runs: Record<string, SuiteRun>; regressions: Record<string, SavedRegression> };
+type PendingProposal = { prepared: PreparedProposal; expiresAt: number };
 type PendingApproval = { suite: DurableSuite; expiresAt: number; consumed: boolean };
 
 const clone = <T>(value: T): T => structuredClone(value);
-const approvalDigest = (suite: Omit<DurableSuite, "digest"> | DurableSuite) => digestV2({ definition: suite.definition, expectations: suite.expectations, grounding: suite.grounding, provenance: suite.provenance });
+const approvalDigest = (suite: Omit<DurableSuite, "digest"> | DurableSuite) => digestV2({ definition: suite.definition, expectations: suite.expectations, grounding: suite.grounding, context: suite.context, provenance: suite.provenance });
 const nowIso = (now: () => number) => new Date(now()).toISOString();
 const initial = (): DurableState => ({ version: "2", executionCount: 0, suites: {}, runs: {}, regressions: {} });
 
 export class V2Store {
-  private readonly proposals = new Map<string, PreparedProposal>();
+  private readonly proposals = new Map<string, PendingProposal>();
   private readonly approvals = new Map<string, PendingApproval>();
   private state: DurableState | undefined;
   private loading: Promise<DurableState> | undefined;
   private failure: Error | undefined;
+  private writes: Promise<void> = Promise.resolve();
 
   constructor(private readonly dataDir: string, private readonly clock: () => number = Date.now) {}
 
   async createProposal(proposal: ProposalResult, context: V2Context): Promise<PreparedProposal> {
     if (proposal.kind !== "proposal") throw new Error("Clarification does not create a prepared suite or approval.");
+    this.clearPending();
+    if (this.proposals.size >= 16) throw new Error("Too many pending V2 proposals; review or let one expire first.");
     const prepared: PreparedProposal = { id: randomUUID(), proposal: clone(proposal), context: clone(context) };
-    this.proposals.set(prepared.id, prepared);
+    this.proposals.set(prepared.id, { prepared, expiresAt: this.clock() + 600_000 });
     return clone(prepared);
   }
 
   async reviewProposal(proposalId: string, review: ReviewDecision): Promise<PreparedSuite> {
-    const proposal = this.proposals.get(proposalId);
-    if (!proposal) throw new Error("Unknown pending proposal.");
+    this.clearPending();
+    const pending = this.proposals.get(proposalId);
+    if (!pending) throw new Error("Unknown pending proposal.");
+    const proposal = pending.prepared;
     const definition = compileReviewedSuite(proposal.proposal, review, proposal.context);
     const expectations = definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], { ...proposal.context, rules: definition.rules, requirement: definition.requirement }), definition.rules, proposal.context.catalog));
-    const record: DurableSuite = { definition: clone(definition), expectations: clone(expectations), grounding: clone(proposal.context.grounding), provenance: ["reviewed-v2"], digest: "" };
+    const record: DurableSuite = { definition: clone(definition), expectations: clone(expectations), grounding: clone(proposal.context.grounding), context: clone(proposal.context), provenance: ["fixture-v2", "reviewed-v2"], digest: "" };
     record.digest = approvalDigest(record);
     const id = randomUUID();
     const state = await this.ready();
@@ -47,8 +53,11 @@ export class V2Store {
   }
 
   async approveSuite(suiteId: string): Promise<ApprovalReceipt> {
+    this.clearPending();
     const suite = (await this.ready()).suites[suiteId];
     if (!suite) throw new Error("Unknown reviewed suite.");
+    this.revalidateSuite(suite);
+    if (this.approvals.size >= 16) throw new Error("Too many pending V2 approvals; run or let one expire first.");
     const id = randomUUID();
     const expiresAt = this.clock() + 600_000;
     this.approvals.set(id, { suite: clone(suite), expiresAt, consumed: false });
@@ -57,10 +66,11 @@ export class V2Store {
 
   async consumeApproval(approvalId: string): Promise<SuiteApproval> {
     const approval = this.approvals.get(approvalId);
+    this.clearPending();
     if (!approval) throw new Error("Unknown approval.");
     if (approval.consumed) throw new Error("Suite approval has already been used.");
     if (this.clock() >= approval.expiresAt) throw new Error("Suite approval expired; approve a new snapshot.");
-    if (approvalDigest(approval.suite) !== approval.suite.digest) throw new Error("Approved suite integrity check failed.");
+    this.revalidateSuite(approval.suite);
     approval.consumed = true;
     return {
       definition: clone(approval.suite.definition), rules: clone(approval.suite.definition.rules), referenceId: approval.suite.definition.referenceId,
@@ -71,8 +81,9 @@ export class V2Store {
 
   async createJob(approval: SuiteApproval): Promise<SuiteRun> {
     const state = await this.ready();
+    this.revalidateApproval(approval);
     if (state.executionCount >= 50) throw new Error("This runtime data set has reached its 50 accepted suite-job limit.");
-    const run: SuiteRun = { id: randomUUID(), approvalDigest: approval.digest, status: "accepted", records: [], coverage: [], verdict: "INCONCLUSIVE", startedAt: nowIso(this.clock), endedAt: null };
+    const run: SuiteRun = { id: randomUUID(), approvalDigest: approval.digest, status: "accepted", records: [], comparisons: [], coverage: [], verdict: "INCONCLUSIVE", candidateVerdict: "INCONCLUSIVE", startedAt: nowIso(this.clock), endedAt: null };
     state.executionCount += 1;
     state.runs[run.id] = run;
     await this.persist();
@@ -80,22 +91,43 @@ export class V2Store {
   }
 
   async markRunning(runId: string): Promise<SuiteRun> { return this.updateRun(runId, (run) => ({ ...run, status: "running" })); }
+  async appendRecord(runId: string, record: CaseReleaseRecord): Promise<SuiteRun> {
+    return this.updateRun(runId, (run) => {
+      if (run.status !== "running") throw new Error("Only a running suite can persist execution progress.");
+      if (run.records.some((item) => item.caseId === record.caseId && item.releaseId === record.releaseId)) throw new Error("Duplicate case-release progress record.");
+      return { ...run, records: [...run.records, clone(record)] };
+    });
+  }
   async completeJob(runId: string, records: readonly CaseReleaseRecord[], coverage: readonly string[]): Promise<SuiteRun> {
-    return this.updateRun(runId, (run) => ({ ...run, status: "completed", records: clone(records), coverage: clone(coverage), verdict: verdictFor(records, coverage), endedAt: nowIso(this.clock) }));
+    const state = await this.ready();
+    const current = state.runs[runId];
+    if (!current) throw new Error("Unknown suite run.");
+    const merged = mergeRecords(current.records, records);
+    const suite = this.suiteForDigest(current.approvalDigest);
+    const padded = padRecords(suite, merged, this.clock);
+    const finalRecords = await sanitizeEvidence(padded, this.runDirectory(runId));
+    const comparisons = comparisonsFor(suite, finalRecords);
+    const next: SuiteRun = { ...current, status: "completed", records: finalRecords, comparisons, coverage: clone(coverage), verdict: verdictFor(finalRecords, coverage), candidateVerdict: candidateVerdict(finalRecords, suite.definition.releases[1].id), endedAt: nowIso(this.clock) };
+    if (next.verdict === "PASS" && !isCompleteSet(suite, next.records)) throw new Error("A complete PASS requires every reviewed case-release observation.");
+    await this.writeManifest(next);
+    state.runs[runId] = next;
+    await this.persist();
+    return clone(next);
   }
   async readJob(runId: string): Promise<SuiteRun> {
     const run = (await this.ready()).runs[runId];
     if (!run) throw new Error("Unknown suite run.");
+    if (run.status === "completed" || run.status === "interrupted") await this.verifyManifest(run);
     return clone(run);
   }
 
   async recoverInterruptedJobs(): Promise<number> {
-    const state = await this.ready();
-    let recovered = 0;
-    for (const [id, run] of Object.entries(state.runs)) {
+    try {
+      const state = await this.ready();
+      let recovered = 0;
+      for (const [id, run] of Object.entries(state.runs)) {
       if (run.status !== "accepted" && run.status !== "running") continue;
-      const suite = Object.values(state.suites).find((candidate) => candidate.digest === run.approvalDigest);
-      if (!suite) throw new Error("V2 accounting cannot recover a run without its reviewed definition.");
+      const suite = this.suiteForDigest(run.approvalDigest);
       const known = new Set(run.records.map((record) => `${record.caseId}:${record.releaseId}`));
       const padded = suite.definition.cases.flatMap((definition, index) => suite.definition.releases.flatMap((release) => {
         if (known.has(`${definition.id}:${release.id}`)) return [];
@@ -103,11 +135,17 @@ export class V2Store {
         return [{ caseId: definition.id, releaseId: release.id, actions: definition.actions.map((action) => ({ id: action.id, status: "not-run" as const, startedAt: null, endedAt: null, url: null })), assertions: definition.assertions.map((assertion) => ({ id: assertion.id, expected: expectedValue(assertion.predicate, expected), observed: null, verdict: "INCONCLUSIVE" as const, screenshot: "not-captured.png", timestamp: nowIso(this.clock), url: suite.definition.app.origin })), verdict: "INCONCLUSIVE" as const, startedAt: nowIso(this.clock), endedAt: nowIso(this.clock) }];
       }));
       const records = [...run.records, ...padded];
-      state.runs[id] = { ...run, status: "interrupted", records, coverage: [...run.coverage, "Execution was interrupted before all reviewed observations were captured."], verdict: records.some((record) => record.verdict === "FAIL") ? "FAIL" : "INCONCLUSIVE", endedAt: nowIso(this.clock) };
-      recovered += 1;
+      const next: SuiteRun = { ...run, status: "interrupted", records, comparisons: comparisonsFor(suite, records), coverage: [...run.coverage, "Execution was interrupted before all reviewed observations were captured."], verdict: records.some((record) => record.verdict === "FAIL") ? "FAIL" : "INCONCLUSIVE", candidateVerdict: candidateVerdict(records, suite.definition.releases[1].id), endedAt: nowIso(this.clock) };
+      await this.writeManifest(next);
+      state.runs[id] = next;
+        recovered += 1;
+      }
+      if (recovered) await this.persist();
+      return recovered;
+    } catch {
+      this.failure = new Error("V2 recovery failed; this runtime data set is fail-closed.");
+      throw this.failure;
     }
-    if (recovered) await this.persist();
-    return recovered;
   }
 
   async saveRegression(runId: string): Promise<SavedRegression> {
@@ -125,7 +163,8 @@ export class V2Store {
     if (!regression || regression.definition.app.appId !== context.app.appId) throw new Error("Unknown compatible saved regression.");
     const definition = clone(regression.definition);
     const expectations = definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], { ...context, rules: definition.rules, requirement: definition.requirement }), definition.rules, context.catalog));
-    const record: DurableSuite = { definition, expectations, grounding: clone(context.grounding), provenance: [...regression.provenance, "saved-regression"], digest: "" };
+    if (digestV2(regression.definition.app) !== digestV2(context.app) || digestV2(regression.definition.releases) !== digestV2(context.grounding.releases) || digestV2(regression.definition.rules) !== digestV2(context.requirement.normalizedRules)) throw new Error("Saved regression is incompatible with the current reviewed app, releases, or reference rules.");
+    const record: DurableSuite = { definition, expectations, grounding: clone(context.grounding), context: clone(context), provenance: [...regression.provenance, "saved-regression"], digest: "" };
     record.digest = approvalDigest(record);
     const id = randomUUID();
     (await this.ready()).suites[id] = record;
@@ -181,8 +220,9 @@ export class V2Store {
   }
   private async persist(): Promise<void> {
     if (!this.state) throw new Error("V2 durable state was not initialized.");
-    try { await mkdir(this.runtimeRoot(), { recursive: true }); await this.atomic(join(this.runtimeRoot(), "state.json"), JSON.stringify(this.state)); }
-    catch (error) { this.failure = new Error("V2 durable state could not be persisted; execution is fail-closed."); throw this.failure; }
+    this.writes = this.writes.then(async () => { await mkdir(this.runtimeRoot(), { recursive: true }); await this.atomic(join(this.runtimeRoot(), "state.json"), JSON.stringify(this.state)); });
+    try { await this.writes; }
+    catch { this.failure = new Error("V2 durable state could not be persisted; execution is fail-closed."); throw this.failure; }
   }
   private async atomic(file: string, contents: string): Promise<void> {
     const temporary = `${file}.${randomUUID()}.tmp`;
@@ -190,12 +230,89 @@ export class V2Store {
     await rename(temporary, file);
   }
   private runtimeRoot() { return join(this.dataDir, "runs", "v2"); }
+  private clearPending() {
+    const now = this.clock();
+    for (const [id, pending] of this.proposals) if (pending.expiresAt <= now) this.proposals.delete(id);
+    for (const [id, approval] of this.approvals) if (approval.expiresAt <= now) this.approvals.delete(id);
+  }
+  private suiteForDigest(digest: string) {
+    const suite = Object.values(this.state?.suites ?? {}).find((candidate) => candidate.digest === digest);
+    if (!suite) throw new Error("V2 accounting cannot resolve the reviewed definition for this run.");
+    return suite;
+  }
+  private revalidateSuite(suite: DurableSuite) {
+    if (approvalDigest(suite) !== suite.digest) throw new Error("Approved suite integrity check failed.");
+    if (digestV2(suite.definition.rules) !== digestV2(suite.definition.requirement.normalizedRules) || digestV2(suite.grounding) !== digestV2(suite.context.grounding)) throw new Error("Reviewed suite no longer matches its trusted context.");
+    const context = { ...suite.context, rules: suite.definition.rules, requirement: suite.definition.requirement, grounding: suite.grounding };
+    const expected = suite.definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], context), suite.definition.rules, context.catalog));
+    if (digestV2(expected) !== digestV2(suite.expectations)) throw new Error("Approved suite expectations could not be re-derived.");
+  }
+  private revalidateApproval(approval: SuiteApproval) {
+    const suite = this.suiteForDigest(approval.digest);
+    this.revalidateSuite(suite);
+    if (digestV2(approval.definition) !== digestV2(suite.definition) || digestV2(approval.expectations) !== digestV2(suite.expectations) || digestV2(approval.grounding) !== digestV2(suite.grounding)) throw new Error("Approval snapshot does not match its durable reviewed suite.");
+  }
+  private async verifyManifest(run: SuiteRun) {
+    const directory = this.runDirectory(run.id);
+    const contents = JSON.stringify(run, null, 2);
+    const [manifest, sidecar] = await Promise.all([readFile(join(directory, "manifest.json"), "utf8"), readFile(join(directory, "manifest.sha256"), "utf8")]);
+    if (manifest !== contents || sidecar.trim() !== createHash("sha256").update(manifest).digest("hex")) throw new Error("Saved V2 run manifest integrity check failed.");
+    await sanitizeEvidence(run.records, directory, true);
+  }
 }
 
 function verdictFor(records: readonly CaseReleaseRecord[], coverage: readonly string[]): "PASS" | "FAIL" | "INCONCLUSIVE" {
   if (records.some((record) => record.verdict === "FAIL")) return "FAIL";
   if (coverage.length || records.length === 0 || records.some((record) => record.verdict === "INCONCLUSIVE")) return "INCONCLUSIVE";
   return "PASS";
+}
+function candidateVerdict(records: readonly CaseReleaseRecord[], candidateId: string): "PASS" | "FAIL" | "INCONCLUSIVE" {
+  const candidate = records.filter((record) => record.releaseId === candidateId);
+  return verdictFor(candidate, []);
+}
+function mergeRecords(existing: readonly CaseReleaseRecord[], incoming: readonly CaseReleaseRecord[]) {
+  const merged = new Map(existing.map((record) => [`${record.caseId}:${record.releaseId}`, record]));
+  for (const record of incoming) if (!merged.has(`${record.caseId}:${record.releaseId}`)) merged.set(`${record.caseId}:${record.releaseId}`, clone(record));
+  return [...merged.values()];
+}
+function padRecords(suite: DurableSuite, records: readonly CaseReleaseRecord[], clock: () => number) {
+  const known = new Set(records.map((record) => `${record.caseId}:${record.releaseId}`));
+  return [...records, ...suite.definition.cases.flatMap((definition, index) => suite.definition.releases.flatMap((release) => {
+    if (known.has(`${definition.id}:${release.id}`)) return [];
+    const expected = suite.expectations[index]!;
+    return [{ caseId: definition.id, releaseId: release.id, actions: definition.actions.map((action) => ({ id: action.id, status: "not-run" as const, startedAt: null, endedAt: null, url: null })), assertions: definition.assertions.map((assertion) => ({ id: assertion.id, expected: expectedValue(assertion.predicate, expected), observed: null, verdict: "INCONCLUSIVE" as const, screenshot: "not-captured.png", timestamp: nowIso(clock), url: suite.definition.app.origin })), verdict: "INCONCLUSIVE" as const, startedAt: nowIso(clock), endedAt: nowIso(clock) }];
+  }))];
+}
+function isCompleteSet(suite: DurableSuite, records: readonly CaseReleaseRecord[]) { return records.length === suite.definition.cases.length * suite.definition.releases.length && records.every((record) => record.verdict === "PASS"); }
+function comparisonsFor(suite: DurableSuite, records: readonly CaseReleaseRecord[]): CaseComparison[] {
+  return suite.definition.cases.map((definition) => {
+    const previous = records.find((record) => record.caseId === definition.id && record.releaseId === suite.definition.releases[0].id);
+    const candidate = records.find((record) => record.caseId === definition.id && record.releaseId === suite.definition.releases[1].id);
+    const scope = definition.criterionIds.some((id) => suite.definition.requirement.expectationScope.find((item) => item.criterionId === id)?.scope === "new-or-changed") ? "new-or-changed" : "unchanged";
+    const comparable = previous && candidate && previous.assertions.every((item) => item.screenshotSha256) && candidate.assertions.every((item) => item.screenshotSha256);
+    if (!comparable) return { caseId: definition.id, classification: "inconclusive" };
+    if (scope === "new-or-changed") return { caseId: definition.id, classification: candidate!.verdict === "PASS" ? "expectation-met" : "expectation-not-met" };
+    if (previous!.verdict === "PASS" && candidate!.verdict === "FAIL") return { caseId: definition.id, classification: "regression" };
+    if (previous!.verdict === "FAIL" && candidate!.verdict === "PASS") return { caseId: definition.id, classification: "resolved-failure" };
+    if (previous!.verdict === "FAIL" && candidate!.verdict === "FAIL") return { caseId: definition.id, classification: "persistent-failure" };
+    return { caseId: definition.id, classification: "stable-observation" };
+  });
+}
+async function sanitizeEvidence(records: readonly CaseReleaseRecord[], directory: string, verifyOnly = false): Promise<CaseReleaseRecord[]> {
+  const output: CaseReleaseRecord[] = [];
+  for (const record of records) {
+    const assertions = [];
+    for (const assertion of record.assertions) {
+      let valid = assertion.screenshot !== "not-captured.png" && /^sha256:[a-f0-9]{64}$/.test(assertion.screenshotSha256 ?? "");
+      if (valid) try { valid = `sha256:${createHash("sha256").update(await readFile(join(directory, assertion.screenshot))).digest("hex")}` === assertion.screenshotSha256; } catch { valid = false; }
+      if (!valid && assertion.verdict === "PASS") {
+        if (verifyOnly) throw new Error("V2 PASS evidence is missing or tampered.");
+        assertions.push({ ...assertion, observed: null, verdict: "INCONCLUSIVE" as const, screenshot: "not-captured.png", screenshotSha256: undefined });
+      } else assertions.push(assertion);
+    }
+    output.push({ ...record, assertions, verdict: assertions.some((item) => item.verdict === "FAIL") ? "FAIL" : assertions.some((item) => item.verdict === "INCONCLUSIVE") ? "INCONCLUSIVE" : "PASS" });
+  }
+  return output;
 }
 function expectedValue(predicate: "total-minor" | "coupon-error" | "contact-errors" | "synthetic-confirmation", expected: PreparedSuite["expectations"][number]): unknown {
   if (predicate === "total-minor") return expected.totalMinor;
@@ -204,8 +321,28 @@ function expectedValue(predicate: "total-minor" | "coupon-error" | "contact-erro
   return expected.syntheticConfirmation;
 }
 function isState(value: unknown): value is DurableState {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (!record(value)) return false;
   const state = value as Partial<DurableState>;
-  return Object.keys(state).length === 5 && ["version", "executionCount", "suites", "runs", "regressions"].every((key) => key in state) && state.version === "2" && typeof state.executionCount === "number" && Number.isInteger(state.executionCount) && state.executionCount >= 0 && Boolean(state.suites) && Boolean(state.runs) && Boolean(state.regressions);
+  if (!exactKeys(state, ["version", "executionCount", "suites", "runs", "regressions"]) || state.version !== "2" || typeof state.executionCount !== "number" || !Number.isInteger(state.executionCount) || state.executionCount < 0 || state.executionCount > 50 || !record(state.suites) || !record(state.runs) || !record(state.regressions) || state.executionCount < Object.keys(state.runs).length) return false;
+  if (!Object.entries(state.suites).every(([id, suite]) => uuid(id) && isSuite(suite))) return false;
+  if (!Object.entries(state.runs).every(([id, run]) => uuid(id) && isRun(run) && Object.values(state.suites!).some((suite) => suite.digest === run.approvalDigest))) return false;
+  return Object.entries(state.regressions).every(([id, regression]) => uuid(id) && record(regression) && exactKeys(regression, ["id", "definition", "provenance"]) && regression.id === id && Array.isArray(regression.provenance) && regression.provenance.every(shortText));
+}
+function record(value: unknown): value is Record<string, any> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
+function exactKeys(value: Record<string, any>, keys: readonly string[]) { return Object.keys(value).length === keys.length && keys.every((key) => key in value); }
+function uuid(value: unknown) { return typeof value === "string" && /^[a-f0-9-]{36}$/.test(value); }
+function shortText(value: unknown) { return typeof value === "string" && value.length > 0 && value.length <= 500; }
+function isSuite(value: unknown): value is DurableSuite {
+  if (!record(value) || !exactKeys(value, ["definition", "expectations", "grounding", "context", "provenance", "digest"]) || !record(value.definition) || !Array.isArray(value.expectations) || !record(value.grounding) || !record(value.context) || !Array.isArray(value.provenance) || !/^sha256:[a-f0-9]{64}$/.test(value.digest ?? "")) return false;
+  if (value.definition.version !== "2" || !Array.isArray(value.definition.cases) || value.definition.cases.length < 1 || value.definition.cases.length > 5 || !Array.isArray(value.definition.releases) || value.definition.releases.length !== 2 || value.expectations.length !== value.definition.cases.length || !value.provenance.every(shortText)) return false;
+  try {
+    const suite = value as DurableSuite;
+    const context = { ...suite.context, rules: suite.definition.rules, requirement: suite.definition.requirement, grounding: suite.grounding };
+    return approvalDigest(suite) === suite.digest && digestV2(suite.definition.rules) === digestV2(suite.definition.requirement?.normalizedRules) && digestV2(suite.grounding) === digestV2(suite.context.grounding) && digestV2(suite.definition.releases) === digestV2(suite.grounding.releases) && suite.definition.cases.every((item) => digestV2(validateCase(item, context)) === digestV2(item)) && digestV2(suite.definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], context), suite.definition.rules, context.catalog))) === digestV2(suite.expectations);
+  } catch { return false; }
+}
+function isRun(value: unknown): value is SuiteRun {
+  if (!record(value) || !exactKeys(value, ["id", "approvalDigest", "status", "records", "comparisons", "coverage", "verdict", "candidateVerdict", "startedAt", "endedAt"]) || !uuid(value.id) || !/^sha256:[a-f0-9]{64}$/.test(value.approvalDigest ?? "") || !["accepted", "running", "completed", "interrupted"].includes(value.status) || !Array.isArray(value.records) || !Array.isArray(value.comparisons) || !Array.isArray(value.coverage) || !["PASS", "FAIL", "INCONCLUSIVE"].includes(value.verdict) || !["PASS", "FAIL", "INCONCLUSIVE"].includes(value.candidateVerdict) || !shortText(value.startedAt) || !(value.endedAt === null || shortText(value.endedAt))) return false;
+  return value.records.length <= 10 && value.records.every((item) => record(item) && exactKeys(item, ["caseId", "releaseId", "actions", "assertions", "verdict", "startedAt", "endedAt"]) && shortText(item.caseId) && ["r1", "r2", "r3"].includes(item.releaseId) && Array.isArray(item.actions) && item.actions.length <= 10 && Array.isArray(item.assertions) && item.assertions.length <= 6 && ["PASS", "FAIL", "INCONCLUSIVE"].includes(item.verdict) && shortText(item.startedAt) && shortText(item.endedAt));
 }
 async function exists(path: string): Promise<boolean> { try { await stat(path); return true; } catch { return false; } }

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -82,6 +83,60 @@ test("runtime admits exactly one durable job before asynchronous execution and k
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test("persisted completed-case failures survive recovery and terminal completion cannot fabricate a PASS", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofpath-v2-recovery-"));
+  try {
+    const store = new V2Store(root);
+    const suite = await prepared(store);
+    const approval = await store.consumeApproval((await store.approveSuite(suite.id)).id);
+    const job = await store.createJob(approval);
+    await store.markRunning(job.id);
+    await store.appendRecord(job.id, { caseId: "coupon", releaseId: "r1", actions: [], assertions: [], verdict: "FAIL", startedAt: new Date().toISOString(), endedAt: new Date().toISOString() });
+    const restarted = new V2Store(root);
+    assert.equal(await restarted.recoverInterruptedJobs(), 1);
+    const recovered = await restarted.readJob(job.id);
+    assert.equal(recovered.status, "interrupted");
+    assert.equal(recovered.records[0]!.verdict, "FAIL");
+
+    const second = new V2Store(join(root, "second"));
+    const secondSuite = await prepared(second);
+    const secondApproval = await second.consumeApproval((await second.approveSuite(secondSuite.id)).id);
+    const secondJob = await second.createJob(secondApproval);
+    await second.markRunning(secondJob.id);
+    const incomplete = await second.completeJob(secondJob.id, [], []);
+    assert.equal(incomplete.verdict, "INCONCLUSIVE");
+    assert.equal(incomplete.records.length, 2);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("completed PASS requires intact evidence and corrupt durable state fails closed", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofpath-v2-evidence-"));
+  try {
+    const store = new V2Store(root);
+    const suite = await prepared(store);
+    const approval = await store.consumeApproval((await store.approveSuite(suite.id)).id);
+    const job = await store.createJob(approval);
+    await store.markRunning(job.id);
+    const records = await Promise.all(["r1", "r2"].map(async (releaseId) => {
+      const screenshot = `coupon-${releaseId}-coupon-error.png`;
+      const bytes = Buffer.from(`evidence-${releaseId}`);
+      await mkdir(store.runDirectory(job.id), { recursive: true });
+      await writeFile(join(store.runDirectory(job.id), screenshot), bytes);
+      return { caseId: "coupon", releaseId: releaseId as "r1" | "r2", actions: [], assertions: [{ id: "coupon-error", expected: "invalid-coupon", observed: "invalid-coupon", verdict: "PASS" as const, screenshot, screenshotSha256: `sha256:${createHash("sha256").update(bytes).digest("hex")}`, timestamp: new Date().toISOString(), url: "http://127.0.0.1:4173" }], verdict: "PASS" as const, startedAt: new Date().toISOString(), endedAt: new Date().toISOString() };
+    }));
+    const completed = await store.completeJob(job.id, records, []);
+    assert.equal(completed.verdict, "PASS");
+    await store.readJob(job.id);
+    await writeFile(join(store.runDirectory(job.id), records[0]!.assertions[0]!.screenshot), "tampered");
+    await assert.rejects(store.readJob(job.id), /evidence/i);
+
+    const corrupt = join(root, "corrupt", "runs", "v2");
+    await mkdir(corrupt, { recursive: true });
+    await writeFile(join(corrupt, "state.json"), JSON.stringify({ version: "2", executionCount: 0, suites: { bad: {} }, runs: {}, regressions: {} }));
+    await assert.rejects(new V2Store(join(root, "corrupt")).recoverInterruptedJobs(), /fail-closed/i);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("comparison keeps verdict and coverage separate", () => {
   assert.equal(classifyComparison({ verdict: "PASS", fingerprint: "a", observed: true }, { verdict: "FAIL", fingerprint: "a", observed: true }, "unchanged"), "regression");
   assert.equal(classifyComparison({ verdict: "FAIL", fingerprint: "a", observed: true }, { verdict: "PASS", fingerprint: "a", observed: true }, "unchanged"), "resolved-failure");
@@ -96,13 +151,19 @@ test("v2 HTTP routes use exact local JSON requests and never create an approval 
   const root = await mkdtemp(join(tmpdir(), "proofpath-v2-http-"));
   const previous = process.env.DATA_DIR;
   process.env.DATA_DIR = root;
+  let inspections = 0;
+  let proposals = 0;
+  let proposedSource = "";
   const probe = createServer();
   await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
   const probeAddress = probe.address();
   assert.ok(probeAddress && typeof probeAddress !== "string");
   const port = probeAddress.port;
   await new Promise<void>((resolve) => probe.close(() => resolve()));
-  const instance = createProofPathServer(port, createPlanner({ PLANNER_MODE: "fixture" }));
+  const instance = createProofPathServer(port, createPlanner({ PLANNER_MODE: "fixture" }), {
+    inspect: async (input) => { inspections += 1; return { ...input.grounding, observedTargets: ["checkout"] }; },
+    propose: async (input) => { proposals += 1; proposedSource = input.requirement.originalText; return validateSuiteProposal(proposalFor(input), input); }
+  });
   await new Promise<void>((resolve) => instance.server.listen(port, "127.0.0.1", resolve));
   const address = instance.server.address();
   assert.ok(address && typeof address !== "string");
@@ -116,10 +177,13 @@ test("v2 HTTP routes use exact local JSON requests and never create an approval 
   });
   try {
     assert.equal((await send("/api/v2/groundings")).status, 200);
-    assert.equal((await send("/api/v2/proposals", { proposal: proposalFor(context), unexpected: true })).status, 400);
-    assert.equal((await send("/api/v2/proposals", { proposal: proposalFor(context) }, { Origin: "http://attacker.invalid" })).status, 400);
-    const proposal = await send("/api/v2/proposals", { proposal: proposalFor(context) });
+    assert.equal(inspections, 1);
+    assert.equal((await send("/api/v2/proposals", { requirement: "Different trusted source", releases: ["r1", "r2"], unexpected: true })).status, 400);
+    assert.equal((await send("/api/v2/proposals", { requirement: "Different trusted source", releases: ["r1", "r2"] }, { Origin: "http://attacker.invalid" })).status, 400);
+    const proposal = await send("/api/v2/proposals", { requirement: "Different trusted source", releases: ["r1", "r2"] });
     assert.equal(proposal.status, 201);
+    assert.equal(proposals, 1);
+    assert.equal(proposedSource, "Different trusted source");
     assert.equal((await send(`/api/v2/proposals/${proposal.body.id}/review`, { review: {}, unexpected: true })).status, 400);
     const reviewed = await send(`/api/v2/proposals/${proposal.body.id}/review`, { review: reviewFor(context) });
     assert.equal(reviewed.status, 201);

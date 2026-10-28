@@ -69,6 +69,9 @@ test("frozen checkout releases expose real totals and isolated synthetic state",
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   try {
     server = await app();
+    const grounding = await fetch(`${server.origin}/api/v2/groundings`);
+    assert.equal(grounding.status, 200);
+    assert.ok((await grounding.json() as { observedTargets: string[] }).observedTargets.includes("checkout"));
     browser = await chromium.launch({ headless: true, timeout: 10_000 });
     for (const [release, expected] of [["r1", "7700"], ["r2", "7200"], ["r3", "7700"]] as const) {
       const page = await browser.newPage();

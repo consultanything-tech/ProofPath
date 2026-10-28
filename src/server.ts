@@ -11,7 +11,7 @@ import { RunnerExecutionError, runApprovedPlan } from "./runner.js";
 import { getScenario } from "./scenarios.js";
 import { aggregate, type AssertionResult } from "./verdict.js";
 import { createV2Context } from "./v2-checkout.js";
-import { handleV2Request } from "./v2-http.js";
+import { handleV2Request, type V2HttpContext } from "./v2-http.js";
 import { createV2Runtime } from "./v2-runner.js";
 import { V2Store } from "./v2-store.js";
 
@@ -57,7 +57,7 @@ async function serveFile(res: ServerResponse, path: string) {
   try { send(res, 200, await readFile(file), mime[extname(file)] ?? "application/octet-stream"); } catch { send(res, 404, { error: "Not found." }); }
 }
 
-export function createProofPathServer(port: number, planner: Planner = createPlanner(process.env)) {
+export function createProofPathServer(port: number, planner: Planner = createPlanner(process.env), v2Services: Pick<V2HttpContext, "inspect" | "propose"> = {}) {
   const origin = `http://${host}:${port}`;
   const store = new PlanStore();
   const gate = new RunGate();
@@ -70,7 +70,7 @@ export function createProofPathServer(port: number, planner: Planner = createPla
       if (req.headers.host !== `${host}:${port}`) throw new Error("Exact local Host header required.");
       const url = new URL(req.url ?? "/", origin);
       if (url.origin !== origin) throw new Error("Local request URL required.");
-      if (await handleV2Request(req, res, { origin, store: v2Store, runtime: v2Runtime, v2: v2Context })) return;
+      if (await handleV2Request(req, res, { origin, store: v2Store, runtime: v2Runtime, v2: v2Context, ...v2Services })) return;
       if (req.method === "GET" && url.pathname === "/api/config") return send(res, 200, { planner: planner.provenance, plannerLabel: plannerLabel(planner.provenance) });
       if (req.method === "POST" && url.pathname === "/api/plans") {
         mutation(req, origin);

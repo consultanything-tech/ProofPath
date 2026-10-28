@@ -38,13 +38,14 @@ export function createV2Runtime(store: V2Store, origin: string, options: V2Runne
         const approval = await store.consumeApproval(approvalId);
         const accepted = await store.createJob(approval);
         const running = await store.markRunning(accepted.id);
-        void execute(approval, running).then(async (result) => {
-          const completed = await store.completeJob(running.id, result?.records ?? [], result?.coverage ?? ["Runner returned without complete paired observations."]);
-          await store.writeManifest(completed);
-        }).catch(async () => {
-          const completed = await store.completeJob(running.id, [], ["Runner failed before complete paired observations were captured."]);
-          await store.writeManifest(completed);
-        }).finally(() => { active = false; options.gate?.release(); });
+        void (async () => {
+          try {
+            const result = await execute(approval, running);
+            await store.completeJob(running.id, result?.records ?? [], result?.coverage ?? ["Runner returned without complete paired observations."]);
+          } catch {
+            try { await store.completeJob(running.id, [], ["Runner failed before complete paired observations were captured."]); } catch { /* Durable progress remains recoverable; never replace it with an empty run. */ }
+          } finally { active = false; options.gate?.release(); }
+        })();
         return { runId: accepted.id };
       } catch (error) {
         active = false;
@@ -69,7 +70,9 @@ async function executePaired(approval: SuiteApproval, run: SuiteRun, store: V2St
     for (const release of approval.definition.releases) {
       if (Date.now() - started >= suiteMs) return { records, coverage: [...coverage, "Suite deadline reached before all reviewed cases completed."] };
       const expectation = approval.expectations[approval.definition.cases.indexOf(item)]!;
-      records.push(await executeCase(item, expectation, release, run.id, store, origin, Math.min(caseMs, suiteMs - (Date.now() - started))));
+      const record = await executeCase(item, expectation, release, run.id, store, origin, Math.min(caseMs, suiteMs - (Date.now() - started)));
+      records.push(record);
+      await store.appendRecord(run.id, record);
     }
   }
   return { records, coverage };
@@ -93,22 +96,25 @@ async function executeCase(definition: CaseDefinition, expected: ExpectedCase, r
   const deadline = Date.now() + timeoutMs;
   const remaining = () => Math.max(1, deadline - Date.now());
   let context: BrowserContext | undefined;
+  let browser: import("playwright").Browser | undefined;
   let page: Page | undefined;
   const url = new URL(release.documentPath, origin).toString();
   let blocked = false;
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; void context?.close().catch(() => {}); void browser?.close().catch(() => {}); }, timeoutMs);
   try {
-    const browser = await chromium.launch({ headless: true, timeout: timeoutMs });
+    browser = await chromium.launch({ headless: true, timeout: remaining() });
     try {
       context = await browser.newContext({ serviceWorkers: "block", acceptDownloads: false, permissions: [] });
-      context.setDefaultTimeout(timeoutMs);
-      context.setDefaultNavigationTimeout(timeoutMs);
+      context.setDefaultTimeout(remaining());
+      context.setDefaultNavigationTimeout(remaining());
       const permitted = new Set(release.resources);
       await context.route("**/*", async (route) => {
         const request = route.request();
         const requestUrl = new URL(request.url());
         if (request.method() !== "GET" || requestUrl.origin !== origin || !permitted.has(requestUrl.pathname) || requestUrl.search || requestUrl.hash) { blocked = true; await route.abort(); return; }
         try {
-          const response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: timeoutMs });
+          const response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: remaining() });
           if (!response.ok() || response.status() >= 300) { blocked = true; await route.abort(); return; }
           await route.fulfill({ response });
         } catch { blocked = true; await route.abort().catch(() => {}); }
@@ -120,7 +126,7 @@ async function executeCase(definition: CaseDefinition, expected: ExpectedCase, r
       for (const action of definition.actions) {
         const started = new Date().toISOString();
         try {
-          if (Date.now() >= deadline) throw new Error("Case deadline reached.");
+          if (timedOut || Date.now() >= deadline) throw new Error("Case deadline reached.");
           if (blocked) throw new Error("Browser request was blocked.");
           await perform(action, page, url, remaining());
           if (blocked || page.url() !== url) throw new Error("Browser left the approved release.");
@@ -131,14 +137,14 @@ async function executeCase(definition: CaseDefinition, expected: ExpectedCase, r
         }
       }
       for (const assertion of definition.assertions) {
-        if (Date.now() >= deadline) throw new Error("Case deadline reached.");
+        if (timedOut || Date.now() >= deadline) throw new Error("Case deadline reached.");
         assertions.push(await observe(assertion, expected, definition, release, runId, store, page, remaining()));
       }
-    } finally { await context?.close().catch(() => {}); await browser.close().catch(() => {}); }
+    } finally { await context?.close().catch(() => {}); await browser?.close().catch(() => {}); }
   } catch {
     for (const action of definition.actions) if (!actions.some((result) => result.id === action.id)) actions.push({ id: action.id, status: "not-run", startedAt: null, endedAt: null, url: null });
     for (const assertion of definition.assertions) if (!assertions.some((result) => result.id === assertion.id)) assertions.push({ id: assertion.id, expected: expectedFor(assertion, expected), observed: null, verdict: "INCONCLUSIVE", screenshot: "not-captured.png", timestamp: new Date().toISOString(), url });
-  }
+  } finally { clearTimeout(timer); }
   const verdict = assertions.some((result) => result.verdict === "FAIL") ? "FAIL" : assertions.some((result) => result.verdict === "INCONCLUSIVE") ? "INCONCLUSIVE" : "PASS";
   return { caseId: definition.id, releaseId: release.id, actions, assertions, verdict, startedAt, endedAt: new Date().toISOString() };
 }
@@ -171,7 +177,7 @@ async function observe(assertion: CaseAssertion, expected: ExpectedCase, definit
   await page.screenshot({ path: file, fullPage: true, timeout: timeoutMs });
   const expectedValue = expectedFor(assertion, expected);
   const observed = await observedFor(assertion, definition, page);
-  return { id: assertion.id, expected: expectedValue, observed, verdict: observed === null ? "INCONCLUSIVE" : digestV2(observed) === digestV2(expectedValue) ? "PASS" : "FAIL", screenshot, screenshotSha256: `sha256:${createHash("sha256").update(await readFile(file)).digest("hex")}`, timestamp: new Date().toISOString(), url: page.url() };
+  return { id: assertion.id, expected: expectedValue, observed: observed === undefined ? null : observed, verdict: observed === undefined ? "INCONCLUSIVE" : digestV2(observed) === digestV2(expectedValue) ? "PASS" : "FAIL", screenshot, screenshotSha256: `sha256:${createHash("sha256").update(await readFile(file)).digest("hex")}`, timestamp: new Date().toISOString(), url: page.url() };
 }
 function expectedFor(assertion: CaseAssertion, expected: ExpectedCase): unknown {
   if (assertion.predicate === "total-minor") return expected.totalMinor;
@@ -179,11 +185,11 @@ function expectedFor(assertion: CaseAssertion, expected: ExpectedCase): unknown 
   if (assertion.predicate === "contact-errors") return expected.contactErrors;
   return expected.syntheticConfirmation;
 }
-async function observedFor(assertion: CaseAssertion, definition: CaseDefinition, page: Page): Promise<unknown | null> {
-  if (assertion.predicate === "total-minor") return exactText(page, "#total-minor", /^\d+$/).then((value) => value === null ? null : Number(value));
+async function observedFor(assertion: CaseAssertion, definition: CaseDefinition, page: Page): Promise<unknown | undefined> {
+  if (assertion.predicate === "total-minor") return exactText(page, "#total-minor", /^\d+$/).then((value) => value === undefined ? undefined : Number(value));
   if (assertion.predicate === "coupon-error") return stateText(page, "#coupon-error", "invalid-coupon");
-  if (assertion.predicate === "contact-errors") return Promise.all([stateText(page, "#email-error", "required"), stateText(page, "#postal-code-error", "required")]).then(([email, postalCode]) => email === null || postalCode === null ? null : { email, postalCode });
-  return stateText(page, "#confirmation", "confirmed").then((state) => state === "confirmed" ? state : definition.actions.some((action) => action.kind === "confirm-synthetic-order") ? "blocked" : "not-requested");
+  if (assertion.predicate === "contact-errors") return Promise.all([stateText(page, "#email-error", "required"), stateText(page, "#postal-code-error", "required")]).then(([email, postalCode]) => email === undefined || postalCode === undefined ? undefined : { email, postalCode });
+  return stateText(page, "#confirmation", "confirmed").then((state) => state === undefined ? undefined : state === "confirmed" ? state : definition.actions.some((action) => action.kind === "confirm-synthetic-order") ? "blocked" : "not-requested");
 }
-async function exactText(page: Page, selector: string, pattern: RegExp): Promise<string | null> { const locator = page.locator(selector); if (await locator.count() !== 1 || !await locator.isVisible()) return null; const text = (await locator.textContent())?.trim() ?? ""; return pattern.test(text) ? text : null; }
-async function stateText(page: Page, selector: string, value: string): Promise<string | null> { const locator = page.locator(selector); if (await locator.count() !== 1) return null; return await locator.isVisible() ? value : null; }
+async function exactText(page: Page, selector: string, pattern: RegExp): Promise<string | undefined> { const locator = page.locator(selector); if (await locator.count() !== 1 || !await locator.isVisible()) return undefined; const text = (await locator.textContent())?.trim() ?? ""; return pattern.test(text) ? text : undefined; }
+async function stateText(page: Page, selector: string, value: string): Promise<string | null | undefined> { const locator = page.locator(selector); if (await locator.count() !== 1) return undefined; return await locator.isVisible() ? value : null; }
