@@ -2,7 +2,8 @@
 
 **Scope transition, October 28:** the user selected the expanded checkout/order
 QA workbench. Review the [v2 design](superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
-before creating its implementation plan. The v1 sequence below, including host
+and the [v2 implementation plan](superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
+before code changes. The v1 sequence below, including host
 resource assumptions, is retained as reference and must not be treated as a v2
 implementation plan. Verified fallback checkpoint: `4ace907`.
 

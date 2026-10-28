@@ -5,7 +5,8 @@ ProofPath turns a plain-language browser journey into an approved run and an evi
 The selected next product direction is a checkout/order QA workbench: acceptance
 criteria → reviewed suites → paired release evidence → saved regression cases
 and exports. The [v2 PRD/design](docs/superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
-is awaiting written review. The runnable implementation and verification status
+is approved as development input; the [implementation plan](docs/superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
+awaits review before code changes. The runnable implementation and verification status
 below are v1; the expanded capabilities are not implemented yet.
 
 ## Hackathon scope

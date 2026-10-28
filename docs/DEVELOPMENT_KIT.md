@@ -2,7 +2,8 @@
 
 **V1 implementation reference.** The expanded checkout/order workbench direction
 was selected on October 28. Its [written design](superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
-awaits review; v2 contracts, suites, oracles and budget assumptions are not
+was approved as development input; its [implementation plan](superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
+awaits review. V2 contracts, suites, oracles and budget assumptions are not
 implemented by this kit. Preserve the working v1 and its evidence during migration.
 
 **Companion to:** [PRD](PRD.md)  

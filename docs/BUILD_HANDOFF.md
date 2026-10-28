@@ -2,7 +2,8 @@
 
 **Current direction, October 28:** the user selected the checkout/order QA
 workbench expansion. The [v2 design](superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
-needs written review before its implementation plan. The handoff below records
+is approved as development input; the [implementation plan](superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
+awaits review before code changes. The handoff below records
 v1 decisions and verification; preserve checkpoint `4ace907` as the fallback.
 
 Prepared October 26, 2026, Asia/Singapore. Updated October 27 after reviewing the kickoff notes and transcript.
