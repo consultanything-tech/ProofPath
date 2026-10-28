@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import test from "node:test";
 import { chromium } from "playwright";
 import { createPlanner } from "../src/planner.js";
 import { createProofPathServer } from "../src/server.js";
+import { createV2Context, digestV2, type ReleaseRef, type V2Context } from "../src/v2-checkout.js";
+import { inspectRegisteredTarget } from "../src/v2-planner.js";
 
 async function availablePort() {
   const probe = createServer();
@@ -19,6 +22,40 @@ async function app() {
   const instance = createProofPathServer(port, createPlanner({ PLANNER_MODE: "fixture" }));
   await new Promise<void>((resolve) => instance.server.listen(port, "127.0.0.1", resolve));
   return { ...instance, close: async () => { instance.server.closeAllConnections(); await new Promise<void>((resolve) => instance.server.close(() => resolve())); } };
+}
+
+function release(id: "r1" | "r2", body: string): ReleaseRef {
+  return { id, documentPath: `/v2-target/${id}/index.html`, resources: [`/v2-target/${id}/index.html`], fingerprint: `sha256:${createHash("sha256").update(body).digest("hex")}` };
+}
+
+async function inspectionTarget(bodies: Record<"r1" | "r2", string>) {
+  let unregisteredRequests = 0;
+  const server = createServer((req, res) => {
+    const path = new URL(req.url ?? "/", "http://fixture").pathname;
+    const match = path.match(/^\/v2-target\/(r1|r2)\/index\.html$/);
+    if (req.method === "GET" && match) {
+      res.writeHead(200, { "content-type": "text/html" });
+      res.end(bodies[match[1] as "r1" | "r2"]);
+      return;
+    }
+    unregisteredRequests += 1;
+    res.writeHead(200, { "content-type": "application/javascript" });
+    res.end("document.body.dataset.unexpected = 'yes';");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  return { origin: `http://127.0.0.1:${address.port}`, unregisteredRequests: () => unregisteredRequests, close: async () => new Promise<void>((resolve) => server.close(() => resolve())) };
+}
+
+function inspectionContext(origin: string, bodies: Record<"r1" | "r2", string>): V2Context {
+  const context = createV2Context(origin);
+  const releases = [release("r1", bodies.r1), release("r2", bodies.r2)] as const;
+  return {
+    ...context,
+    app: { ...context.app, inspectionPolicy: { readonlyDocuments: releases.map((item) => item.documentPath), readonlyResources: releases.flatMap((item) => item.resources), reset: "new-context" } },
+    grounding: { releases, observedTargets: [], declaredTargets: context.app.semanticTargets.map((target) => target.id), pairFingerprint: digestV2(releases.map((item) => item.fingerprint)) }
+  };
 }
 
 test("frozen checkout releases expose real totals and isolated synthetic state", { timeout: 15_000 }, async () => {
@@ -85,5 +122,26 @@ test("frozen checkout releases expose real totals and isolated synthetic state",
   } finally {
     await browser?.close();
     await server?.close();
+  }
+});
+
+test("readonly inspection records only rendered visible controls and blocks egress", { timeout: 30_000 }, async () => {
+  const hidden = "<!doctype html><button id=checkout style='display:none'>Checkout</button><input id=coupon aria-label=Coupon>";
+  const instance = await inspectionTarget({ r1: hidden, r2: hidden });
+  try {
+    const grounding = await inspectRegisteredTarget(inspectionContext(instance.origin, { r1: hidden, r2: hidden }));
+    assert.ok(!grounding.observedTargets.includes("checkout"));
+    assert.ok(grounding.observedTargets.includes("coupon"));
+    assert.ok(grounding.declaredTargets.includes("checkout"));
+  } finally {
+    await instance.close();
+  }
+  const egress = "<!doctype html><script src='/unregistered.js'></script><button id=checkout>Checkout</button>";
+  const blocked = await inspectionTarget({ r1: egress, r2: egress });
+  try {
+    await assert.rejects(inspectRegisteredTarget(inspectionContext(blocked.origin, { r1: egress, r2: egress })), /unregistered|blocked/i);
+    assert.equal(blocked.unregisteredRequests(), 0);
+  } finally {
+    await blocked.close();
   }
 });

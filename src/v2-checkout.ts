@@ -182,6 +182,13 @@ const referenceRequirement: RequirementContract = {
   ],
   normalizedRules: REFERENCE_RULES,
   adoptedReferenceIds: ["checkout-reference-v2"],
+  numericRuleChanges: [],
+  reviewedReferences: [
+    { criterionId: "cart", adoptedReferenceIds: ["checkout-reference-v2"] },
+    { criterionId: "coupon", adoptedReferenceIds: ["checkout-reference-v2"] },
+    { criterionId: "delivery", adoptedReferenceIds: ["checkout-reference-v2"] },
+    { criterionId: "contact", adoptedReferenceIds: ["checkout-reference-v2"] }
+  ],
   expectationScope: [{ criterionId: "cart", scope: "unchanged" }, { criterionId: "coupon", scope: "unchanged" }, { criterionId: "delivery", scope: "unchanged" }, { criterionId: "contact", scope: "unchanged" }],
   coverageGaps: []
 };

@@ -81,13 +81,25 @@ export interface ExpectedCase {
   readonly syntheticConfirmation: "confirmed" | "blocked" | "not-requested";
 }
 
+export type NumericCheckoutRuleField = "quantityMinimum" | "quantityMaximum" | "couponBasisPoints" | "deliveryThresholdMinor" | "deliveryFeeMinor";
+export interface NumericRuleChange { readonly criterionId: string; readonly field: NumericCheckoutRuleField; readonly value: number; readonly sourceQuote: string; }
 export interface RequirementContract {
   readonly version: "2";
   readonly originalText: string;
   readonly criteria: readonly { readonly id: string; readonly sourceQuote: string; readonly normalizedRule: string }[];
   readonly normalizedRules: CheckoutRules;
   readonly adoptedReferenceIds: readonly string[];
+  readonly numericRuleChanges: readonly NumericRuleChange[];
+  readonly reviewedReferences: readonly { readonly criterionId: string; readonly adoptedReferenceIds: readonly string[] }[];
   readonly expectationScope: readonly { readonly criterionId: string; readonly scope: "unchanged" | "new-or-changed" }[];
+  readonly coverageGaps: readonly string[];
+}
+export interface RequirementProposal {
+  readonly version: "2";
+  readonly originalText: string;
+  readonly criteria: RequirementContract["criteria"];
+  readonly numericRuleChanges: readonly NumericRuleChange[];
+  readonly expectationScope: RequirementContract["expectationScope"];
   readonly coverageGaps: readonly string[];
 }
 
@@ -98,8 +110,8 @@ export interface GroundingBundle {
   readonly pairFingerprint: string;
 }
 
-export interface ProposalResult { readonly kind: "proposal" | "clarification"; readonly requirement: RequirementContract; readonly cases: readonly CaseDefinition[]; readonly gaps: readonly string[]; }
-export interface CriterionReviewDecision { readonly criterionId: string; readonly interpretation: string; readonly scope: "unchanged" | "new-or-changed"; readonly adoptedReferenceIds: readonly string[]; readonly acceptedGaps: readonly string[]; }
+export interface ProposalResult { readonly kind: "proposal" | "clarification"; readonly requirement: RequirementProposal; readonly cases: readonly CaseDefinition[]; readonly gaps: readonly string[]; }
+export interface CriterionReviewDecision { readonly criterionId: string; readonly interpretation: string; readonly scope: "unchanged" | "new-or-changed"; readonly adoptedReferenceIds: readonly string[]; readonly acceptedGaps: readonly string[]; readonly acceptedNumericRuleChanges: readonly NumericRuleChange[]; }
 export interface ReviewDecision { readonly decisions: readonly CriterionReviewDecision[]; }
 export interface SuiteDefinition { readonly version: "2"; readonly requirement: RequirementContract; readonly rules: CheckoutRules; readonly referenceId: string; readonly cases: readonly CaseDefinition[]; readonly app: AppContract; readonly releases: readonly [ReleaseRef, ReleaseRef]; }
 export interface SuiteApproval { readonly definition: SuiteDefinition; readonly rules: CheckoutRules; readonly referenceId: string; readonly expectations: readonly ExpectedCase[]; readonly grounding: GroundingBundle; readonly provenance: readonly string[]; readonly digest: string; readonly expiresAt: string; readonly consumed: boolean; }

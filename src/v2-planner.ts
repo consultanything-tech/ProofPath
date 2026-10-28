@@ -1,17 +1,19 @@
 import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
+import { chromium } from "playwright";
 import {
   deriveCaseInput,
   digestV2,
   validateCase
 } from "./v2-checkout.js";
-import type { CaseDefinition, CriterionReviewDecision, GroundingBundle, ProposalResult, RequirementContract, ReviewDecision, SuiteDefinition, V2Context } from "./v2-contracts.js";
+import type { CaseDefinition, CheckoutRules, CriterionReviewDecision, GroundingBundle, NumericCheckoutRuleField, NumericRuleChange, ProposalResult, RequirementContract, RequirementProposal, ReviewDecision, SuiteDefinition, V2Context } from "./v2-contracts.js";
 import { calculateCheckout } from "./v2-oracle.js";
 
 export const V2_META_MODEL = "muse-spark-1.3" as const;
 export const V2_META_ENDPOINT = "https://api.meta.ai/v1/chat/completions";
 const MAX_RESPONSE_BYTES = 65_536;
 const PROVIDER_TIMEOUT_MS = 30_000;
+const INSPECTION_TIMEOUT_MS = 30_000;
 
 class V2PlannerError extends Error {}
 
@@ -21,33 +23,131 @@ const text = (value: unknown, max: number) => typeof value === "string" && value
 const ids = (values: readonly string[]) => new Set(values).size === values.length;
 const same = (left: unknown, right: unknown) => digestV2(left) === digestV2(right);
 
-const visibleInitialTargets = new Set(["add-desk-lamp", "add-notebook", "add-cable", "coupon", "checkout", "total-minor"]);
-
 export async function inspectRegisteredTarget(context: V2Context): Promise<GroundingBundle> {
   const releases = context.grounding.releases;
   if (releases.length !== 2) throw new V2PlannerError("Inspection requires exactly two registered releases.");
   const permitted = new Set(context.app.inspectionPolicy.readonlyResources);
-  for (const release of releases) {
-    if (!release.resources.every((resource) => permitted.has(resource))) throw new V2PlannerError("Release includes an unregistered inspection resource.");
-    const hash = createHash("sha256");
-    for (const resource of release.resources) {
-      const url = new URL(resource, context.app.origin);
-      if (url.origin !== context.app.origin || url.pathname !== resource) throw new V2PlannerError("Inspection resource is outside the registered target.");
-      const response = await fetch(url, { method: "GET", redirect: "error" });
-      if (!response.ok) throw new V2PlannerError("Registered inspection resource was unavailable.");
-      hash.update(Buffer.from(await response.arrayBuffer()));
+  if (!releases.every((release) => release.resources.every((resource) => permitted.has(resource)))) throw new V2PlannerError("Release includes an unregistered inspection resource.");
+  const browser = await chromium.launch({ headless: true, timeout: INSPECTION_TIMEOUT_MS });
+  const observedByRelease: string[][] = [];
+  try {
+    for (const release of releases) {
+      const bodies = new Map<string, Buffer>();
+      let blocked: string | undefined;
+      const inspection = await browser.newContext({ serviceWorkers: "block", acceptDownloads: false, permissions: [] });
+      inspection.setDefaultTimeout(INSPECTION_TIMEOUT_MS);
+      inspection.setDefaultNavigationTimeout(INSPECTION_TIMEOUT_MS);
+      try {
+        await inspection.route("**/*", async (route) => {
+          const request = route.request();
+          const url = new URL(request.url());
+          const resource = url.pathname;
+          const exactResource = new URL(resource, context.app.origin).toString() === url.toString();
+          const isDocument = request.resourceType() === "document";
+          if (request.method() !== "GET" || url.origin !== context.app.origin || !permitted.has(resource) || !exactResource || (isDocument && resource !== release.documentPath)) {
+            blocked = "Inspection blocked an unregistered request.";
+            await route.abort();
+            return;
+          }
+          try {
+            const response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: INSPECTION_TIMEOUT_MS });
+            if (!response.ok() || response.status() >= 300 || Number(response.headers()["content-length"]) > MAX_RESPONSE_BYTES) {
+              blocked = "Registered inspection resource was unavailable or exceeded the body limit.";
+              await route.abort();
+              return;
+            }
+            const body = Buffer.from(await response.body());
+            if (body.byteLength > MAX_RESPONSE_BYTES) {
+              blocked = "Registered inspection resource exceeded the body limit.";
+              await route.abort();
+              return;
+            }
+            bodies.set(resource, body);
+            await route.fulfill({ response, body });
+          } catch {
+            blocked = "Registered inspection resource could not be read.";
+            await route.abort().catch(() => {});
+          }
+        });
+        await inspection.routeWebSocket("**/*", async (socket) => {
+          blocked = "Inspection blocked a WebSocket.";
+          await socket.close();
+        });
+        const page = await inspection.newPage();
+        page.on("popup", (popup) => { blocked = "Inspection blocked a popup."; void popup.close().catch(() => {}); });
+        page.on("download", (download) => { blocked = "Inspection blocked a download."; void download.cancel().catch(() => {}); });
+        const documentUrl = new URL(release.documentPath, context.app.origin).toString();
+        await page.goto(documentUrl, { waitUntil: "networkidle", timeout: INSPECTION_TIMEOUT_MS });
+        if (blocked || page.url() !== documentUrl || !release.resources.every((resource) => bodies.has(resource))) throw new V2PlannerError(blocked ?? "Inspection did not load every registered resource.");
+        const hash = createHash("sha256");
+        for (const resource of release.resources) hash.update(bodies.get(resource)!);
+        if (`sha256:${hash.digest("hex")}` !== release.fingerprint) throw new V2PlannerError("Registered inspection resource fingerprint changed.");
+        const observed: string[] = [];
+        for (const target of context.app.semanticTargets) {
+          const locator = page.locator(`#${target.id}`);
+          if (await locator.count() === 1 && await locator.isVisible()) {
+            await locator.ariaSnapshot({ timeout: INSPECTION_TIMEOUT_MS });
+            observed.push(target.id);
+          }
+        }
+        observedByRelease.push(observed);
+      } finally {
+        await inspection.close();
+      }
     }
-    if (`sha256:${hash.digest("hex")}` !== release.fingerprint) throw new V2PlannerError("Registered inspection resource fingerprint changed.");
+  } finally {
+    await browser.close();
   }
   const declaredTargets = context.app.semanticTargets.map((target) => target.id);
-  const observedTargets = declaredTargets.filter((target) => visibleInitialTargets.has(target));
-  return {
-    releases: [releases[0]!, releases[1]!],
-    observedTargets,
-    declaredTargets,
-    pairFingerprint: digestV2(releases.map((release) => release.fingerprint))
-  };
+  const observedTargets = declaredTargets.filter((target) => observedByRelease.every((observed) => observed.includes(target)));
+  return { releases: [releases[0]!, releases[1]!], observedTargets, declaredTargets, pairFingerprint: digestV2(releases.map((release) => release.fingerprint)) };
 }
+
+const schemaObject = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({ type: "object", properties, required, additionalProperties: false });
+const schemaText = { type: "string", minLength: 1, maxLength: 1_000 };
+const schemaId = { type: "string", pattern: "^[a-z0-9-]{1,64}$" };
+const schemaNull = { type: "null" };
+const semanticActionSchema = {
+  oneOf: [
+    schemaObject({ id: schemaId, kind: { const: "open-app" }, target: { const: "checkout" }, value: schemaNull }),
+    schemaObject({ id: schemaId, kind: { enum: ["add-product", "remove-product"] }, target: { enum: ["desk-lamp", "notebook", "cable"] }, value: schemaNull }),
+    schemaObject({ id: schemaId, kind: { const: "set-quantity" }, target: { enum: ["desk-lamp", "notebook", "cable"] }, value: { type: "integer", minimum: 1, maximum: 5 } }),
+    schemaObject({ id: schemaId, kind: { const: "fill-coupon" }, target: { const: "coupon" }, value: { type: "string", pattern: "^[A-Z0-9-]{1,32}$" } }),
+    schemaObject({ id: schemaId, kind: { const: "apply-coupon" }, target: { const: "coupon" }, value: schemaNull }),
+    schemaObject({ id: schemaId, kind: { const: "open-contact" }, target: { const: "contact" }, value: schemaNull }),
+    schemaObject({ id: schemaId, kind: { const: "fill-contact" }, target: { enum: ["email", "postal-code"] }, value: { type: "string", maxLength: 254 } }),
+    schemaObject({ id: schemaId, kind: { const: "confirm-synthetic-order" }, target: { const: "synthetic-order" }, value: schemaNull })
+  ]
+};
+const SUITE_PROPOSAL_SCHEMA = {
+  type: "object",
+  properties: {
+    kind: { enum: ["proposal", "clarification"] },
+    requirement: schemaObject({
+      version: { const: "2" },
+      originalText: { type: "string", minLength: 1, maxLength: 4_000 },
+      criteria: { type: "array", minItems: 1, maxItems: 6, items: schemaObject({ id: schemaId, sourceQuote: schemaText, normalizedRule: schemaText }) },
+      numericRuleChanges: { type: "array", maxItems: 5, items: schemaObject({ criterionId: schemaId, field: { enum: ["quantityMinimum", "quantityMaximum", "couponBasisPoints", "deliveryThresholdMinor", "deliveryFeeMinor"] }, value: { type: "integer" }, sourceQuote: schemaText }) },
+      expectationScope: { type: "array", maxItems: 6, items: schemaObject({ criterionId: schemaId, scope: { enum: ["unchanged", "new-or-changed"] } }) },
+      coverageGaps: { type: "array", maxItems: 12, items: { type: "string", minLength: 1, maxLength: 500 } }
+    }),
+    cases: { type: "array", maxItems: 5, items: schemaObject({
+      id: schemaId,
+      criterionIds: { type: "array", minItems: 1, maxItems: 6, items: schemaId },
+      category: { enum: ["happy", "negative", "boundary", "interaction"] },
+      rationale: { type: "string", maxLength: 500 },
+      actions: { type: "array", minItems: 1, maxItems: 10, items: semanticActionSchema },
+      assertions: { type: "array", minItems: 1, maxItems: 6, items: schemaObject({ id: schemaId, predicate: { enum: ["total-minor", "coupon-error", "contact-errors", "synthetic-confirmation"] } }) }
+    }) },
+    gaps: { type: "array", maxItems: 12, items: { type: "string", minLength: 1, maxLength: 500 } }
+  },
+  required: ["kind", "requirement", "cases", "gaps"],
+  additionalProperties: false,
+  oneOf: [
+    { properties: { kind: { const: "proposal" }, cases: { minItems: 1 } }, required: ["kind", "cases"] },
+    { properties: { kind: { const: "clarification" }, cases: { maxItems: 0 }, gaps: { minItems: 1 } }, required: ["kind", "cases", "gaps"] }
+  ]
+} as const;
 
 export function buildMetaSuiteRequest(context: V2Context): object {
   return {
@@ -79,13 +179,28 @@ export function buildMetaSuiteRequest(context: V2Context): object {
         })
       }
     ],
-    response_format: { type: "json_schema", json_schema: { name: "proofpath_v2_suite", strict: true, schema: { type: "object" } } }
+    response_format: { type: "json_schema", json_schema: { name: "proofpath_v2_suite", strict: true, schema: SUITE_PROPOSAL_SCHEMA } }
   };
 }
 
-function validateRequirement(value: unknown, context: V2Context): RequirementContract {
-  if (!isRecord(value) || !exactKeys(value, ["version", "originalText", "criteria", "normalizedRules", "adoptedReferenceIds", "expectationScope", "coverageGaps"]) || value.version !== "2" || value.originalText !== context.requirement.originalText || !Array.isArray(value.criteria) || value.criteria.length !== context.requirement.criteria.length || !Array.isArray(value.adoptedReferenceIds) || !value.adoptedReferenceIds.every((item) => text(item, 128)) || !ids(value.adoptedReferenceIds as string[]) || !Array.isArray(value.expectationScope) || !Array.isArray(value.coverageGaps)) throw new V2PlannerError("Proposal requirement has an invalid shape.");
-  if (!same(value.normalizedRules, context.rules) || !same(value.adoptedReferenceIds, context.requirement.adoptedReferenceIds)) throw new V2PlannerError("Proposal contradicts the reviewed reference policy.");
+export function applyReviewedNumericRuleChanges(reference: CheckoutRules, changes: readonly NumericRuleChange[]): CheckoutRules {
+  const fields = new Set<NumericCheckoutRuleField>();
+  const resolved = { ...reference } as CheckoutRules;
+  for (const change of changes) {
+    if (fields.has(change.field)) throw new V2PlannerError("Numeric rule changes cannot set one field twice.");
+    fields.add(change.field);
+    if (!Number.isSafeInteger(change.value)) throw new V2PlannerError("Numeric rule changes must use safe integers.");
+    if ((change.field === "quantityMinimum" || change.field === "quantityMaximum") && (change.value < 1 || change.value > 5)) throw new V2PlannerError("Quantity rules must remain within the adapter domain.");
+    if (change.field === "couponBasisPoints" && (change.value < 0 || change.value > 10_000)) throw new V2PlannerError("Coupon basis points are outside the supported range.");
+    if ((change.field === "deliveryThresholdMinor" || change.field === "deliveryFeeMinor") && (change.value < 0 || change.value > Number.MAX_SAFE_INTEGER - 39_995)) throw new V2PlannerError("Delivery minor units are unsafe.");
+    (resolved as Record<NumericCheckoutRuleField, number>)[change.field] = change.value;
+  }
+  if (resolved.quantityMinimum > resolved.quantityMaximum) throw new V2PlannerError("Quantity minimum cannot exceed quantity maximum.");
+  return resolved;
+}
+
+function validateRequirement(value: unknown, context: V2Context): RequirementProposal {
+  if (!isRecord(value) || !exactKeys(value, ["version", "originalText", "criteria", "numericRuleChanges", "expectationScope", "coverageGaps"]) || value.version !== "2" || value.originalText !== context.requirement.originalText || !Array.isArray(value.criteria) || value.criteria.length !== context.requirement.criteria.length || !Array.isArray(value.numericRuleChanges) || !Array.isArray(value.expectationScope) || !Array.isArray(value.coverageGaps)) throw new V2PlannerError("Proposal requirement has an invalid shape.");
   const criteria = value.criteria.map((criterion) => {
     if (!isRecord(criterion) || !exactKeys(criterion, ["id", "sourceQuote", "normalizedRule"]) || !text(criterion.id, 64) || !text(criterion.sourceQuote, 1_000) || !text(criterion.normalizedRule, 1_000)) throw new V2PlannerError("Proposal criterion has an invalid shape.");
     const source = context.requirement.criteria.find((item) => item.id === criterion.id);
@@ -93,15 +208,21 @@ function validateRequirement(value: unknown, context: V2Context): RequirementCon
     return { id: criterion.id, sourceQuote: criterion.sourceQuote, normalizedRule: criterion.normalizedRule };
   });
   if (!ids(criteria.map((criterion) => criterion.id as string))) throw new V2PlannerError("Proposal criterion IDs must be unique.");
+  const numericRuleChanges = value.numericRuleChanges.map((change) => {
+    if (!isRecord(change) || !exactKeys(change, ["criterionId", "field", "value", "sourceQuote"]) || !text(change.criterionId, 64) || !text(change.sourceQuote, 1_000) || !["quantityMinimum", "quantityMaximum", "couponBasisPoints", "deliveryThresholdMinor", "deliveryFeeMinor"].includes(change.field as string) || typeof change.value !== "number") throw new V2PlannerError("Numeric rule change has an invalid shape.");
+    const criterion = criteria.find((item) => item.id === change.criterionId);
+    if (!criterion || criterion.sourceQuote !== change.sourceQuote) throw new V2PlannerError("Numeric rule change must retain its exact source quote.");
+    return { criterionId: change.criterionId as string, field: change.field as NumericCheckoutRuleField, value: change.value, sourceQuote: change.sourceQuote as string };
+  });
+  applyReviewedNumericRuleChanges(context.rules, numericRuleChanges);
   if (!value.expectationScope.every((scope) => isRecord(scope) && exactKeys(scope, ["criterionId", "scope"]) && text(scope.criterionId, 64) && criteria.some((criterion) => criterion.id === scope.criterionId) && (scope.scope === "unchanged" || scope.scope === "new-or-changed")) || !ids(value.expectationScope.map((scope) => (scope as { criterionId: string }).criterionId))) throw new V2PlannerError("Proposal expectation scope has an invalid shape.");
   if (!value.coverageGaps.every((gap) => text(gap, 500)) || !ids(value.coverageGaps as string[]) || value.coverageGaps.length > 12) throw new V2PlannerError("Proposal coverage gaps have an invalid shape.");
   return {
     version: "2",
     originalText: value.originalText,
-    criteria: criteria as RequirementContract["criteria"],
-    normalizedRules: context.rules,
-    adoptedReferenceIds: [...value.adoptedReferenceIds] as string[],
-    expectationScope: value.expectationScope as RequirementContract["expectationScope"],
+    criteria: criteria as RequirementProposal["criteria"],
+    numericRuleChanges,
+    expectationScope: value.expectationScope as RequirementProposal["expectationScope"],
     coverageGaps: value.coverageGaps as string[]
   };
 }
@@ -116,9 +237,10 @@ function validateCoverage(caseDefinition: CaseDefinition, context: V2Context) {
 export function validateSuiteProposal(value: unknown, context: V2Context): ProposalResult {
   if (!isRecord(value) || !exactKeys(value, ["kind", "requirement", "cases", "gaps"]) || (value.kind !== "proposal" && value.kind !== "clarification") || !Array.isArray(value.cases) || !Array.isArray(value.gaps) || value.cases.length > 5 || !value.gaps.every((gap) => text(gap, 500)) || !ids(value.gaps as string[]) || value.gaps.length > 12) throw new V2PlannerError("Suite proposal has an invalid shape.");
   const requirement = validateRequirement(value.requirement, context);
+  const proposalContext = { ...context, rules: applyReviewedNumericRuleChanges(context.rules, requirement.numericRuleChanges) };
   const cases = value.cases.map((candidate) => {
-    const parsed = validateCase(candidate, context);
-    validateCoverage(parsed, context);
+    const parsed = validateCase(candidate, proposalContext);
+    validateCoverage(parsed, proposalContext);
     return parsed;
   });
   if (!ids(cases.map((candidate) => candidate.id))) throw new V2PlannerError("Proposal case IDs must be unique.");
@@ -130,11 +252,13 @@ export function validateSuiteProposal(value: unknown, context: V2Context): Propo
 function validateReview(review: ReviewDecision, proposal: ProposalResult, context: V2Context): readonly CriterionReviewDecision[] {
   if (!isRecord(review) || !exactKeys(review, ["decisions"]) || !Array.isArray(review.decisions) || review.decisions.length !== context.requirement.criteria.length) throw new V2PlannerError("Review must decide every criterion.");
   const decisions = review.decisions.map((decision) => {
-    if (!isRecord(decision) || !exactKeys(decision, ["criterionId", "interpretation", "scope", "adoptedReferenceIds", "acceptedGaps"]) || !text(decision.criterionId, 64) || !text(decision.interpretation, 1_000) || (decision.scope !== "unchanged" && decision.scope !== "new-or-changed") || !Array.isArray(decision.adoptedReferenceIds) || !decision.adoptedReferenceIds.every((id) => text(id, 128)) || !ids(decision.adoptedReferenceIds as string[]) || !Array.isArray(decision.acceptedGaps) || !decision.acceptedGaps.every((gap) => text(gap, 500)) || !ids(decision.acceptedGaps as string[]) || !decision.acceptedGaps.every((gap) => proposal.gaps.includes(gap as string))) throw new V2PlannerError("Review decision has an invalid shape.");
+    if (!isRecord(decision) || !exactKeys(decision, ["criterionId", "interpretation", "scope", "adoptedReferenceIds", "acceptedGaps", "acceptedNumericRuleChanges"]) || !text(decision.criterionId, 64) || !text(decision.interpretation, 1_000) || (decision.scope !== "unchanged" && decision.scope !== "new-or-changed") || !Array.isArray(decision.adoptedReferenceIds) || !decision.adoptedReferenceIds.every((id) => text(id, 128)) || !ids(decision.adoptedReferenceIds as string[]) || !decision.adoptedReferenceIds.every((id) => context.requirement.adoptedReferenceIds.includes(id as string)) || !Array.isArray(decision.acceptedGaps) || !decision.acceptedGaps.every((gap) => text(gap, 500)) || !ids(decision.acceptedGaps as string[]) || !decision.acceptedGaps.every((gap) => proposal.gaps.includes(gap as string)) || !Array.isArray(decision.acceptedNumericRuleChanges)) throw new V2PlannerError("Review decision has an invalid shape.");
     const proposed = proposal.requirement.criteria.find((criterion) => criterion.id === decision.criterionId);
     if (!proposed || decision.interpretation !== proposed.normalizedRule) throw new V2PlannerError("Review must explicitly adopt the proposed interpretation.");
-    if (!same(decision.adoptedReferenceIds, context.requirement.adoptedReferenceIds)) throw new V2PlannerError("Review adopts a contradictory reference policy.");
-    return { criterionId: decision.criterionId, interpretation: decision.interpretation, scope: decision.scope, adoptedReferenceIds: [...decision.adoptedReferenceIds], acceptedGaps: [...decision.acceptedGaps] } as CriterionReviewDecision;
+    const proposedChanges = proposal.requirement.numericRuleChanges.filter((change) => change.criterionId === decision.criterionId);
+    if (!same(decision.acceptedNumericRuleChanges, proposedChanges)) throw new V2PlannerError("Review must accept the exact numeric rule changes.");
+    if (decision.adoptedReferenceIds.includes("checkout-reference-v2") && proposedChanges.some((change) => context.rules[change.field] !== change.value)) throw new V2PlannerError("Review adopts a contradictory reference policy.");
+    return { criterionId: decision.criterionId, interpretation: decision.interpretation, scope: decision.scope, adoptedReferenceIds: [...decision.adoptedReferenceIds], acceptedGaps: [...decision.acceptedGaps], acceptedNumericRuleChanges: proposedChanges } as CriterionReviewDecision;
   });
   if (!ids(decisions.map((decision) => decision.criterionId)) || !context.requirement.criteria.every((criterion) => decisions.some((decision) => decision.criterionId === criterion.id))) throw new V2PlannerError("Review must decide every criterion exactly once.");
   const acceptedGaps = new Set(decisions.flatMap((decision) => decision.acceptedGaps));
@@ -149,23 +273,27 @@ export function compileReviewedSuite(proposal: ProposalResult, review: ReviewDec
   const parsedProposal = validateSuiteProposal(proposal, context);
   if (parsedProposal.kind !== "proposal") throw new V2PlannerError("Clarifications cannot compile into executable suites.");
   const decisions = validateReview(review, parsedProposal, context);
-  for (const candidate of parsedProposal.cases) calculateCheckout(deriveCaseInput([...candidate.actions], context), context.rules, context.catalog);
+  const rules = applyReviewedNumericRuleChanges(context.rules, parsedProposal.requirement.numericRuleChanges);
+  const reviewedContext = { ...context, rules };
+  for (const candidate of parsedProposal.cases) calculateCheckout(deriveCaseInput([...candidate.actions], reviewedContext), rules, context.catalog);
   const requirement: RequirementContract = {
     version: "2",
     originalText: context.requirement.originalText,
     criteria: parsedProposal.requirement.criteria,
-    normalizedRules: context.rules,
+    normalizedRules: rules,
     adoptedReferenceIds: context.requirement.adoptedReferenceIds,
+    numericRuleChanges: parsedProposal.requirement.numericRuleChanges,
+    reviewedReferences: decisions.map(({ criterionId, adoptedReferenceIds }) => ({ criterionId, adoptedReferenceIds })),
     expectationScope: decisions.map(({ criterionId, scope }) => ({ criterionId, scope })),
     coverageGaps: parsedProposal.gaps
   };
-  return { version: "2", requirement, rules: context.rules, referenceId: context.requirement.adoptedReferenceIds[0]!, cases: parsedProposal.cases, app: context.app, releases: context.grounding.releases };
+  return { version: "2", requirement, rules, referenceId: context.requirement.adoptedReferenceIds[0]!, cases: parsedProposal.cases, app: context.app, releases: context.grounding.releases };
 }
 
 function fixtureProposal(context: V2Context): ProposalResult {
   return validateSuiteProposal({
     kind: "proposal",
-    requirement: context.requirement,
+    requirement: { version: "2", originalText: context.requirement.originalText, criteria: context.requirement.criteria, numericRuleChanges: [], expectationScope: context.requirement.expectationScope, coverageGaps: [] },
     cases: [
       { id: "coupon-delivery", criterionIds: ["cart", "coupon", "delivery"], category: "interaction", rationale: "Applies the reviewed coupon to a bounded cart.", actions: [
         { id: "open", kind: "open-app", target: "checkout", value: null },

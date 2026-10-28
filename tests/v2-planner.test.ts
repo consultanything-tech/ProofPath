@@ -1,21 +1,18 @@
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
 import test from "node:test";
-import { createPlanner } from "../src/planner.js";
-import { createProofPathServer } from "../src/server.js";
-import { createV2Context, type ReviewDecision, type V2Context } from "../src/v2-checkout.js";
+import { createV2Context, deriveCaseInput, type ReviewDecision, type V2Context } from "../src/v2-checkout.js";
+import { calculateCheckout } from "../src/v2-oracle.js";
 import {
   buildMetaSuiteRequest,
   compileReviewedSuite,
   createV2Planner,
-  inspectRegisteredTarget,
   validateSuiteProposal
 } from "../src/v2-planner.js";
 
 function validProposal(context: V2Context) {
   return {
     kind: "proposal",
-    requirement: context.requirement,
+    requirement: proposalRequirement(context),
     cases: [
       {
         id: "save10-discount",
@@ -48,6 +45,17 @@ function validProposal(context: V2Context) {
   };
 }
 
+function proposalRequirement(context: V2Context, changes: readonly unknown[] = []) {
+  return {
+    version: "2",
+    originalText: context.requirement.originalText,
+    criteria: context.requirement.criteria,
+    numericRuleChanges: changes,
+    expectationScope: context.requirement.expectationScope,
+    coverageGaps: []
+  };
+}
+
 function completeReview(context: V2Context): ReviewDecision {
   return {
     decisions: context.requirement.criteria.map((criterion) => ({
@@ -55,30 +63,16 @@ function completeReview(context: V2Context): ReviewDecision {
       interpretation: criterion.normalizedRule,
       scope: "unchanged",
       adoptedReferenceIds: ["checkout-reference-v2"],
-      acceptedGaps: criterion.id === "cart" ? ["Quantity-rejection feedback is not observed in the registered initial state."] : []
+      acceptedGaps: criterion.id === "cart" ? ["Quantity-rejection feedback is not observed in the registered initial state."] : [],
+      acceptedNumericRuleChanges: []
     }))
   };
 }
 
-async function availablePort() {
-  const probe = createServer();
-  await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
-  const address = probe.address();
-  assert.ok(address && typeof address !== "string");
-  await new Promise<void>((resolve) => probe.close(() => resolve()));
-  return address.port;
-}
-
-async function target() {
-  const port = await availablePort();
-  const instance = createProofPathServer(port, createPlanner({ PLANNER_MODE: "fixture" }));
-  await new Promise<void>((resolve) => instance.server.listen(port, "127.0.0.1", resolve));
-  return { ...instance, close: async () => { instance.server.closeAllConnections(); await new Promise<void>((resolve) => instance.server.close(() => resolve())); } };
-}
 
 test("suite request carries source and bounded capabilities without a release verdict or expected-result recipe", () => {
   const context = createV2Context();
-  const request = buildMetaSuiteRequest({ ...context, requirement: { ...context.requirement, originalText: "Assess the candidate checkout without changing candidate wording." } }) as { max_completion_tokens: number; messages: { role: string; content: string }[] };
+  const request = buildMetaSuiteRequest({ ...context, requirement: { ...context.requirement, originalText: "Assess the candidate checkout without changing candidate wording." } }) as { max_completion_tokens: number; messages: { role: string; content: string }[]; response_format: { json_schema: { schema: Record<string, unknown> } } };
   assert.equal(request.max_completion_tokens, 4096);
   const payload = JSON.parse(request.messages[1]!.content);
   assert.equal(payload.source.originalText, "Assess the candidate checkout without changing candidate wording.");
@@ -87,6 +81,10 @@ test("suite request carries source and bounded capabilities without a release ve
   assert.equal(JSON.stringify(payload).includes("7700"), false);
   assert.equal(JSON.stringify(payload).includes("defect"), false);
   assert.equal(JSON.stringify(payload).includes("save10-discount"), false);
+  const schema = request.response_format.json_schema.schema;
+  assert.deepEqual(schema.required, ["kind", "requirement", "cases", "gaps"]);
+  assert.equal(schema.additionalProperties, false);
+  assert.ok(Array.isArray(schema.oneOf));
 });
 
 test("proposal validation derives action inputs and review requires every criterion", () => {
@@ -104,21 +102,61 @@ test("review cannot adopt contradictory policy and retains accepted coverage gap
   const review = completeReview(context);
   const suite = compileReviewedSuite(proposal, review, context);
   assert.deepEqual(suite.requirement.coverageGaps, proposal.gaps);
-  assert.throws(() => compileReviewedSuite(proposal, { decisions: review.decisions.map((decision) => ({ ...decision, adoptedReferenceIds: ["another-policy"] })) }, context), /reference policy/i);
+  assert.throws(() => compileReviewedSuite(proposal, { decisions: review.decisions.map((decision) => ({ ...decision, adoptedReferenceIds: ["another-policy"] })) }, context), /invalid shape|reference policy/i);
 });
 
-test("readonly inspection fetches only registered resources and labels later controls declared", async () => {
-  const instance = await target();
-  try {
-    const context = createV2Context(instance.origin);
-    const grounding = await inspectRegisteredTarget(context);
-    assert.deepEqual(grounding.releases.map((release) => release.id), ["r1", "r2"]);
-    assert.ok(grounding.observedTargets.includes("checkout"));
-    assert.ok(!grounding.observedTargets.includes("contact"));
-    assert.ok(grounding.declaredTargets.includes("contact"));
-  } finally {
-    await instance.close();
+test("reviewed numeric coupon changes reach the oracle and compiled snapshot", () => {
+  const base = createV2Context();
+  const context = {
+    ...base,
+    requirement: {
+      ...base.requirement,
+      originalText: "SAVE10 discounts the cart subtotal by 20%.",
+      criteria: base.requirement.criteria.map((criterion) => criterion.id === "coupon"
+        ? { ...criterion, sourceQuote: "SAVE10 discounts the cart subtotal by 20%.", normalizedRule: "SAVE10 uses the reviewed 20% rate." }
+        : criterion)
+    }
+  };
+  const change = { criterionId: "coupon", field: "couponBasisPoints" as const, value: 2000, sourceQuote: "SAVE10 discounts the cart subtotal by 20%." };
+  const proposal = validateSuiteProposal({ ...validProposal(context), requirement: proposalRequirement(context, [change]) }, context);
+  const review: ReviewDecision = {
+    decisions: completeReview(context).decisions.map((decision) => decision.criterionId === "coupon"
+      ? { ...decision, interpretation: "SAVE10 uses the reviewed 20% rate.", scope: "new-or-changed", adoptedReferenceIds: [], acceptedNumericRuleChanges: [change] }
+      : decision)
+  };
+  const suite = compileReviewedSuite(proposal, review, context);
+  const couponCase = suite.cases.find((candidate) => candidate.id === "save10-discount")!;
+  const expected = calculateCheckout(deriveCaseInput([...couponCase.actions], { ...context, rules: suite.rules }), suite.rules, context.catalog);
+  assert.equal(suite.rules.couponBasisPoints, 2000);
+  assert.deepEqual(suite.requirement.normalizedRules, suite.rules);
+  assert.equal(expected.subtotalMinor, 4000);
+  assert.equal(expected.discountMinor, 800);
+  assert.equal(expected.deliveryMinor, 500);
+  assert.equal(expected.totalMinor, 3700);
+  assert.throws(() => compileReviewedSuite(proposal, { decisions: [] }, context), /every criterion/i);
+  for (const acceptedNumericRuleChanges of [[{ ...change, value: 1500 }], [], [change, { ...change, field: "deliveryFeeMinor" as const, value: 600 }]]) {
+    assert.throws(() => compileReviewedSuite(proposal, { decisions: review.decisions.map((decision) => decision.criterionId === "coupon" ? { ...decision, acceptedNumericRuleChanges } : decision) }, context), /exact numeric/i);
   }
+  assert.throws(() => compileReviewedSuite(proposal, { decisions: review.decisions.map((decision) => decision.criterionId === "coupon" ? { ...decision, adoptedReferenceIds: ["checkout-reference-v2"] } : decision) }, context), /contradictory/i);
+});
+
+test("numeric rule proposals reject unsupported, ambiguous, and unsafe deltas", () => {
+  const context = createV2Context();
+  const quote = context.requirement.criteria.find((criterion) => criterion.id === "coupon")!.sourceQuote;
+  const change = (field: string, value: number) => ({ criterionId: "coupon", field, value, sourceQuote: quote });
+  for (const changes of [
+    [change("couponCode", 1)],
+    [change("couponBasisPoints", 2000), change("couponBasisPoints", 1500)],
+    [change("couponBasisPoints", 10001)],
+    [change("quantityMinimum", 0)],
+    [change("deliveryFeeMinor", -1)],
+    [change("deliveryFeeMinor", Number.MAX_SAFE_INTEGER)]
+  ]) assert.throws(() => validateSuiteProposal({ ...validProposal(context), requirement: proposalRequirement(context, changes) }, context), /rule|range|unsafe|domain/i);
+  const cartQuote = context.requirement.criteria.find((criterion) => criterion.id === "cart")!.sourceQuote;
+  assert.throws(() => validateSuiteProposal({ ...validProposal(context), requirement: proposalRequirement(context, [
+    { criterionId: "cart", field: "quantityMinimum", value: 5, sourceQuote: cartQuote },
+    { criterionId: "cart", field: "quantityMaximum", value: 1, sourceQuote: cartQuote }
+  ]) }, context), /minimum/i);
 });
 
 test("fixture is explicit and mocked Meta transport is bounded and fails closed", async () => {
@@ -132,6 +170,9 @@ test("fixture is explicit and mocked Meta transport is bounded and fails closed"
   const mocked = createV2Planner({ V2_PLANNER_MODE: "mock" }, async (_url, init) => {
     calls += 1;
     assert.equal(init?.method, "POST");
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.response_format.json_schema.strict, true);
+    assert.equal(body.response_format.json_schema.schema.additionalProperties, false);
     return new Response(JSON.stringify({ model: "muse-spark-1.3", choices: [{ message: { content: JSON.stringify(validProposal(context)) }, finish_reason: "stop" }] }));
   });
   assert.equal((await mocked.propose(context)).kind, "proposal");
