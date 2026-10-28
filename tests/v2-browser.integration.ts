@@ -58,6 +58,9 @@ test("frozen checkout releases expose real totals and isolated synthetic state",
     assert.equal(await page.locator("#email-error").isHidden(), false);
     await page.getByRole("button", { name: "Confirm synthetic order" }).click();
     await page.getByText("Synthetic order confirmed.").waitFor();
+    await page.getByRole("button", { name: "Checkout" }).click();
+    assert.equal(await page.locator("#confirmation").isHidden(), true);
+    assert.equal(await page.getByLabel("Email").isVisible(), true);
     const isolated = await browser.newPage();
     await isolated.goto(`${server.origin}/v2-target/r1/index.html`);
     assert.equal(await isolated.locator("#cart-lines").textContent(), "Cart is empty.");

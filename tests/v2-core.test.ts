@@ -25,7 +25,7 @@ const inputFor = (lines: readonly [string, number][], coupon: string | null): Ca
   cart: lines.map(([sku, quantity]) => ({ sku: sku as CaseInput["cart"][number]["sku"], quantity })),
   coupon,
   contact: { email: "qa@example.test", postalCode: "018989" },
-  state: { contactOpen: true, couponAttempted: coupon !== null, appliedCoupon: coupon, confirmationAttempted: false, confirmationContact: null, syntheticConfirmed: false }
+  state: { contactOpen: true, couponAttempted: coupon !== null, appliedCoupon: coupon, confirmationAttempted: false, confirmationContact: null }
 });
 
 test("oracle calculates reviewed checkout rules with integer arithmetic", () => {
@@ -99,6 +99,11 @@ test("action derivation preserves submitted event state and cart operations", ()
   ] as SemanticAction[], context);
   assert.equal(calculateCheckout(filledAfterBlankConfirm, context.rules, context.catalog).syntheticConfirmation, "blocked");
   assert.deepEqual(calculateCheckout(filledAfterBlankConfirm, context.rules, context.catalog).contactErrors, { email: "required", postalCode: "required" });
+  const blankSubmittedUnderReference = deriveCaseInput([
+    { id: "open", kind: "open-app", target: "checkout", value: null }, { id: "add", kind: "add-product", target: "desk-lamp", value: null },
+    { id: "contact", kind: "open-contact", target: "contact", value: null }, { id: "confirm", kind: "confirm-synthetic-order", target: "synthetic-order", value: null }
+  ] as SemanticAction[], context);
+  assert.equal(calculateCheckout(blankSubmittedUnderReference, rulesFor({ requiredContactFields: [] }), catalog).syntheticConfirmation, "confirmed");
   const requiredEmailOnly = { ...context, rules: rulesFor({ requiredContactFields: ["email"] }) };
   const emailOnly = deriveCaseInput([
     { id: "open", kind: "open-app", target: "checkout", value: null }, { id: "add", kind: "add-product", target: "desk-lamp", value: null },
@@ -107,6 +112,17 @@ test("action derivation preserves submitted event state and cart operations", ()
   ] as SemanticAction[], requiredEmailOnly);
   assert.deepEqual(calculateCheckout(emailOnly, requiredEmailOnly.rules, catalog).contactErrors, { email: null, postalCode: null });
   assert.equal(calculateCheckout(emailOnly, requiredEmailOnly.rules, catalog).syntheticConfirmation, "confirmed");
+  assert.equal(calculateCheckout(emailOnly, context.rules, catalog).syntheticConfirmation, "blocked");
+  const confirmedActions: SemanticAction[] = [
+    { id: "open", kind: "open-app", target: "checkout", value: null }, { id: "add", kind: "add-product", target: "desk-lamp", value: null },
+    { id: "contact", kind: "open-contact", target: "contact", value: null }, { id: "email", kind: "fill-contact", target: "email", value: "qa@example.test" },
+    { id: "postal", kind: "fill-contact", target: "postal-code", value: "018989" }, { id: "confirm", kind: "confirm-synthetic-order", target: "synthetic-order", value: null }
+  ];
+  assert.equal(deriveCaseInput(confirmedActions, context).state.contactOpen, false);
+  assert.throws(() => deriveCaseInput([...confirmedActions, { id: "hidden-fill", kind: "fill-contact", target: "email", value: "qa2@example.test" }], context), /open contact form/i);
+  const reopened = deriveCaseInput([...confirmedActions, { id: "reopen", kind: "open-contact", target: "contact", value: null }], context);
+  assert.equal(reopened.state.contactOpen, true);
+  assert.equal(calculateCheckout(reopened, context.rules, catalog).syntheticConfirmation, "not-requested");
   const changedCartActions: SemanticAction[] = [
     { id: "open", kind: "open-app", target: "checkout", value: null }, { id: "lamp", kind: "add-product", target: "desk-lamp", value: null },
     { id: "notebook", kind: "add-product", target: "notebook", value: null }, { id: "quantity", kind: "set-quantity", target: "desk-lamp", value: 2 },

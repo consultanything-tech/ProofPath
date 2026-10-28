@@ -111,7 +111,6 @@ export function deriveCaseInput(actions: SemanticAction[], context: V2Context): 
   let contactOpen = false;
   let confirmationAttempted = false;
   let confirmationContact: CaseInput["state"]["confirmationContact"] = null;
-  let syntheticConfirmed = false;
   let email = "";
   let postalCode = "";
   for (const action of parsed.slice(1)) {
@@ -138,6 +137,8 @@ export function deriveCaseInput(actions: SemanticAction[], context: V2Context): 
     if (action.kind === "open-contact") {
       if (cart.size === 0) throw new Error("Contact cannot open with an empty cart.");
       contactOpen = true;
+      confirmationAttempted = false;
+      confirmationContact = null;
     }
     if (action.kind === "fill-contact") {
       if (!contactOpen) throw new Error("Contact fields require an open contact form.");
@@ -150,10 +151,10 @@ export function deriveCaseInput(actions: SemanticAction[], context: V2Context): 
       confirmationContact = { email, postalCode };
       const emailRequired = context.rules.requiredContactFields.includes("email");
       const postalRequired = context.rules.requiredContactFields.includes("postal-code");
-      syntheticConfirmed = (!emailRequired || Boolean(email.trim())) && (!postalRequired || Boolean(postalCode.trim()));
+      if ((!emailRequired || Boolean(email.trim())) && (!postalRequired || Boolean(postalCode.trim()))) contactOpen = false;
     }
   }
-  return { cart: [...cart].map(([sku, quantity]) => ({ sku, quantity })), coupon, contact: { email, postalCode }, state: { contactOpen, couponAttempted, appliedCoupon, confirmationAttempted, confirmationContact, syntheticConfirmed } };
+  return { cart: [...cart].map(([sku, quantity]) => ({ sku, quantity })), coupon, contact: { email, postalCode }, state: { contactOpen, couponAttempted, appliedCoupon, confirmationAttempted, confirmationContact } };
 }
 
 export function validateCase(value: unknown, context: V2Context): CaseDefinition {
