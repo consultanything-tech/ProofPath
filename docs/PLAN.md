@@ -174,10 +174,21 @@ Access decision confirmed by the user on October 28: reviewers with an access
 code and limited attempts may run live Meta requests. Anonymous live requests
 remain disabled; no team-account system is needed.
 
-Owner decisions still required before deployment: hosting provider and cost
-limit; numerical per-run/total API spending boundaries; attempt counts and
-ingress limits. Selecting the access policy does not authorize API spending
-or paid hosting.
+Owner selections confirmed on October 28:
+
+| Setting | Selected planning target |
+| --- | --- |
+| Hosting | Managed container service with persistent storage |
+| Access | Unique reviewer codes; no anonymous live requests |
+| Proposal allowance | 3 per issued code; 50 across the hosted demo |
+| Reservation per proposal | US$0.05, including the possible transient retry |
+| Total reservation budget | US$2.50 for the hosted demo |
+
+An attempt allowance belongs to a code, not a verified person. Sharing a code
+shares its three-proposal allowance; a new browser/session must not reset it.
+These are selected planning targets, not creation of a paid service or proof of
+an account-wide billing cap. The actual provider/tier/hosting quote still needs
+owner approval before paid provisioning.
 
 The current server hardcodes exact localhost Host/Origin checks. Deployment
 therefore reaches `src/server.ts`, relevant HTTP-policy tests, minimal hosting
@@ -206,6 +217,108 @@ unauthorized/exhausted requests are rejected before provider/browser work,
 reports survive restart, and a fresh reviewer can use the intended access path.
 Check keys never reach responses, client files, logs, evidence or Git. A static
 gallery alone does not close the working-product gate.
+
+#### Deployment handoff: three small implementation slices
+
+**A. Package and separate public ingress from fixture execution.** Use one
+portable Docker service/process with the existing pnpm lock and Node 26. Install
+the Chromium build matching the locked Playwright version; do not copy the Mac's
+dependencies/browser cache into the image. No additional npm dependency,
+database, queue or autoscaling is planned.
+
+The public listener binds the host's port and checks one configured HTTPS
+`PUBLIC_ORIGIN` exactly. A separate loopback listener serves only the owned
+shop document and assets; it has no planning, approval, run or evidence API.
+The runner uses that internal origin and its existing exact allowlist. Never
+trust arbitrary forwarded headers, replace actual evidence URLs with the public
+URL, or relax local fixture egress. Keep existing local-mode defaults working.
+
+Persist under a configured `DATA_DIR`: quota state and `runs/`. Runtime must
+verify the volume/state is usable before enabling Meta; image build must not
+depend on the runtime volume. Keep one service instance so filesystem state and
+in-memory concurrency gates remain authoritative. Restarts discard pending
+plans/approvals/sessions, but preserve quota and completed reports.
+
+Render is the reference candidate, not a purchased/selected tier. Its official
+docs support [Docker web services](https://render.com/docs/web-services) and
+[persistent disks](https://render.com/docs/disks) on paid services. A disk is
+runtime-only and attached to one instance; redeploys cause a short interruption.
+Use `/var/data/proofpath` as the proposed data path. Verify the current account,
+tier, memory requirement and full quote before provisioning; no current price
+or account access is asserted here. Keep the Docker image portable.
+
+Reach: `src/server.ts`, `src/evidence.ts`, `.env.example`, `.gitignore`,
+`Dockerfile`, `.dockerignore`, README, and HTTP-policy/safety tests. Add a host
+manifest only after selecting the actual provider. Done when the container
+builds, starts in fixture mode, rejects wrong public Host/Origin, and runs only
+the internal fixture; existing local journeys and safety checks still pass.
+
+**B. Add reviewer access and durable limits.** Add one focused policy module
+(`src/demo-policy.ts`) and tests, used by the server/planning boundary. Generate
+unique high-entropy codes locally; keep raw codes and signing/session secrets
+out of chat, URLs, logs, evidence and Git. Store only code fingerprints in quota
+state. Exchange a code for a short-lived Secure/HttpOnly/SameSite session cookie;
+apply exact Origin checks to login and other mutations. Protect live APIs and
+report/evidence reads; the public landing/config response may expose only safe
+metadata and sign-in state. Code distribution remains an owner action.
+
+Enforce three proposals per code and fifty globally. Each valid, admitted
+logical proposal reserves the full 50,000 micro-US-dollars (US$0.05) for up to
+two provider attempts; total reservations cannot exceed 2,500,000 micro-US-dollars.
+Persist the reservation before any provider call. Count clarifications, failed
+provider requests and abandoned responses once admitted; never refund/reset
+allowances automatically. Retries stay inside that same reservation and code
+allowance; approval/run clicks are not new Meta proposals. Reject malformed,
+unauthorized, busy or exhausted requests before any chargeable dispatch.
+The UI must show the remaining allowance and explain which outcomes consume a
+proposal before submission.
+
+Use one concurrent proposal and one concurrent browser run, with bounded login
+and mutation-rate limits; use a simple busy response rather than a queue.
+Preflight the exact provider request against refreshed rates and a verified
+conservative input/schema/output-token accounting bound for both attempts. If
+the maximum exceeds US$0.05, reject before Meta and ask for a shorter requirement;
+do not lower the existing completion cap or silently change the prompt/model
+to fit. If the accounting bound cannot be verified, hosted Meta stays disabled.
+The reservation ledger limits this service; it is not an invoice reconciliation
+or a cap on other uses of the same Meta account/key.
+
+For this single-instance event demo, use a serialized durable filesystem ledger
+with atomic writes/flushes, not an extra datastore. Initialize it once through
+an explicit owner setup step. Missing, corrupt, unwritable or incompatible state
+after setup must fail closed; a restart must never interpret missing state as a
+fresh budget. Test concurrent admissions and crash/restart boundaries.
+After a disk recovery/backup restore, keep Meta disabled until the owner checks
+the reservation totals; restoring an older ledger is not a budget reset. Bound
+proposal/session maps and reject new work when storage is insufficient. Preserve
+issued report links through judging rather than automatically deleting evidence
+to free space; the event already limits successful browser runs to at most fifty.
+
+Reach also: `src/meta-planner.ts`, `src/plan-store.ts`, public code-entry/status UI,
+`tests/demo-policy.test.ts`, server tests and focused UI tests. Keep approval
+digests/lifetime, deterministic verdicts and browser restrictions unchanged.
+Done when wrong-code, exhausted, concurrent and state-failure cases make zero
+provider calls, sessions cannot renew a code's allowance, and quota/reports
+survive restart. Use mocked provider responses for these tests.
+
+**C. Review the quote, deploy, then perform one bounded smoke.** Present the
+completed container/configuration and actual hosting quote before the owner's
+paid-provisioning decision. Configure secrets through the host's secret store,
+retain private GitHub visibility, and verify HTTPS, health, logs and persistent
+storage. Do not create another API key or credit claim as part of deployment.
+
+Use one fresh required-fields Meta proposal for the hosted smoke, counted inside
+the selected limits. Verify exact plan review, actual UI approval, completed
+actions, both boolean assertions, screenshot/manifest hashes and reopening after
+a service restart. Record the real approval source; an automated click is not
+a human approval. Recheck quota after restart and demonstrate denial without
+extra provider requests. A browser/control failure is a smoke blocker to resolve,
+not grounds to substitute a chat/programmatic approval and call the UI verified.
+
+Finish with an independent reviewer using an issued code. Record URL, deployed
+commit, measured resource use, verified gates and remaining limits in BUILD_LOG.
+No broad benchmark repeat, account system, public report gallery, extra model
+provider or new application feature is part of this stage.
 
 ### 4. Independent walkthrough and submission — November 2–4
 
