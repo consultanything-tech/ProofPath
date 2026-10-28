@@ -66,6 +66,7 @@ export interface CaseInput {
     readonly appliedCoupon: string | null;
     readonly confirmationAttempted: boolean;
     readonly confirmationContact: { readonly email: string; readonly postalCode: string } | null;
+    readonly confirmationDismissed: boolean;
   };
 }
 

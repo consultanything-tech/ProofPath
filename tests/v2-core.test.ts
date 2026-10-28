@@ -25,7 +25,7 @@ const inputFor = (lines: readonly [string, number][], coupon: string | null): Ca
   cart: lines.map(([sku, quantity]) => ({ sku: sku as CaseInput["cart"][number]["sku"], quantity })),
   coupon,
   contact: { email: "qa@example.test", postalCode: "018989" },
-  state: { contactOpen: true, couponAttempted: coupon !== null, appliedCoupon: coupon, confirmationAttempted: false, confirmationContact: null }
+  state: { contactOpen: true, couponAttempted: coupon !== null, appliedCoupon: coupon, confirmationAttempted: false, confirmationContact: null, confirmationDismissed: false }
 });
 
 test("oracle calculates reviewed checkout rules with integer arithmetic", () => {
@@ -123,6 +123,13 @@ test("action derivation preserves submitted event state and cart operations", ()
   const reopened = deriveCaseInput([...confirmedActions, { id: "reopen", kind: "open-contact", target: "contact", value: null }], context);
   assert.equal(reopened.state.contactOpen, true);
   assert.equal(calculateCheckout(reopened, context.rules, catalog).syntheticConfirmation, "not-requested");
+  const reopenedAfterBlankConfirm = deriveCaseInput([
+    { id: "open", kind: "open-app", target: "checkout", value: null }, { id: "add", kind: "add-product", target: "desk-lamp", value: null },
+    { id: "contact", kind: "open-contact", target: "contact", value: null }, { id: "confirm", kind: "confirm-synthetic-order", target: "synthetic-order", value: null },
+    { id: "reopen", kind: "open-contact", target: "contact", value: null }
+  ] as SemanticAction[], context);
+  assert.deepEqual(calculateCheckout(reopenedAfterBlankConfirm, context.rules, catalog).contactErrors, { email: "required", postalCode: "required" });
+  assert.equal(calculateCheckout(reopenedAfterBlankConfirm, context.rules, catalog).syntheticConfirmation, "not-requested");
   const changedCartActions: SemanticAction[] = [
     { id: "open", kind: "open-app", target: "checkout", value: null }, { id: "lamp", kind: "add-product", target: "desk-lamp", value: null },
     { id: "notebook", kind: "add-product", target: "notebook", value: null }, { id: "quantity", kind: "set-quantity", target: "desk-lamp", value: 2 },

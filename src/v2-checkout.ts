@@ -111,6 +111,7 @@ export function deriveCaseInput(actions: SemanticAction[], context: V2Context): 
   let contactOpen = false;
   let confirmationAttempted = false;
   let confirmationContact: CaseInput["state"]["confirmationContact"] = null;
+  let confirmationDismissed = false;
   let email = "";
   let postalCode = "";
   for (const action of parsed.slice(1)) {
@@ -137,8 +138,7 @@ export function deriveCaseInput(actions: SemanticAction[], context: V2Context): 
     if (action.kind === "open-contact") {
       if (cart.size === 0) throw new Error("Contact cannot open with an empty cart.");
       contactOpen = true;
-      confirmationAttempted = false;
-      confirmationContact = null;
+      if (confirmationAttempted) confirmationDismissed = true;
     }
     if (action.kind === "fill-contact") {
       if (!contactOpen) throw new Error("Contact fields require an open contact form.");
@@ -149,12 +149,13 @@ export function deriveCaseInput(actions: SemanticAction[], context: V2Context): 
       if (!contactOpen) throw new Error("Synthetic confirmation requires an open contact form.");
       confirmationAttempted = true;
       confirmationContact = { email, postalCode };
+      confirmationDismissed = false;
       const emailRequired = context.rules.requiredContactFields.includes("email");
       const postalRequired = context.rules.requiredContactFields.includes("postal-code");
       if ((!emailRequired || Boolean(email.trim())) && (!postalRequired || Boolean(postalCode.trim()))) contactOpen = false;
     }
   }
-  return { cart: [...cart].map(([sku, quantity]) => ({ sku, quantity })), coupon, contact: { email, postalCode }, state: { contactOpen, couponAttempted, appliedCoupon, confirmationAttempted, confirmationContact } };
+  return { cart: [...cart].map(([sku, quantity]) => ({ sku, quantity })), coupon, contact: { email, postalCode }, state: { contactOpen, couponAttempted, appliedCoupon, confirmationAttempted, confirmationContact, confirmationDismissed } };
 }
 
 export function validateCase(value: unknown, context: V2Context): CaseDefinition {

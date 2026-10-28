@@ -25,6 +25,6 @@ export function calculateCheckout(input: CaseInput, rules: CheckoutRules, catalo
   const email = input.state.confirmationAttempted && rules.requiredContactFields.includes("email") && !submittedContact?.email.trim() ? "required" : null;
   const postalCode = input.state.confirmationAttempted && rules.requiredContactFields.includes("postal-code") && !submittedContact?.postalCode.trim() ? "required" : null;
   const contactErrors = { email, postalCode } as const;
-  const syntheticConfirmation = !input.state.confirmationAttempted ? "not-requested" : email || postalCode ? "blocked" : "confirmed";
+  const syntheticConfirmation = !input.state.confirmationAttempted || input.state.confirmationDismissed ? "not-requested" : email || postalCode ? "blocked" : "confirmed";
   return { subtotalMinor, discountMinor, discountedSubtotalMinor, deliveryMinor, totalMinor: discountedSubtotalMinor + deliveryMinor, couponError, contactErrors, syntheticConfirmation };
 }
