@@ -1,5 +1,10 @@
 # ProofPath Development Kit
 
+**V1 implementation reference.** The expanded checkout/order workbench direction
+was selected on October 28. Its [written design](superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
+awaits review; v2 contracts, suites, oracles and budget assumptions are not
+implemented by this kit. Preserve the working v1 and its evidence during migration.
+
 **Companion to:** [PRD](PRD.md)  
 **Status:** updated 28 October 2026 (Asia/Singapore); all fixture journeys, core browser safety checks and the Meta adapter are implemented. One live add-to-cart run, eight fixed live planning cases and a saved Meta quantity plan's seeded FAIL/fixed PASS are verified; broader live reliability remains unverified.
 

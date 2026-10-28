@@ -1,5 +1,11 @@
 # ProofPath MVP plan
 
+**Scope transition, October 28:** the user selected the expanded checkout/order
+QA workbench. Review the [v2 design](superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
+before creating its implementation plan. The v1 sequence below, including host
+resource assumptions, is retained as reference and must not be treated as a v2
+implementation plan. Verified fallback checkpoint: `4ace907`.
+
 ## Outcome
 
 Prove that a small team can turn a written checkout expectation into a reproducible browser finding with evidence. The demo must show a seeded defect, its evidence-backed failure, a developer fix, and a successful rerun.

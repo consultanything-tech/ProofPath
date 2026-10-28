@@ -1,5 +1,10 @@
 # ProofPath MVP PRD
 
+**Product direction selected October 28:** checkout and order QA workbench.
+The [v2 PRD and design](superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
+is ready for written review before implementation planning. The requirements
+below describe the implemented v1 baseline; its evidence does not establish v2.
+
 **Version:** 0.1 (draft)  
 **Date:** 26 October 2026, Asia/Singapore  
 **Status:** implementation authorized after the October 27 kickoff; live planning evaluation and saved Meta-plan seeded FAIL/fixed PASS are evidenced in `BUILD_LOG.md`

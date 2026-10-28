@@ -416,6 +416,24 @@ approvals. This is selected-scenario evidence, not general reliability or a
 fresh live-proposal UI approval. Next: bounded reviewer-access deployment,
 after the owner selects hosting and numerical attempt/spend limits.
 
+## V2 concept selected and written design — October 28, 2026
+
+The user selected checkout/order workflows for the expanded browser QA workbench.
+Recorded the [v2 PRD/design](superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md):
+requirement interpretation and source traceability, bounded generated suites,
+independent reviewed-rule oracles, paired release evidence, saved regressions,
+bug packets and template-based Playwright exports. It distinguishes proposal
+from implemented behaviour, requires review before an implementation plan, and
+preserves `4ace907` as the working v1 fallback. Existing docs now identify their
+v1 scope so they cannot silently constrain or overstate the new product.
+
+Self-review covered source/oracle authority, intended-change versus regression
+semantics, coverage gaps, case isolation, historical evidence, missing runtime
+identity, exported-test verification, separate execution quotas and the enlarged
+Meta request's unresolved cost fit. No app code, dependencies, API calls, live
+inspection, deployment, secret or visibility setting changed. Runtime tests
+were not repeated for this documentation-only design checkpoint.
+
 ## Start boundary confirmed — October 27, 2026, approximately 00:23 SGT
 
 The kickoff transcript says the 10-day hacking period starts after kickoff and

@@ -2,6 +2,12 @@
 
 ProofPath turns a plain-language browser journey into an approved run and an evidence-linked verdict.
 
+The selected next product direction is a checkout/order QA workbench: acceptance
+criteria → reviewed suites → paired release evidence → saved regression cases
+and exports. The [v2 PRD/design](docs/superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
+is awaiting written review. The runnable implementation and verification status
+below are v1; the expanded capabilities are not implemented yet.
+
 ## Hackathon scope
 
 - Event: Meta Global AI Developer Hackathon
