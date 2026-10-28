@@ -145,6 +145,13 @@ hosting changes or repository publication.
 
 ### 2. Close local verification gaps — October 29–30
 
+Completed locally on October 28: saved `required-a` Meta plan execution passed
+with a fresh chat-authorized approval, four completed actions, two PASS
+assertions and verified evidence hashes. Targeted UI race/legacy checks passed
+in stage 1. Reopening this new report in the in-app browser was unavailable;
+its manifest and screenshot HTTP endpoints were verified directly. No new
+model request was made. Stage 3 hosting/access-limit decisions are next.
+
 Execute the saved Meta required-fields plan with a fresh chat-authorized
 approval, preserving source hash/model provenance and recording the actual
 approval source. It must show both visible errors and an active checkout, with

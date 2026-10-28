@@ -140,7 +140,7 @@ The matrix tracks implementation evidence; partial results are labelled as such.
 
 | Area | Check | Required result | Status |
 | --- | --- | --- | --- |
-| Planner | Each supported journey | Covered plan with at least one assertion | Six live paraphrases returned covered plans across all three journeys; live-generated add-to-cart and saved quantity seeded/fixed plans have browser evidence; required-fields model plan execution remains open |
+| Planner | Each supported journey | Covered plan with at least one assertion | Six live paraphrases returned covered plans across all three journeys; live-generated add-to-cart, saved quantity seeded/fixed and saved required-fields plans have local browser evidence. Approvals were chat-authorized/programmatic; fresh live-proposal UI approval remains open |
 | Planner | Ambiguous request | Clarification; no plan or run | One fixed live case asked which quantity (1 or 2); no plan or run |
 | Planner | Login, payment, or external site | Rejection/clarification; no run | One fixed live case excluded external sign-in/payment and offered the synthetic alternative; no credentials requested, plan or run |
 | Validation | Unknown key/action/target, selector, JS, shell, or external URL | Rejected before browser launch | Partial: external action and missing required action coverage rejected |

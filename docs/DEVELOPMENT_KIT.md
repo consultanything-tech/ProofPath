@@ -317,7 +317,7 @@ blocking, deterministic verdicts, evidence provenance, or logged-out review.
 | Model integration | Native-fetch adapter, offline tests, one smoke and eight live evaluation responses. | Initial fixed evaluation passed; broader reliability unproven |
 | Structured response | Strict schema/local checks accepted six evaluation plans and two clarifications. | All eight fixed planning cases met declared expectations |
 | Public repository/deployment | Private GitHub repository is configured; no deployment exists. | Publication/deployment not started |
-| Functional ProofPath | Three fixture journeys, local safety matrix, live smoke browser run, fixed planning evaluation and saved Meta-plan seeded/fixed browser pair. | Saved quantity plan gave seeded FAIL/fixed PASS; UI approval of a live proposal and deployment remain open; see evaluations/saved-quantity-runs-v1.md |
+| Functional ProofPath | Three fixture journeys, local safety matrix, fixed planning evaluation and local browser evidence for live-generated plans across all three journeys. | Saved quantity plan gave seeded FAIL/fixed PASS; saved required-fields plan passed both checks; fresh live-proposal UI approval and deployment remain open; see BUILD_LOG.md |
 
 ## Build handoff
 

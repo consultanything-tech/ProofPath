@@ -366,6 +366,56 @@ billing, deployment or visibility change occurred. The next stage is saved Meta
 required-fields execution; fresh live-proposal UI approval, hosted ingress/budget
 controls, independent review and submission artifacts remain open.
 
+## Saved Meta required-fields execution — October 28, 2026
+
+Executed the exact saved `required-a` response from live evaluation
+`65d12830-06a6-4e45-b28d-25c752e2d019`, retaining its original requirement,
+baseline scenario, actions, assertions and Meta provenance. Source results
+SHA-256 matched both the recorded value and sidecar:
+`735e0eb6ac74c3eadaacef8918941ea958adae22a3dbeeae942dc0fd5eb73978`.
+The case-file and Meta planner source/runtime hashes also matched. Production
+contract validation accepted the response. The recreated envelope was identical
+to the original evaluation envelope, including approval digest
+`sha256:431cc5dad8acabbc0338fa70895e4c26ce11fd2312fc093f49ce89901b4b3bf6`.
+
+Under the user's instruction to proceed to this next step, a fresh one-use
+approval was recorded programmatically from chat authorization. Consumption
+before approval and reuse afterward were rejected. No human or automated UI
+approval click is claimed for this run. The preview server served only the
+controlled checkout in fixture mode; neither planner was called.
+
+Run `50dd087a-e086-4649-b864-1b50fde08384` completed with overall **PASS**:
+
+- Navigate shop, add lamp, open checkout and continue with blank fields: all
+  four actions completed in plan order, with timestamps and the exact fixture URL.
+- `required-errors-visible`: expected true, observed true, **PASS**.
+- `checkout-stayed`: expected true, observed true, **PASS**.
+
+Both screenshots were byte-identical and matched their SHA-256 value
+`86ee116dbd34ed15a93778181ce29e04ea09bc423eab4eaaebdc0cf70ec8ec3f`.
+Visual inspection confirmed blank email/postal code, both required messages and
+an active checkout. Manifest SHA-256 and sidecar matched:
+`e9dc622bf8b170374396abe1ebefa637ef2de9872e84bec1a14a96aeff37d8c8`.
+The manifest and both evidence HTTP endpoints returned 200 and matched the
+saved content/hashes. Approval source and verification harness were preserved
+with verified sidecars in the ignored run directory.
+
+The in-app browser's navigation API reported `browser.user is unavailable`
+while attempting to reopen this new report, including through the documented
+tab API. The new readable report was therefore not inspected in the UI during
+this step. Existing report rendering regression evidence is unchanged; direct
+HTTP checks here establish evidence delivery, not new UI proof.
+
+Zero new Meta requests/API spend; no app code, dependency, environment, billing
+or deployment change. Existing passing unit/safety/UI suites were not repeated
+for this saved-plan verification; the temporary harness checked source integrity,
+contract/envelope/digest agreement, one-use approval, all action/assertion
+outcomes and evidence hashes. All three supported journeys now have local
+browser evidence for at least one live-generated plan, using chat-authorized
+approvals. This is selected-scenario evidence, not general reliability or a
+fresh live-proposal UI approval. Next: bounded reviewer-access deployment,
+after the owner selects hosting and numerical attempt/spend limits.
+
 ## Start boundary confirmed — October 27, 2026, approximately 00:23 SGT
 
 The kickoff transcript says the 10-day hacking period starts after kickoff and

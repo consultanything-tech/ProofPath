@@ -92,8 +92,11 @@ plans and two appropriate clarifications, with no browser execution. See
 completed seeded FAIL and fixed PASS with separate chat-authorized approvals
 and no new model call; see `evaluations/saved-quantity-runs-v1.md`. Readable
 plan/report UI, per-action evidence and saved-report reopening were verified
-locally in fixture mode on October 28. Next: execute the saved Meta required-fields
-plan, then verify a fresh live-proposal UI approval during the bounded hosted smoke.
+locally in fixture mode on October 28. The saved Meta required-fields plan then
+completed all four actions and both assertions passed under a fresh
+chat-authorized approval, with no new model request. Next: select hosting and
+numerical access/spend limits, then verify a fresh live-proposal UI approval
+during the bounded hosted smoke.
 Deployment/public execution budgets remain undecided.
 
 Basic live API access is verified. The prior Billing check showed $150 free

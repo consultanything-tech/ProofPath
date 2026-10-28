@@ -50,3 +50,11 @@ Follow-up on October 28: the saved `quantity-a` plan completed seeded FAIL and
 fixed PASS runs with separate chat-authorized approvals and no new model
 request. See [saved-plan browser evidence](saved-quantity-runs-v1.md). This does
 not change the planning-only scope of the original eight-case batch.
+
+Further follow-up on October 28: the saved `required-a` plan completed its
+four-action browser run and both boolean assertions passed, with a fresh
+chat-authorized programmatic approval and no new model request. Source/digest,
+screenshot and manifest hashes were verified. See [build log](../BUILD_LOG.md).
+All three supported journeys now have local execution evidence for at least
+one live-generated plan; this does not establish fresh live-proposal UI
+approval, broad language reliability or hosted behavior.

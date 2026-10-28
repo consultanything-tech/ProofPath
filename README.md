@@ -7,7 +7,7 @@ ProofPath turns a plain-language browser journey into an approved run and an evi
 - Event: Meta Global AI Developer Hackathon
 - Track: Indie Developer — Build for Your World
 - Participation: accepted and solo; acceptance was confirmed in the setup conversation on 26 October 2026.
-- Status: all fixture journeys and core local safety checks are implemented. One live-generated add-to-cart browser run passed, and eight fixed live planning cases met their declared expectations (six plans, two clarifications). The same saved Meta quantity plan produced seeded FAIL and fixed PASS with separate chat-authorized approvals and no new model requests; see [browser evidence](docs/evaluations/saved-quantity-runs-v1.md). Readable review/report UI and per-action evidence are verified locally in fixture mode. Broader reliability and deployment remain open.
+- Status: all fixture journeys and core local safety checks are implemented. Eight fixed live planning cases met their declared expectations (six plans, two clarifications). Live-generated plans have local browser evidence for all three journeys: add-to-cart PASS, saved quantity seeded FAIL/fixed PASS, and saved required-fields PASS. Saved-plan executions used fresh chat-authorized approvals without new model requests; see [quantity evidence](docs/evaluations/saved-quantity-runs-v1.md) and [build log](docs/BUILD_LOG.md). Readable review/report UI and per-action evidence are verified locally in fixture mode. Fresh live-proposal UI approval, broader reliability and deployment remain open.
 
 The planned demo is deliberately narrow:
 
