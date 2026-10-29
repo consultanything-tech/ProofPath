@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import { renderBugPacket, renderPlaywrightExport } from "../src/v2-artifacts.js";
+import { renderBugPacket, renderPlaywrightExport, renderPlaywrightExportForTest } from "../src/v2-artifacts.js";
 import { createV2Context, withSourceRequirement } from "../src/v2-checkout.js";
 import { createV2Planner } from "../src/v2-planner.js";
 import { createPlanner } from "../src/planner.js";
@@ -78,4 +78,26 @@ test("exported reviewed adapter test fails against r2 and passes against r3", { 
     await rm(exportDirectory, { recursive: true, force: true });
     await rm(fixture.root, { recursive: true, force: true });
   }
+});
+
+test("export rejects unknown release selection and reduced trusted deadlines", async () => {
+  const targetPort = await port(); const server = createProofPathServer(targetPort, createPlanner({ PLANNER_MODE: "fixture" })); const fixture = await approved(server.origin); const directory = await mkdtemp(join(process.cwd(), "tests/.task4-export-")); const file = join(directory, "negative.test.mjs");
+  try {
+    await new Promise<void>((resolve) => server.server.listen(targetPort, "127.0.0.1", resolve));
+    await writeFile(file, renderPlaywrightExportForTest(fixture.approval, { caseMs: 1, suiteMs: 1 }));
+    const env: NodeJS.ProcessEnv = { ...process.env, PROOFPATH_ORIGIN: server.origin, NODE_OPTIONS: "", PROOFPATH_RELEASE: "unknown" }; delete env.NODE_TEST_CONTEXT;
+    await assert.rejects(runFile(process.execPath, ["--test", file], { env }), (error: NodeJS.ErrnoException & { stdout?: string; stderr?: string }) => { assert.equal(error.code, 1); assert.match(`${error.stdout}\n${error.stderr}`, /PROOFPATH_RELEASE/); return true; });
+    env.PROOFPATH_RELEASE = "r3";
+    await assert.rejects(runFile(process.execPath, ["--test", file], { env }), (error: NodeJS.ErrnoException & { stdout?: string; stderr?: string }) => { assert.equal(error.code, 1); assert.match(`${error.stdout}\n${error.stderr}`, /deadline/i); return true; });
+  } finally { server.server.closeAllConnections(); await new Promise<void>((resolve) => server.server.close(() => resolve())); await rm(directory, { recursive: true, force: true }); await rm(fixture.root, { recursive: true, force: true }); }
+});
+
+test("export rejects changed served bytes before browser actions", async () => {
+  const targetPort = await port(); const server = createProofPathServer(targetPort, createPlanner({ PLANNER_MODE: "fixture" })); const fixture = await approved(server.origin); const directory = await mkdtemp(join(process.cwd(), "tests/.task4-export-")); const file = join(directory, "bytes.test.mjs");
+  try {
+    await new Promise<void>((resolve) => server.server.listen(targetPort, "127.0.0.1", resolve));
+    const altered = structuredClone(fixture.approval); (altered.definition.releases[1] as { fingerprint: string }).fingerprint = "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+    await writeFile(file, renderPlaywrightExport(altered)); const env: NodeJS.ProcessEnv = { ...process.env, PROOFPATH_ORIGIN: server.origin, NODE_OPTIONS: "", PROOFPATH_RELEASE: "r3" }; delete env.NODE_TEST_CONTEXT;
+    await assert.rejects(runFile(process.execPath, ["--test", file], { env }), (error: NodeJS.ErrnoException & { stdout?: string; stderr?: string }) => { assert.equal(error.code, 1); assert.match(`${error.stdout}\n${error.stderr}`, /bytes changed/); return true; });
+  } finally { server.server.closeAllConnections(); await new Promise<void>((resolve) => server.server.close(() => resolve())); await rm(directory, { recursive: true, force: true }); await rm(fixture.root, { recursive: true, force: true }); }
 });
