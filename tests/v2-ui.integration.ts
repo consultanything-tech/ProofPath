@@ -101,3 +101,117 @@ test("workbench submits accepted source-linked numeric review decisions and rend
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   try { await new Promise<void>((resolve) => instance.server.listen(selectedPort, "127.0.0.1", resolve)); browser = await chromium.launch({ headless: true }); const page = await browser.newPage(); page.setDefaultTimeout(5000); await page.goto(`${instance.origin}/workbench.html`); await page.getByRole("textbox", { name: "Source requirement" }).fill("SAVE10 discounts by 20%."); await page.getByRole("button", { name: "Inspect registered pair and propose" }).click(); await page.locator("[data-accept='coupon']").check(); await page.locator("[data-scope='coupon']").selectOption("new-or-changed"); await page.locator("[data-numeric='coupon']").check(); await page.getByRole("button", { name: "Compile reviewed snapshot" }).click(); await page.getByRole("heading", { name: "3. Final one-use approval" }).waitFor(); const readable = (await page.locator("#v2-approval-output").textContent()) ?? ""; assert.match(readable, /couponBasisPoints: 2000/); assert.match(readable, /totalMinor: 3700/); assert.match(readable, /coupon=new-or-changed/); await page.getByRole("button", { name: "Approve exact reviewed snapshot" }).click(); await page.getByRole("button", { name: "Run approved pair" }).click(); await page.getByText("twenty: expectation-not-met", { exact: true }).waitFor({ timeout: 30000 }); await page.close(); } finally { await browser?.close(); instance.server.closeAllConnections(); await new Promise<void>((resolve) => instance.server.close(() => resolve())); if (prior === undefined) delete process.env.DATA_DIR; else process.env.DATA_DIR = prior; await rm(root, { recursive: true, force: true }); }
 });
+
+test("workbench never runs an unused A approval after delayed saved B preparation", { timeout: 120_000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofpath-v2-ui-receipt-"));
+  const prior = process.env.DATA_DIR;
+  process.env.DATA_DIR = root;
+  const selectedPort = await port();
+  const instance = createProofPathServer(selectedPort, createPlanner({ PLANNER_MODE: "fixture" }));
+  const screenshots = join(process.cwd(), "test-results", "task4");
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+  let page: import("playwright").Page | undefined;
+  const post = async (path: string, body: unknown) => {
+    const response = await fetch(`${instance.origin}${path}`, { method: "POST", headers: { Origin: instance.origin, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const data = await response.json();
+    assert.ok(response.ok, `${path}: ${JSON.stringify(data)}`);
+    return data as any;
+  };
+  try {
+    await new Promise<void>((resolve) => instance.server.listen(selectedPort, "127.0.0.1", resolve));
+    const savedProposal = await post("/api/v2/proposals", { requirement: "An invalid coupon must display an error.", releases: ["r1", "r2"] });
+    const savedSuite = await post(`/api/v2/proposals/${savedProposal.id}/review`, { review: { decisions: savedProposal.proposal.requirement.criteria.map((criterion: any) => ({ criterionId: criterion.id, interpretation: criterion.normalizedRule, scope: "unchanged", adoptedReferenceIds: ["checkout-reference-v2"], acceptedGaps: [], acceptedNumericRuleChanges: [] })) } });
+    const savedReceipt = await post(`/api/v2/suites/${savedSuite.id}/approve`, {});
+    const savedStart = await post(`/api/v2/approvals/${savedReceipt.id}/runs`, {});
+    let savedRun: any;
+    for (let attempt = 0; attempt < 120; attempt += 1) {
+      const response = await fetch(`${instance.origin}/api/v2/runs/${savedStart.runId}`);
+      assert.ok(response.ok);
+      savedRun = await response.json();
+      if (savedRun.status === "completed") break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    assert.equal(savedRun.status, "completed");
+    const savedB = await post(`/api/v2/runs/${savedRun.id}/regressions`, {});
+    assert.equal(savedB.definition.requirement.originalText, "An invalid coupon must display an error.");
+    assert.deepEqual(savedB.definition.cases.map((item: any) => item.id), ["coupon-error"]);
+
+    browser = await chromium.launch({ headless: true });
+    page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    page.setDefaultTimeout(5_000);
+    const runApprovalIds: string[] = [];
+    page.on("request", (request) => {
+      const match = new URL(request.url()).pathname.match(/^\/api\/v2\/approvals\/([a-f0-9-]{36})\/runs$/);
+      if (request.method() === "POST" && match) runApprovalIds.push(match[1]!);
+    });
+    await page.goto(`${instance.origin}/workbench.html`);
+    await page.getByText("Fixture-only workbench ready; live model use is disabled").waitFor();
+    await page.selectOption("#v2-baseline", "r1");
+    await page.selectOption("#v2-candidate", "r2");
+    await page.getByRole("textbox", { name: "Source requirement" }).fill("Cart total must match unit prices.");
+    await page.getByRole("button", { name: "Inspect registered pair and propose" }).click();
+    await page.getByRole("heading", { name: "2. Review exact rules, cases and gaps" }).waitFor({ timeout: 30_000 });
+    for (const check of await page.locator("[data-accept], [data-reference], [data-gap]").all()) await check.check();
+    for (const scope of await page.locator("[data-scope]").all()) await scope.selectOption("unchanged");
+    await page.getByRole("button", { name: "Compile reviewed snapshot" }).click();
+    await page.getByRole("heading", { name: "3. Final one-use approval" }).waitFor({ timeout: 30_000 });
+    const aDigest = /Digest: (sha256:[a-f0-9]{64})/.exec((await page.locator("#v2-approval-output").textContent()) ?? "")?.[1];
+    assert.ok(aDigest);
+    const aApprovalResponse = page.waitForResponse((response) => response.request().method() === "POST" && /\/api\/v2\/suites\/[a-f0-9-]{36}\/approve$/.test(new URL(response.url()).pathname));
+    await page.getByRole("button", { name: "Approve exact reviewed snapshot" }).click();
+    const aReceipt = await (await aApprovalResponse).json() as { id: string; digest: string };
+    assert.equal(aReceipt.digest, aDigest);
+    assert.equal(await page.getByRole("button", { name: "Run approved pair" }).isEnabled(), true);
+
+    let releasePrepare!: () => void;
+    const heldPrepare = new Promise<void>((resolve) => { releasePrepare = resolve; });
+    let prepared!: () => void;
+    const preparing = new Promise<void>((resolve) => { prepared = resolve; });
+    await page.route(`**/api/v2/regressions/${savedB.id}/prepare`, async (route) => { prepared(); await heldPrepare; await route.continue(); });
+    await page.getByRole("combobox", { name: "Saved definition" }).selectOption(savedB.id);
+    await page.getByRole("button", { name: "Prepare selected saved definition" }).click();
+    await preparing;
+    assert.equal(await page.getByRole("button", { name: "Run approved pair" }).isDisabled(), true);
+    assert.equal(runApprovalIds.length, 0);
+    releasePrepare();
+    await page.getByText("Saved immutable definition rebound to the selected pair").waitFor({ timeout: 30_000 });
+    const bApprovalText = (await page.locator("#v2-approval-output").textContent()) ?? "";
+    const bDigest = /Digest: (sha256:[a-f0-9]{64})/.exec(bApprovalText)?.[1];
+    assert.match(bApprovalText, /An invalid coupon must display an error/);
+    assert.match(bApprovalText, /coupon-error/);
+    assert.notEqual(bDigest, aDigest);
+    assert.equal(await page.getByRole("button", { name: "Run approved pair" }).isDisabled(), true);
+    assert.equal(runApprovalIds.length, 0);
+
+    const bApprovalResponse = page.waitForResponse((response) => response.request().method() === "POST" && /\/api\/v2\/suites\/[a-f0-9-]{36}\/approve$/.test(new URL(response.url()).pathname));
+    await page.getByRole("button", { name: "Approve exact reviewed snapshot" }).click();
+    const bReceipt = await (await bApprovalResponse).json() as { id: string; digest: string };
+    assert.equal(bReceipt.digest, bDigest);
+    assert.notEqual(bReceipt.id, aReceipt.id);
+    const bStartResponse = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === `/api/v2/approvals/${bReceipt.id}/runs`);
+    await page.getByRole("button", { name: "Run approved pair" }).click();
+    const bStart = await (await bStartResponse).json() as { runId: string };
+    await page.getByRole("heading", { name: "4. Candidate, coverage and comparison report" }).waitFor({ timeout: 30_000 });
+    await page.getByText("Paired run completed; save the immutable definition or download artifacts.").waitFor({ timeout: 30_000 });
+    const completed = await (await fetch(`${instance.origin}/api/v2/runs/${bStart.runId}`)).json() as any;
+    assert.equal(completed.status, "completed");
+    assert.equal(completed.approvalDigest, bDigest);
+    assert.deepEqual(completed.artifact.definition.cases.map((item: any) => item.id), ["coupon-error"]);
+    assert.equal(completed.artifact.definition.requirement.originalText, "An invalid coupon must display an error.");
+    assert.ok(!completed.artifact.definition.cases.some((item: any) => item.id === "cart-total"));
+    assert.ok(!runApprovalIds.includes(aReceipt.id));
+    assert.deepEqual(runApprovalIds, [bReceipt.id]);
+  } catch (error) {
+    if (page) {
+      await mkdir(screenshots, { recursive: true });
+      await page.screenshot({ path: join(screenshots, "receipt-binding-failure.png"), fullPage: true }).catch(() => {});
+    }
+    throw error;
+  } finally {
+    await browser?.close();
+    instance.server.closeAllConnections();
+    await new Promise<void>((resolve) => instance.server.close(() => resolve()));
+    if (prior === undefined) delete process.env.DATA_DIR; else process.env.DATA_DIR = prior;
+    await rm(root, { recursive: true, force: true });
+  }
+});
