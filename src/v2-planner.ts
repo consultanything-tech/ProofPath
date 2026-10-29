@@ -267,6 +267,10 @@ function validateReview(review: ReviewDecision, proposal: ProposalResult, contex
   const acceptedGaps = new Set(decisions.flatMap((decision) => decision.acceptedGaps));
   if (!proposal.gaps.every((gap) => acceptedGaps.has(gap))) throw new V2PlannerError("Review must retain every proposed coverage gap.");
   for (const criterion of context.requirement.criteria) {
+    const gap = fixtureCoverageGap(criterion.id);
+    if (proposal.gaps.includes(gap) && !decisions.find((decision) => decision.criterionId === criterion.id)!.acceptedGaps.includes(gap)) throw new V2PlannerError("Per-criterion fixture coverage gaps require explicit acceptance.");
+  }
+  for (const criterion of context.requirement.criteria) {
     if (!proposal.cases.some((candidate) => candidate.criterionIds.includes(criterion.id)) && !decisions.find((decision) => decision.criterionId === criterion.id)!.acceptedGaps.length) throw new V2PlannerError("Uncovered criteria require an accepted coverage gap.");
   }
   return decisions;
@@ -293,41 +297,62 @@ export function compileReviewedSuite(proposal: ProposalResult, review: ReviewDec
   return { version: "2", requirement, rules, referenceId: context.requirement.adoptedReferenceIds[0]!, cases: parsedProposal.cases, app: context.app, releases: context.grounding.releases };
 }
 
+function fixtureCoverageGap(criterionId: string) {
+  return `Uncovered criterion ${criterionId}: Fixture actions and assertions do not exercise this source clause.`;
+}
+
+function fixtureCriteria(context: V2Context, domain: "cart" | "coupon" | "delivery" | "contact", obligation: "cart-total" | "coupon-error" | "coupon-discount" | "delivery-total" | "contact-errors") {
+  const matches = {
+    "cart-total": (quote: string) => /\bcart\s+total\b|\btotal\b.*\bcart\b/i.test(quote),
+    "coupon-error": (quote: string) => /\binvalid\b.*\bcoupon\b.*\berror\b|\bcoupon\b.*\binvalid\b.*\berror\b/i.test(quote),
+    "coupon-discount": (quote: string) => /\bsave10\b.*\b(discount|subtotal)\b|\b(discount|subtotal)\b.*\bsave10\b/i.test(quote),
+    "delivery-total": (quote: string) => /\bdelivery\b.*\b(free|threshold|subtotal)\b|\b(free|threshold|subtotal)\b.*\bdelivery\b/i.test(quote),
+    "contact-errors": (quote: string) => /\b(contact|email|postal)\b.*\b(required|blank|block)\b|\b(required|blank|block)\b.*\b(contact|email|postal)\b/i.test(quote)
+  } as const;
+  return context.requirement.criteria.filter((criterion) => (criterion.id === domain || criterion.id.startsWith(`${domain}-`)) && matches[obligation](criterion.sourceQuote));
+}
+
 function fixtureProposal(context: V2Context): ProposalResult {
-  const grouped = (domain: string) => context.requirement.criteria.filter((criterion) => criterion.id === domain || criterion.id.startsWith(`${domain}-`)).map((criterion) => criterion.id);
   const cases: CaseDefinition[] = [];
-  const cart = grouped("cart");
-  if (cart.length) cases.push({ id: "cart-total", criterionIds: cart, category: "happy", rationale: "Checks the reviewed cart state.", actions: [
+  const covered = new Set<string>();
+  const cart = fixtureCriteria(context, "cart", "cart-total");
+  for (const criterion of cart) covered.add(criterion.id);
+  if (cart.length) cases.push({ id: "cart-total", criterionIds: cart.map((criterion) => criterion.id), category: "happy", rationale: "Checks the reviewed cart state.", actions: [
     { id: "open", kind: "open-app", target: "checkout", value: null },
     { id: "lamp", kind: "add-product", target: "desk-lamp", value: null }
   ], assertions: [{ id: "total", predicate: "total-minor" }] });
-  const coupon = grouped("coupon");
-  if (coupon.length) cases.push({ id: "coupon-error", criterionIds: coupon, category: "negative", rationale: "Checks the reviewed invalid coupon response.", actions: [
+  const couponError = fixtureCriteria(context, "coupon", "coupon-error");
+  for (const criterion of couponError) covered.add(criterion.id);
+  if (couponError.length) cases.push({ id: "coupon-error", criterionIds: couponError.map((criterion) => criterion.id), category: "negative", rationale: "Checks the reviewed invalid coupon response.", actions: [
     { id: "open", kind: "open-app", target: "checkout", value: null },
     { id: "lamp", kind: "add-product", target: "desk-lamp", value: null },
     { id: "coupon", kind: "fill-coupon", target: "coupon", value: "NOPE" },
     { id: "apply", kind: "apply-coupon", target: "coupon", value: null }
   ], assertions: [{ id: "coupon-error", predicate: "coupon-error" }] });
-  const delivery = grouped("delivery");
-  if (delivery.length) cases.push({ id: "delivery-total", criterionIds: delivery, category: "interaction", rationale: "Checks the reviewed delivery calculation.", actions: [
+  const couponDiscount = fixtureCriteria(context, "coupon", "coupon-discount");
+  const delivery = fixtureCriteria(context, "delivery", "delivery-total");
+  for (const criterion of [...couponDiscount, ...delivery]) covered.add(criterion.id);
+  if (couponDiscount.length || delivery.length) cases.push({ id: "delivery-total", criterionIds: [...couponDiscount, ...delivery].map((criterion) => criterion.id), category: "interaction", rationale: "Checks the reviewed delivery calculation.", actions: [
     { id: "open", kind: "open-app", target: "checkout", value: null },
     { id: "lamp-one", kind: "add-product", target: "desk-lamp", value: null },
     { id: "lamp-two", kind: "add-product", target: "desk-lamp", value: null },
     { id: "coupon", kind: "fill-coupon", target: "coupon", value: context.rules.couponCode },
     { id: "apply", kind: "apply-coupon", target: "coupon", value: null }
   ], assertions: [{ id: "total", predicate: "total-minor" }] });
-  const contact = grouped("contact");
-  if (contact.length) cases.push({ id: "blank-contact", criterionIds: contact, category: "negative", rationale: "Checks the reviewed required contact fields.", actions: [
+  const contact = fixtureCriteria(context, "contact", "contact-errors");
+  for (const criterion of contact) covered.add(criterion.id);
+  if (contact.length) cases.push({ id: "blank-contact", criterionIds: contact.map((criterion) => criterion.id), category: "negative", rationale: "Checks the reviewed required contact fields.", actions: [
     { id: "open", kind: "open-app", target: "checkout", value: null },
     { id: "lamp", kind: "add-product", target: "desk-lamp", value: null },
     { id: "contact", kind: "open-contact", target: "contact", value: null },
     { id: "confirm", kind: "confirm-synthetic-order", target: "synthetic-order", value: null }
   ], assertions: [{ id: "contact-errors", predicate: "contact-errors" }] });
+  const gaps = [...context.requirement.coverageGaps, ...context.requirement.criteria.filter((criterion) => !covered.has(criterion.id)).map((criterion) => fixtureCoverageGap(criterion.id))];
   return validateSuiteProposal({
-    kind: "proposal",
-    requirement: { version: "2", originalText: context.requirement.originalText, criteria: context.requirement.criteria, numericRuleChanges: [], expectationScope: context.requirement.expectationScope, coverageGaps: context.requirement.coverageGaps },
+    kind: cases.length ? "proposal" : "clarification",
+    requirement: { version: "2", originalText: context.requirement.originalText, criteria: context.requirement.criteria, numericRuleChanges: [], expectationScope: context.requirement.expectationScope, coverageGaps: gaps },
     cases,
-    gaps: context.requirement.coverageGaps
+    gaps
   }, context);
 }
 

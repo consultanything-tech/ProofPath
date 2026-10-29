@@ -82,11 +82,33 @@ test("independent source clauses remain reviewable with exact quotes and visible
     assert.deepEqual(context.requirement.coverageGaps, ["Uncovered source clause: Theme selection is not supported."]);
     const proposal = await createV2Planner({ V2_PLANNER_MODE: "fixture" }).propose(context);
     assert.equal(proposal.kind, "proposal");
-    assert.deepEqual(proposal.cases.flatMap((item) => item.criterionIds), ["coupon", "coupon-2"]);
+    const fixtureGap = "Uncovered criterion coupon-2: Fixture actions and assertions do not exercise this source clause.";
+    assert.deepEqual(proposal.cases.flatMap((item) => item.criterionIds), ["coupon"]);
+    assert.deepEqual(proposal.gaps, [...context.requirement.coverageGaps, fixtureGap]);
     const store = new V2Store(root);
     const pending = await store.createProposal(proposal, context);
-    const reviewed = await store.reviewProposal(pending.id, { decisions: context.requirement.criteria.map((criterion) => ({ criterionId: criterion.id, interpretation: criterion.normalizedRule, scope: "unchanged" as const, adoptedReferenceIds: ["checkout-reference-v2"], acceptedGaps: context.requirement.coverageGaps, acceptedNumericRuleChanges: [] })) });
-    assert.equal((await store.approveSuite(reviewed.id)).digest, reviewed.digest);
+    const review = { decisions: context.requirement.criteria.map((criterion) => ({ criterionId: criterion.id, interpretation: criterion.normalizedRule, scope: "unchanged" as const, adoptedReferenceIds: ["checkout-reference-v2"], acceptedGaps: criterion.id === "coupon-2" ? [fixtureGap] : context.requirement.coverageGaps, acceptedNumericRuleChanges: [] })) };
+    await assert.rejects(store.reviewProposal(pending.id, { decisions: review.decisions.map((decision) => decision.criterionId === "coupon" ? { ...decision, acceptedGaps: [...decision.acceptedGaps, fixtureGap] } : decision.criterionId === "coupon-2" ? { ...decision, acceptedGaps: [] } : decision) }), /per-criterion fixture coverage/i);
+    const reviewed = await store.reviewProposal(pending.id, review);
+    const approval = await store.consumeApproval((await store.approveSuite(reviewed.id)).id);
+    const job = await store.createJob(approval);
+    await store.markRunning(job.id);
+    const records = await Promise.all(["r1", "r2"].map(async (releaseId) => {
+      const screenshot = `coupon-${releaseId}.png`;
+      const bytes = Buffer.from(`fixture-${releaseId}`);
+      const now = new Date().toISOString();
+      await mkdir(store.runDirectory(job.id), { recursive: true });
+      await writeFile(join(store.runDirectory(job.id), screenshot), bytes);
+      return {
+        caseId: "coupon-error", releaseId: releaseId as "r1" | "r2",
+        actions: proposal.cases[0]!.actions.map((action) => ({ id: action.id, status: "completed" as const, startedAt: now, endedAt: now, url: context.app.origin })),
+        assertions: [{ id: "coupon-error", expected: "invalid-coupon", observed: "invalid-coupon", verdict: "PASS" as const, screenshot, screenshotSha256: `sha256:${createHash("sha256").update(bytes).digest("hex")}`, timestamp: now, url: context.app.origin }],
+        verdict: "PASS" as const, startedAt: now, endedAt: now
+      };
+    }));
+    const completed = await store.completeJob(job.id, records, []);
+    assert.ok(completed.records.every((record) => record.verdict === "PASS"));
+    assert.equal(completed.verdict, "INCONCLUSIVE");
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

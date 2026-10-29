@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createV2Context, deriveCaseInput, type ReviewDecision, type V2Context } from "../src/v2-checkout.js";
+import { createV2Context, deriveCaseInput, withSourceRequirement, type ReviewDecision, type V2Context } from "../src/v2-checkout.js";
 import { calculateCheckout } from "../src/v2-oracle.js";
 import {
   buildMetaSuiteRequest,
@@ -163,7 +163,9 @@ test("fixture is explicit and mocked Meta transport is bounded and fails closed"
   const context = createV2Context();
   let calls = 0;
   const fixture = createV2Planner({ V2_PLANNER_MODE: "fixture" }, async () => { calls += 1; throw new Error("must not call"); });
-  assert.equal((await fixture.propose(context)).kind, "proposal");
+  const fixtureProposal = await fixture.propose(context);
+  assert.equal(fixtureProposal.kind, "proposal");
+  assert.deepEqual(fixtureProposal.cases.find((candidate) => candidate.id === "delivery-total")?.criterionIds, ["coupon", "delivery"]);
   assert.equal(calls, 0);
   assert.throws(() => createV2Planner({ PLANNER_MODE: "fixture" }), /V2_PLANNER_MODE/i);
   assert.throws(() => createV2Planner({ V2_PLANNER_MODE: "meta" }), /disabled/i);
@@ -192,4 +194,17 @@ test("fixture is explicit and mocked Meta transport is bounded and fails closed"
   assert.equal(retries, 2);
   const oversized = createV2Planner({ V2_PLANNER_MODE: "mock" }, async () => new Response("x", { headers: { "content-length": "65537" } }));
   await assert.rejects(oversized.propose(context), /size limit/i);
+});
+
+test("fixture links only source clauses exercised by its bounded actions and assertions", async () => {
+  const context = withSourceRequirement(createV2Context(), "An invalid coupon must display an error. A coupon may be applied only once. Cart state persists after refresh. Delivery state persists after refresh. Contact state persists after refresh.");
+  const proposal = await createV2Planner({ V2_PLANNER_MODE: "fixture" }).propose(context);
+  assert.equal(proposal.kind, "proposal");
+  assert.deepEqual(proposal.cases.map((candidate) => [candidate.id, candidate.criterionIds]), [["coupon-error", ["coupon"]]]);
+  assert.deepEqual(proposal.gaps, [
+    "Uncovered criterion coupon-2: Fixture actions and assertions do not exercise this source clause.",
+    "Uncovered criterion cart: Fixture actions and assertions do not exercise this source clause.",
+    "Uncovered criterion delivery: Fixture actions and assertions do not exercise this source clause.",
+    "Uncovered criterion contact: Fixture actions and assertions do not exercise this source clause."
+  ]);
 });
