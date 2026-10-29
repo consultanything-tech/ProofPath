@@ -37,7 +37,8 @@ test("workbench completes fixture review, run, saved reuse, downloads, and respo
     await desktop.getByRole("textbox", { name: "Source requirement" }).press("Control+Enter");
     await desktop.getByRole("heading", { name: "2. Review exact rules, cases and gaps" }).waitFor();
     await desktop.getByText("Original source and interpreted criteria").waitFor();
-    await desktop.getByRole("checkbox", { name: "I reviewed and accept every visible coverage gap." }).check();
+    for (const check of await desktop.locator("[data-accept], [data-reference], [data-gap]").all()) await check.check();
+    for (const scope of await desktop.locator("[data-scope]").all()) await scope.selectOption("unchanged");
     await desktop.getByRole("button", { name: "Compile reviewed snapshot" }).click();
     await desktop.locator("#v2-status").waitFor({ state: "visible" });
     await desktop.getByRole("heading", { name: "3. Final one-use approval" }).waitFor();

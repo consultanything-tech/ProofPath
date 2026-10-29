@@ -50,6 +50,8 @@ export async function handleV2Request(req: IncomingMessage, res: ServerResponse,
     }
     const run = url.pathname.match(/^\/api\/v2\/runs\/([a-f0-9-]{36})$/);
     if (req.method === "GET" && run) return reply(res, 200, await context.runtime.read(run[1]!));
+    const evidence = url.pathname.match(/^\/api\/v2\/runs\/([a-f0-9-]{36})\/evidence\/([a-z0-9-]+\.png)$/);
+    if (req.method === "GET" && evidence) return binary(res, await context.store.readEvidence(evidence[1]!, evidence[2]!));
     const save = url.pathname.match(/^\/api\/v2\/runs\/([a-f0-9-]{36})\/regressions$/);
     if (req.method === "POST" && save) {
       await emptyMutation(req, context.origin);
@@ -96,3 +98,4 @@ async function grounded(request: V2HttpContext, context: V2Context): Promise<V2C
 async function emptyMutation(req: IncomingMessage, origin: string) { const value = await mutation(req, origin); if (!isRecord(value) || !exact(value, [])) throw new HttpError(400, "An empty JSON body is required."); }
 function reply(res: ServerResponse, status: number, body: unknown): true { res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Content-Security-Policy": "default-src 'self'; base-uri 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" }); res.end(JSON.stringify(body)); return true; }
 function download(res: ServerResponse, filename: string, type: string, body: string): true { res.writeHead(200, { "Content-Type": type, "Content-Disposition": `attachment; filename=\"${filename}\"`, "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" }); res.end(body); return true; }
+function binary(res: ServerResponse, body: Buffer): true { res.writeHead(200, { "Content-Type": "image/png", "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" }); res.end(body); return true; }

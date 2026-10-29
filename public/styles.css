@@ -44,6 +44,7 @@ img { display: block; max-width: 100%; margin-top: .6rem; border: 1px solid #dde
 .proofpath-workbench .release-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 .proofpath-workbench .release-grid select { display: block; width: 100%; margin-top: .5rem; padding: .7rem; font: inherit; }
 .proofpath-workbench .check { display: block; margin: 1rem 0; }
+.proofpath-workbench .check input { display: inline-block; width: auto; margin: 0 .45rem 0 0; vertical-align: middle; }
 .proofpath-workbench .workbench-panel { margin: 1rem 0 0; padding: 1rem; border: 1px solid #dde3ed; border-radius: 8px; background: #fff; }
 .proofpath-workbench .workbench-panel h3 { margin-top: 0; }
 .proofpath-workbench .workbench-panel p, .proofpath-workbench li, .proofpath-workbench pre, .proofpath-workbench .downloads { overflow-wrap: anywhere; }

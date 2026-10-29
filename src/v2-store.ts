@@ -131,6 +131,15 @@ export class V2Store {
     if (run.status === "completed" || run.status === "interrupted") await this.verifyManifest(run);
     return clone(run);
   }
+  async readEvidence(runId: string, filename: string): Promise<Buffer> {
+    if (!/^[a-z0-9-]+\.png$/.test(filename)) throw new Error("Invalid evidence filename.");
+    const run = await this.readJob(runId);
+    const assertion = run.records.flatMap((record) => record.assertions).find((item) => item.screenshot === filename && item.screenshotSha256);
+    if (!assertion) throw new Error("Unknown verified evidence.");
+    const bytes = await readFile(join(this.runDirectory(runId), filename));
+    if (`sha256:${createHash("sha256").update(bytes).digest("hex")}` !== assertion.screenshotSha256) throw new Error("Evidence integrity check failed.");
+    return bytes;
+  }
 
   async recoverInterruptedJobs(): Promise<number> {
     try {
