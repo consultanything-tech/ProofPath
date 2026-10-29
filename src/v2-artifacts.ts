@@ -33,8 +33,14 @@ export function renderHistoricalPlaywrightExport(run: SuiteRun): string {
   return renderExport(snapshot(run));
 }
 
-function renderExport(approval: ArtifactApproval): string {
-  const payload = literal({ definition: approval.definition, expectations: approval.expectations, digest: approval.digest });
+export function renderPlaywrightExportForTest(approval: SuiteApproval, limits: { caseMs?: number; suiteMs?: number }): string {
+  return renderExport(approval, limits);
+}
+
+function renderExport(approval: ArtifactApproval, limits: { caseMs?: number; suiteMs?: number } = {}): string {
+  const caseMs = limits.caseMs ?? 30_000; const suiteMs = limits.suiteMs ?? 180_000;
+  if (!Number.isInteger(caseMs) || !Number.isInteger(suiteMs) || caseMs < 1 || suiteMs < 1 || caseMs > 30_000 || suiteMs > 180_000) throw new Error("Export limits may only reduce the reviewed production bounds.");
+  const payload = literal({ definition: approval.definition, expectations: approval.expectations, digest: approval.digest, limits: { caseMs, suiteMs } });
   return `import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
@@ -47,6 +53,7 @@ if (!/^http:\\/\\/127\\.0\\.0\\.1:\\d+$/.test(origin ?? "")) throw new Error("Se
 const releases = selectedRelease ? approval.definition.releases.filter((release) => release.id === selectedRelease) : approval.definition.releases;
 if (!releases.length || (selectedRelease && releases.length !== 1)) throw new Error("PROOFPATH_RELEASE must name one approved release.");
 const verify = async (release) => { const hash = createHash("sha256"); const bodies = new Map(); for (const path of release.resources) { const url = new URL(path, origin); const response = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(30000) }); if (!response.ok || response.url !== url.toString()) throw new Error("Approved resource could not be fetched without redirect."); const body = Buffer.from(await response.arrayBuffer()); if (body.length > 1048576) throw new Error("Approved resource exceeds export limit."); bodies.set(path, body); hash.update(body); } if ('sha256:' + hash.digest("hex") !== release.fingerprint) throw new Error("Approved release bytes changed."); return bodies; };
+const bounded = async (work, timeout, close) => { let timer; try { return await Promise.race([work, new Promise((_, reject) => { timer = setTimeout(() => { void close(); reject(new Error("Reviewed deadline reached.")); }, Math.max(1, timeout)); })]); } finally { clearTimeout(timer); } };
 const expectedFor = (assertion, expected) => assertion.predicate === "total-minor" ? expected.totalMinor : assertion.predicate === "coupon-error" ? expected.couponError : assertion.predicate === "contact-errors" ? expected.contactErrors : expected.syntheticConfirmation;
 const action = async (page, entry, url) => {
   if (entry.kind === "open-app") return page.goto(url, { waitUntil: "networkidle" });
@@ -68,9 +75,9 @@ const observe = async (page, assertion, definition) => {
 };
 for (const release of releases) {
   const bodies = await verify(release);
-  test('reviewed checkout assertions on ' + release.id, { timeout: 180000 }, async () => {
+  test('reviewed checkout assertions on ' + release.id, { timeout: approval.limits.suiteMs + 1000 }, async () => {
     const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({ serviceWorkers: "block", acceptDownloads: false, permissions: [] }); let boundary = false; const deadline = Date.now() + 180000;
+    const context = await browser.newContext({ serviceWorkers: "block", acceptDownloads: false, permissions: [] }); let boundary = false; const deadline = Date.now() + approval.limits.suiteMs;
     try {
       const permitted = new Set(release.resources);
       await context.route("**/*", async (route) => {
@@ -83,8 +90,8 @@ for (const release of releases) {
         if (Date.now() >= deadline) throw new Error("Suite deadline reached.");
         const page = await context.newPage(); const url = new URL(release.documentPath, origin).toString();
         page.on("popup", (popup) => { boundary = true; void popup.close(); }); page.on("download", (download) => { boundary = true; void download.cancel(); });
-        for (const entry of definition.actions) await action(page, entry, url);
-        for (const assertion of definition.assertions) assert.deepEqual(await observe(page, assertion, definition), expectedFor(assertion, approval.expectations[index]));
+        for (const entry of definition.actions) await bounded(action(page, entry, url), Math.min(approval.limits.caseMs, deadline - Date.now()), () => page.close());
+        for (const assertion of definition.assertions) assert.deepEqual(await bounded(observe(page, assertion, definition), Math.min(approval.limits.caseMs, deadline - Date.now()), () => page.close()), expectedFor(assertion, approval.expectations[index]));
         assert.equal(boundary, false, "Browser crossed the reviewed resource boundary.");
         await page.close();
       }

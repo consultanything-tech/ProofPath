@@ -59,6 +59,7 @@ test("workbench completes fixture review, run, saved reuse, downloads, and respo
     await desktop.getByRole("button", { name: "Prepare selected saved definition" }).click();
     await desktop.getByText("Saved immutable definition rebound to the selected pair").waitFor();
     await desktop.getByText(/Saved reuse made zero planner calls/).waitFor();
+    assert.equal(await desktop.getByRole("button", { name: "Run approved pair" }).isDisabled(), true);
     assert.equal(proposals, 1);
     await desktop.getByRole("button", { name: "Approve exact reviewed snapshot" }).click();
     await desktop.getByRole("button", { name: "Run approved pair" }).click();
