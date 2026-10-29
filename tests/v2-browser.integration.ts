@@ -185,10 +185,31 @@ test("paired execution records fresh per-release evidence and exposes the seeded
     }
     assert.equal(run.status, "completed");
     assert.deepEqual(run.records.map((record) => [record.releaseId, record.verdict]), [["r1", "PASS"], ["r2", "FAIL"]]);
+    assert.deepEqual(run.comparisons, [{ caseId: "delivery", classification: "regression" }]);
+    assert.equal(run.candidateVerdict, "FAIL");
     assert.match(run.records[0]!.assertions[0]!.screenshotSha256 ?? "", /^sha256:[a-f0-9]{64}$/);
     const manifest = JSON.parse(await readFile(join(root, "runs", "v2", runId, "manifest.json"), "utf8"));
     assert.equal(manifest.approvalDigest, suite.digest);
     assert.equal(await readFile(join(root, "runs", "v2", runId, "manifest.sha256"), "utf8"), `${createHash("sha256").update(JSON.stringify(manifest, null, 2)).digest("hex")}\n`);
+    const saved = await store.saveRegression(runId);
+    const reloadedStore = new V2Store(root);
+    const replacement = await reloadedStore.prepareRegression(saved.id, createV2Context(server.origin, ["r1", "r3"]));
+    assert.deepEqual(replacement.definition.releases.map((release) => release.id), ["r1", "r3"]);
+    assert.notEqual(replacement.digest, suite.digest);
+    assert.equal((await reloadedStore.approveSuite(replacement.id)).digest, replacement.digest);
+    const changedReference = createV2Context(server.origin, ["r1", "r3"]);
+    await assert.rejects(reloadedStore.prepareRegression(saved.id, { ...changedReference, requirement: { ...changedReference.requirement, adoptedReferenceIds: ["different-reference"] } }), /reference identity|incompatible/i);
+    const shortApproval = await reloadedStore.approveSuite(replacement.id);
+    const shortRuntime = createV2Runtime(reloadedStore, server.origin, { limits: { caseMs: 1, suiteMs: 1 } });
+    const shortStart = await shortRuntime.start(shortApproval.id);
+    let shortRun = await shortRuntime.read(shortStart.runId);
+    for (let attempts = 0; shortRun.status !== "completed" && attempts < 50; attempts += 1) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 20));
+      shortRun = await shortRuntime.read(shortStart.runId);
+    }
+    assert.equal(shortRun.status, "completed");
+    assert.ok(shortRun.coverage.some((gap) => gap.includes("deadline")));
+    assert.equal(shortRun.records.length, 2);
   } finally {
     await server?.close();
     await rm(root, { recursive: true, force: true });

@@ -200,6 +200,16 @@ export function createV2Context(origin = "http://127.0.0.1:4173", releaseIds: re
   return { app: registeredCheckoutApp(origin), catalog: REFERENCE_CATALOG, rules: REFERENCE_RULES, releases: Object.values(releases), grounding, requirement: referenceRequirement };
 }
 
+export function withSourceRequirement(context: V2Context, originalText: string): V2Context {
+  const fragments = originalText.split(/(?<=[.!?])\s+/).map((item) => item.trim()).filter(Boolean);
+  const quoteFor = (pattern: RegExp) => fragments.find((fragment) => pattern.test(fragment));
+  const quotes: Record<string, string | undefined> = {
+    cart: quoteFor(/quantity|cart/i), coupon: quoteFor(/coupon|save10/i), delivery: quoteFor(/delivery/i), contact: quoteFor(/contact|email|postal/i)
+  };
+  if (Object.values(quotes).some((quote) => !quote || quote.length > 1_000)) throw new Error("Source must explicitly cover cart quantity, coupon, delivery, and contact requirements.");
+  return { ...context, requirement: { ...context.requirement, originalText, criteria: context.requirement.criteria.map((criterion) => ({ ...criterion, sourceQuote: quotes[criterion.id]! })) } };
+}
+
 function canonical(value: unknown): string {
   if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;

@@ -5,25 +5,14 @@ import { chromium, type BrowserContext, type Page } from "playwright";
 import { digestV2 } from "./v2-checkout.js";
 import type { CaseAssertion, CaseDefinition, CaseReleaseRecord, ExpectedCase, ReleaseRef, SuiteApproval, SuiteRun, V2ActionResult, V2AssertionResult } from "./v2-contracts.js";
 import { V2Store } from "./v2-store.js";
+export { classifyComparison, type ComparisonClass, type ComparisonOutcome } from "./v2-comparison.js";
 
 const CASE_TIMEOUT_MS = 30_000;
 const SUITE_TIMEOUT_MS = 180_000;
 const publicRoot = resolve(process.cwd(), "public");
 
-export type ComparisonOutcome = { readonly verdict: "PASS" | "FAIL" | "INCONCLUSIVE"; readonly fingerprint: string; readonly observed: boolean };
-export type ComparisonClass = "regression" | "resolved-failure" | "persistent-failure" | "stable-observation" | "expectation-met" | "expectation-not-met" | "inconclusive" | "non-comparable";
 export type V2Execution = { readonly records: readonly CaseReleaseRecord[]; readonly coverage: readonly string[] };
 export type V2RunnerOptions = { readonly execute?: (approval: SuiteApproval, run: SuiteRun) => Promise<V2Execution | void>; readonly limits?: { readonly caseMs?: number; readonly suiteMs?: number }; readonly gate?: { acquire(): boolean; release(): void } };
-
-export function classifyComparison(previous: ComparisonOutcome | null | undefined, proposed: ComparisonOutcome | null | undefined, scope: "unchanged" | "new-or-changed"): ComparisonClass {
-  if (!previous || !proposed || !previous.observed || !proposed.observed || previous.verdict === "INCONCLUSIVE" || proposed.verdict === "INCONCLUSIVE") return "inconclusive";
-  if (previous.fingerprint !== proposed.fingerprint) return "non-comparable";
-  if (scope === "new-or-changed") return proposed.verdict === "PASS" ? "expectation-met" : "expectation-not-met";
-  if (previous.verdict === "PASS" && proposed.verdict === "FAIL") return "regression";
-  if (previous.verdict === "FAIL" && proposed.verdict === "PASS") return "resolved-failure";
-  if (previous.verdict === "FAIL" && proposed.verdict === "FAIL") return "persistent-failure";
-  return "stable-observation";
-}
 
 export function createV2Runtime(store: V2Store, origin: string, options: V2RunnerOptions = {}) {
   if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) throw new Error("V2 runtime requires a local loopback origin.");
@@ -140,7 +129,7 @@ async function executeCase(definition: CaseDefinition, expected: ExpectedCase, r
         if (timedOut || Date.now() >= deadline) throw new Error("Case deadline reached.");
         assertions.push(await observe(assertion, expected, definition, release, runId, store, page, remaining()));
       }
-    } finally { await context?.close().catch(() => {}); await browser?.close().catch(() => {}); }
+    } finally { await settle(context?.close(), 250); await settle(browser?.close(), 250); }
   } catch {
     for (const action of definition.actions) if (!actions.some((result) => result.id === action.id)) actions.push({ id: action.id, status: "not-run", startedAt: null, endedAt: null, url: null });
     for (const assertion of definition.assertions) if (!assertions.some((result) => result.id === assertion.id)) assertions.push({ id: assertion.id, expected: expectedFor(assertion, expected), observed: null, verdict: "INCONCLUSIVE", screenshot: "not-captured.png", timestamp: new Date().toISOString(), url });
@@ -193,3 +182,4 @@ async function observedFor(assertion: CaseAssertion, definition: CaseDefinition,
 }
 async function exactText(page: Page, selector: string, pattern: RegExp): Promise<string | undefined> { const locator = page.locator(selector); if (await locator.count() !== 1 || !await locator.isVisible()) return undefined; const text = (await locator.textContent())?.trim() ?? ""; return pattern.test(text) ? text : undefined; }
 async function stateText(page: Page, selector: string, value: string): Promise<string | null | undefined> { const locator = page.locator(selector); if (await locator.count() !== 1) return undefined; return await locator.isVisible() ? value : null; }
+async function settle(work: Promise<unknown> | undefined, maxMs: number) { if (!work) return; await Promise.race([work.catch(() => {}), new Promise<void>((resolve) => setTimeout(resolve, Math.max(1, maxMs)))]); }

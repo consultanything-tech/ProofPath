@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer, request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -36,6 +36,19 @@ const reviewFor = (context = createV2Context()) => ({ decisions: context.require
 async function prepared(store: V2Store, context = createV2Context()) {
   const proposal = await store.createProposal(validateSuiteProposal(proposalFor(context), context), context);
   return store.reviewProposal(proposal.id, reviewFor(context));
+}
+
+function failingCouponRecord(releaseId: "r1" | "r2") {
+  const now = new Date().toISOString();
+  return {
+    caseId: "coupon",
+    releaseId,
+    actions: ["open", "lamp", "coupon", "apply"].map((id) => ({ id, status: "completed" as const, startedAt: now, endedAt: now, url: "http://127.0.0.1:4173" })),
+    assertions: [{ id: "coupon-error", expected: "invalid-coupon", observed: "unexpected", verdict: "FAIL" as const, screenshot: "not-captured.png", timestamp: now, url: "http://127.0.0.1:4173" }],
+    verdict: "FAIL" as const,
+    startedAt: now,
+    endedAt: now
+  };
 }
 
 test("one-use approval binds the exact reviewed snapshot, expires, and rejects tampering", async () => {
@@ -91,7 +104,7 @@ test("persisted completed-case failures survive recovery and terminal completion
     const approval = await store.consumeApproval((await store.approveSuite(suite.id)).id);
     const job = await store.createJob(approval);
     await store.markRunning(job.id);
-    await store.appendRecord(job.id, { caseId: "coupon", releaseId: "r1", actions: [], assertions: [], verdict: "FAIL", startedAt: new Date().toISOString(), endedAt: new Date().toISOString() });
+    await store.appendRecord(job.id, failingCouponRecord("r1"));
     const restarted = new V2Store(root);
     assert.equal(await restarted.recoverInterruptedJobs(), 1);
     const recovered = await restarted.readJob(job.id);
@@ -122,11 +135,16 @@ test("completed PASS requires intact evidence and corrupt durable state fails cl
       const bytes = Buffer.from(`evidence-${releaseId}`);
       await mkdir(store.runDirectory(job.id), { recursive: true });
       await writeFile(join(store.runDirectory(job.id), screenshot), bytes);
-      return { caseId: "coupon", releaseId: releaseId as "r1" | "r2", actions: [], assertions: [{ id: "coupon-error", expected: "invalid-coupon", observed: "invalid-coupon", verdict: "PASS" as const, screenshot, screenshotSha256: `sha256:${createHash("sha256").update(bytes).digest("hex")}`, timestamp: new Date().toISOString(), url: "http://127.0.0.1:4173" }], verdict: "PASS" as const, startedAt: new Date().toISOString(), endedAt: new Date().toISOString() };
+      return { caseId: "coupon", releaseId: releaseId as "r1" | "r2", actions: ["open", "lamp", "coupon", "apply"].map((id) => ({ id, status: "completed" as const, startedAt: new Date().toISOString(), endedAt: new Date().toISOString(), url: "http://127.0.0.1:4173" })), assertions: [{ id: "coupon-error", expected: "invalid-coupon", observed: "invalid-coupon", verdict: "PASS" as const, screenshot, screenshotSha256: `sha256:${createHash("sha256").update(bytes).digest("hex")}`, timestamp: new Date().toISOString(), url: "http://127.0.0.1:4173" }], verdict: "PASS" as const, startedAt: new Date().toISOString(), endedAt: new Date().toISOString() };
     }));
     const completed = await store.completeJob(job.id, records, []);
     assert.equal(completed.verdict, "PASS");
     await store.readJob(job.id);
+    const statePath = join(root, "runs", "v2", "state.json");
+    const nestedCorruption = JSON.parse(await readFile(statePath, "utf8"));
+    nestedCorruption.runs[job.id].records[0].actions[0].id = "wrong-action";
+    await writeFile(statePath, JSON.stringify(nestedCorruption));
+    await assert.rejects(new V2Store(root).readJob(job.id), /corrupt/i);
     await writeFile(join(store.runDirectory(job.id), records[0]!.assertions[0]!.screenshot), "tampered");
     await assert.rejects(store.readJob(job.id), /evidence/i);
 
@@ -134,6 +152,28 @@ test("completed PASS requires intact evidence and corrupt durable state fails cl
     await mkdir(corrupt, { recursive: true });
     await writeFile(join(corrupt, "state.json"), JSON.stringify({ version: "2", executionCount: 0, suites: { bad: {} }, runs: {}, regressions: {} }));
     await assert.rejects(new V2Store(join(root, "corrupt")).recoverInterruptedJobs(), /fail-closed/i);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("finalization rejects empty or wrong reviewed action/assertion sets and retains reviewed gaps", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofpath-v2-completeness-"));
+  try {
+    const store = new V2Store(root);
+    const suite = await prepared(store);
+    const approval = await store.consumeApproval((await store.approveSuite(suite.id)).id);
+    const job = await store.createJob(approval);
+    await store.markRunning(job.id);
+    const emptyPairs = ["r1", "r2"].map((releaseId) => ({ caseId: "coupon", releaseId: releaseId as "r1" | "r2", actions: [], assertions: [], verdict: "PASS" as const, startedAt: new Date().toISOString(), endedAt: new Date().toISOString() }));
+    await assert.rejects(store.completeJob(job.id, emptyPairs, []), /action|assertion/i);
+    const wrongActionPairs = ["r1", "r2"].map((releaseId) => ({ ...failingCouponRecord(releaseId as "r1" | "r2"), actions: failingCouponRecord(releaseId as "r1" | "r2").actions.map((action, index) => index === 0 ? { ...action, id: "wrong-action" } : action) }));
+    await assert.rejects(store.completeJob(job.id, wrongActionPairs, []), /action/i);
+    const artifactStore = new V2Store(join(root, "artifact"));
+    const artifactSuite = await prepared(artifactStore);
+    const artifactJob = await artifactStore.createJob(await artifactStore.consumeApproval((await artifactStore.approveSuite(artifactSuite.id)).id));
+    await artifactStore.markRunning(artifactJob.id);
+    artifactStore.writeManifest = async () => { throw new Error("disk failure"); };
+    await assert.rejects(artifactStore.completeJob(artifactJob.id, [], []), /artifact/i);
+    await assert.rejects(artifactStore.readJob(artifactJob.id), /fail-closed/i);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -147,6 +187,30 @@ test("comparison keeps verdict and coverage separate", () => {
   assert.equal(classifyComparison({ verdict: "PASS", fingerprint: "a", observed: true }, { verdict: "FAIL", fingerprint: "a", observed: true }, "new-or-changed"), "expectation-not-met");
 });
 
+test("durable comparisons retain an inconclusive observation despite intact evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofpath-v2-inconclusive-"));
+  try {
+    const store = new V2Store(root);
+    const suite = await prepared(store);
+    const job = await store.createJob(await store.consumeApproval((await store.approveSuite(suite.id)).id));
+    await store.markRunning(job.id);
+    const records = await Promise.all(["r1", "r2"].map(async (releaseId) => {
+      const screenshot = `coupon-${releaseId}-coupon-error.png`;
+      const bytes = Buffer.from(`intact-${releaseId}`);
+      await mkdir(store.runDirectory(job.id), { recursive: true });
+      await writeFile(join(store.runDirectory(job.id), screenshot), bytes);
+      return {
+        ...failingCouponRecord(releaseId as "r1" | "r2"),
+        assertions: [{ id: "coupon-error", expected: "invalid-coupon", observed: releaseId === "r1" ? "invalid-coupon" : null, verdict: releaseId === "r1" ? "PASS" as const : "INCONCLUSIVE" as const, screenshot, screenshotSha256: `sha256:${createHash("sha256").update(bytes).digest("hex")}`, timestamp: new Date().toISOString(), url: "http://127.0.0.1:4173" }],
+        verdict: releaseId === "r1" ? "PASS" as const : "INCONCLUSIVE" as const
+      };
+    }));
+    const complete = await store.completeJob(job.id, records, []);
+    assert.equal(complete.verdict, "INCONCLUSIVE");
+    assert.deepEqual(complete.comparisons, [{ caseId: "coupon", classification: "inconclusive" }]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("v2 HTTP routes use exact local JSON requests and never create an approval for a malformed review", async () => {
   const root = await mkdtemp(join(tmpdir(), "proofpath-v2-http-"));
   const previous = process.env.DATA_DIR;
@@ -154,6 +218,7 @@ test("v2 HTTP routes use exact local JSON requests and never create an approval 
   let inspections = 0;
   let proposals = 0;
   let proposedSource = "";
+  const source = "Cart quantity stays between one and five. SAVE10 coupon is applied once. Delivery is free at the reviewed threshold. Contact email and postal code are required.";
   const probe = createServer();
   await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
   const probeAddress = probe.address();
@@ -162,7 +227,7 @@ test("v2 HTTP routes use exact local JSON requests and never create an approval 
   await new Promise<void>((resolve) => probe.close(() => resolve()));
   const instance = createProofPathServer(port, createPlanner({ PLANNER_MODE: "fixture" }), {
     inspect: async (input) => { inspections += 1; return { ...input.grounding, observedTargets: ["checkout"] }; },
-    propose: async (input) => { proposals += 1; proposedSource = input.requirement.originalText; return validateSuiteProposal(proposalFor(input), input); }
+    propose: async (input) => { proposals += 1; proposedSource = input.requirement.originalText; assert.ok(input.requirement.criteria.every((criterion) => source.includes(criterion.sourceQuote))); return validateSuiteProposal(proposalFor(input), input); }
   });
   await new Promise<void>((resolve) => instance.server.listen(port, "127.0.0.1", resolve));
   const address = instance.server.address();
@@ -178,12 +243,13 @@ test("v2 HTTP routes use exact local JSON requests and never create an approval 
   try {
     assert.equal((await send("/api/v2/groundings")).status, 200);
     assert.equal(inspections, 1);
-    assert.equal((await send("/api/v2/proposals", { requirement: "Different trusted source", releases: ["r1", "r2"], unexpected: true })).status, 400);
-    assert.equal((await send("/api/v2/proposals", { requirement: "Different trusted source", releases: ["r1", "r2"] }, { Origin: "http://attacker.invalid" })).status, 400);
-    const proposal = await send("/api/v2/proposals", { requirement: "Different trusted source", releases: ["r1", "r2"] });
+    assert.equal((await send("/api/v2/proposals", { requirement: source, releases: ["r1", "r2"], unexpected: true })).status, 400);
+    assert.equal((await send("/api/v2/proposals", { requirement: source, releases: ["r1", "r2"] }, { Origin: "http://attacker.invalid" })).status, 400);
+    assert.equal((await send("/api/v2/proposals", { requirement: "Unrelated source.", releases: ["r1", "r2"] })).body.kind, "clarification");
+    const proposal = await send("/api/v2/proposals", { requirement: source, releases: ["r1", "r2"] });
     assert.equal(proposal.status, 201);
     assert.equal(proposals, 1);
-    assert.equal(proposedSource, "Different trusted source");
+    assert.equal(proposedSource, source);
     assert.equal((await send(`/api/v2/proposals/${proposal.body.id}/review`, { review: {}, unexpected: true })).status, 400);
     const reviewed = await send(`/api/v2/proposals/${proposal.body.id}/review`, { review: reviewFor(context) });
     assert.equal(reviewed.status, 201);

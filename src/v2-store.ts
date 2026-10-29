@@ -4,11 +4,12 @@ import { join } from "node:path";
 import { calculateCheckout } from "./v2-oracle.js";
 import { deriveCaseInput, digestV2, validateCase } from "./v2-checkout.js";
 import { compileReviewedSuite } from "./v2-planner.js";
+import { classifyComparison } from "./v2-comparison.js";
 import type { ApprovalReceipt, CaseComparison, CaseReleaseRecord, PreparedProposal, PreparedSuite, ProposalResult, ReviewDecision, SavedRegression, SuiteApproval, SuiteDefinition, SuiteRun, V2Context } from "./v2-contracts.js";
 
 type DurableSuite = { definition: SuiteDefinition; expectations: PreparedSuite["expectations"]; grounding: V2Context["grounding"]; context: V2Context; provenance: string[]; digest: string };
 type DurableState = { version: "2"; executionCount: number; suites: Record<string, DurableSuite>; runs: Record<string, SuiteRun>; regressions: Record<string, SavedRegression> };
-type PendingProposal = { prepared: PreparedProposal; expiresAt: number };
+type PendingProposal = { prepared: PreparedProposal; provenance: string[]; expiresAt: number };
 type PendingApproval = { suite: DurableSuite; expiresAt: number; consumed: boolean };
 
 const clone = <T>(value: T): T => structuredClone(value);
@@ -26,12 +27,12 @@ export class V2Store {
 
   constructor(private readonly dataDir: string, private readonly clock: () => number = Date.now) {}
 
-  async createProposal(proposal: ProposalResult, context: V2Context): Promise<PreparedProposal> {
+  async createProposal(proposal: ProposalResult, context: V2Context, provenance: readonly string[] = ["fixture-v2"]): Promise<PreparedProposal> {
     if (proposal.kind !== "proposal") throw new Error("Clarification does not create a prepared suite or approval.");
     this.clearPending();
     if (this.proposals.size >= 16) throw new Error("Too many pending V2 proposals; review or let one expire first.");
     const prepared: PreparedProposal = { id: randomUUID(), proposal: clone(proposal), context: clone(context) };
-    this.proposals.set(prepared.id, { prepared, expiresAt: this.clock() + 600_000 });
+    this.proposals.set(prepared.id, { prepared, provenance: [...provenance], expiresAt: this.clock() + 600_000 });
     return clone(prepared);
   }
 
@@ -42,7 +43,7 @@ export class V2Store {
     const proposal = pending.prepared;
     const definition = compileReviewedSuite(proposal.proposal, review, proposal.context);
     const expectations = definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], { ...proposal.context, rules: definition.rules, requirement: definition.requirement }), definition.rules, proposal.context.catalog));
-    const record: DurableSuite = { definition: clone(definition), expectations: clone(expectations), grounding: clone(proposal.context.grounding), context: clone(proposal.context), provenance: ["fixture-v2", "reviewed-v2"], digest: "" };
+    const record: DurableSuite = { definition: clone(definition), expectations: clone(expectations), grounding: clone(proposal.context.grounding), context: clone(proposal.context), provenance: [...pending.provenance, "reviewed-v2"], digest: "" };
     record.digest = approvalDigest(record);
     const id = randomUUID();
     const state = await this.ready();
@@ -95,6 +96,7 @@ export class V2Store {
     return this.updateRun(runId, (run) => {
       if (run.status !== "running") throw new Error("Only a running suite can persist execution progress.");
       if (run.records.some((item) => item.caseId === record.caseId && item.releaseId === record.releaseId)) throw new Error("Duplicate case-release progress record.");
+      validateRecords(this.suiteForDigest(run.approvalDigest), [record]);
       return { ...run, records: [...run.records, clone(record)] };
     });
   }
@@ -104,12 +106,15 @@ export class V2Store {
     if (!current) throw new Error("Unknown suite run.");
     const merged = mergeRecords(current.records, records);
     const suite = this.suiteForDigest(current.approvalDigest);
+    validateRecords(suite, merged);
     const padded = padRecords(suite, merged, this.clock);
     const finalRecords = await sanitizeEvidence(padded, this.runDirectory(runId));
     const comparisons = comparisonsFor(suite, finalRecords);
-    const next: SuiteRun = { ...current, status: "completed", records: finalRecords, comparisons, coverage: clone(coverage), verdict: verdictFor(finalRecords, coverage), candidateVerdict: candidateVerdict(finalRecords, suite.definition.releases[1].id), endedAt: nowIso(this.clock) };
+    const authoritativeCoverage = [...new Set([...suite.definition.requirement.coverageGaps, ...coverage])];
+    const next: SuiteRun = { ...current, status: "completed", records: finalRecords, comparisons, coverage: authoritativeCoverage, verdict: verdictFor(finalRecords, authoritativeCoverage), candidateVerdict: candidateVerdict(finalRecords, suite.definition.releases[1].id), endedAt: nowIso(this.clock) };
     if (next.verdict === "PASS" && !isCompleteSet(suite, next.records)) throw new Error("A complete PASS requires every reviewed case-release observation.");
-    await this.writeManifest(next);
+    try { await this.writeManifest(next); }
+    catch { this.failure = new Error("V2 evidence artifact could not be persisted; this runtime data set is fail-closed."); throw this.failure; }
     state.runs[runId] = next;
     await this.persist();
     return clone(next);
@@ -161,9 +166,9 @@ export class V2Store {
   async prepareRegression(regressionId: string, context: V2Context): Promise<PreparedSuite> {
     const regression = (await this.ready()).regressions[regressionId];
     if (!regression || regression.definition.app.appId !== context.app.appId) throw new Error("Unknown compatible saved regression.");
-    const definition = clone(regression.definition);
+    if (digestV2(regression.definition.app.catalog) !== digestV2(context.app.catalog) || regression.definition.app.adapterVersion !== context.app.adapterVersion || regression.definition.referenceId !== context.requirement.adoptedReferenceIds[0] || digestV2(regression.definition.rules) !== digestV2(context.requirement.normalizedRules) || regression.definition.requirement.originalText !== context.requirement.originalText || digestV2(regression.definition.requirement.adoptedReferenceIds) !== digestV2(context.requirement.adoptedReferenceIds)) throw new Error("Saved regression is incompatible with the current reviewed app or reference identity.");
+    const definition: SuiteDefinition = { ...clone(regression.definition), releases: [context.grounding.releases[0], context.grounding.releases[1]] };
     const expectations = definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], { ...context, rules: definition.rules, requirement: definition.requirement }), definition.rules, context.catalog));
-    if (digestV2(regression.definition.app) !== digestV2(context.app) || digestV2(regression.definition.releases) !== digestV2(context.grounding.releases) || digestV2(regression.definition.rules) !== digestV2(context.requirement.normalizedRules)) throw new Error("Saved regression is incompatible with the current reviewed app, releases, or reference rules.");
     const record: DurableSuite = { definition, expectations, grounding: clone(context.grounding), context: clone(context), provenance: [...regression.provenance, "saved-regression"], digest: "" };
     record.digest = approvalDigest(record);
     const id = randomUUID();
@@ -275,6 +280,19 @@ function mergeRecords(existing: readonly CaseReleaseRecord[], incoming: readonly
   for (const record of incoming) if (!merged.has(`${record.caseId}:${record.releaseId}`)) merged.set(`${record.caseId}:${record.releaseId}`, clone(record));
   return [...merged.values()];
 }
+function validateRecords(suite: DurableSuite, records: readonly CaseReleaseRecord[]) {
+  const seen = new Set<string>();
+  for (const record of records) {
+    const key = `${record.caseId}:${record.releaseId}`;
+    if (seen.has(key)) throw new Error("Duplicate case-release record.");
+    seen.add(key);
+    const index = suite.definition.cases.findIndex((item) => item.id === record.caseId);
+    const definition = suite.definition.cases[index];
+    if (!definition || !suite.definition.releases.some((release) => release.id === record.releaseId)) throw new Error("Run record is outside the reviewed suite.");
+    if (record.actions.length !== definition.actions.length || record.actions.some((action, position) => action.id !== definition.actions[position]?.id)) throw new Error("Run record action set does not match the reviewed case.");
+    if (record.assertions.length !== definition.assertions.length || record.assertions.some((assertion, position) => assertion.id !== definition.assertions[position]?.id || digestV2(assertion.expected) !== digestV2(expectedValue(definition.assertions[position]!.predicate, suite.expectations[index]!)))) throw new Error("Run record assertion set does not match the reviewed case.");
+  }
+}
 function padRecords(suite: DurableSuite, records: readonly CaseReleaseRecord[], clock: () => number) {
   const known = new Set(records.map((record) => `${record.caseId}:${record.releaseId}`));
   return [...records, ...suite.definition.cases.flatMap((definition, index) => suite.definition.releases.flatMap((release) => {
@@ -289,13 +307,8 @@ function comparisonsFor(suite: DurableSuite, records: readonly CaseReleaseRecord
     const previous = records.find((record) => record.caseId === definition.id && record.releaseId === suite.definition.releases[0].id);
     const candidate = records.find((record) => record.caseId === definition.id && record.releaseId === suite.definition.releases[1].id);
     const scope = definition.criterionIds.some((id) => suite.definition.requirement.expectationScope.find((item) => item.criterionId === id)?.scope === "new-or-changed") ? "new-or-changed" : "unchanged";
-    const comparable = previous && candidate && previous.assertions.every((item) => item.screenshotSha256) && candidate.assertions.every((item) => item.screenshotSha256);
-    if (!comparable) return { caseId: definition.id, classification: "inconclusive" };
-    if (scope === "new-or-changed") return { caseId: definition.id, classification: candidate!.verdict === "PASS" ? "expectation-met" : "expectation-not-met" };
-    if (previous!.verdict === "PASS" && candidate!.verdict === "FAIL") return { caseId: definition.id, classification: "regression" };
-    if (previous!.verdict === "FAIL" && candidate!.verdict === "PASS") return { caseId: definition.id, classification: "resolved-failure" };
-    if (previous!.verdict === "FAIL" && candidate!.verdict === "FAIL") return { caseId: definition.id, classification: "persistent-failure" };
-    return { caseId: definition.id, classification: "stable-observation" };
+    const outcome = (record: CaseReleaseRecord | undefined) => record ? { verdict: record.verdict, fingerprint: suite.digest, observed: record.assertions.length === definition.assertions.length && record.assertions.every((item) => item.screenshotSha256 && item.verdict !== "INCONCLUSIVE") } : undefined;
+    return { caseId: definition.id, classification: classifyComparison(outcome(previous), outcome(candidate), scope) };
   });
 }
 async function sanitizeEvidence(records: readonly CaseReleaseRecord[], directory: string, verifyOnly = false): Promise<CaseReleaseRecord[]> {
@@ -325,8 +338,13 @@ function isState(value: unknown): value is DurableState {
   const state = value as Partial<DurableState>;
   if (!exactKeys(state, ["version", "executionCount", "suites", "runs", "regressions"]) || state.version !== "2" || typeof state.executionCount !== "number" || !Number.isInteger(state.executionCount) || state.executionCount < 0 || state.executionCount > 50 || !record(state.suites) || !record(state.runs) || !record(state.regressions) || state.executionCount < Object.keys(state.runs).length) return false;
   if (!Object.entries(state.suites).every(([id, suite]) => uuid(id) && isSuite(suite))) return false;
-  if (!Object.entries(state.runs).every(([id, run]) => uuid(id) && isRun(run) && Object.values(state.suites!).some((suite) => suite.digest === run.approvalDigest))) return false;
-  return Object.entries(state.regressions).every(([id, regression]) => uuid(id) && record(regression) && exactKeys(regression, ["id", "definition", "provenance"]) && regression.id === id && Array.isArray(regression.provenance) && regression.provenance.every(shortText));
+  const suites = Object.values(state.suites) as DurableSuite[];
+  if (new Set(suites.map((suite) => suite.digest)).size !== suites.length) return false;
+  if (!Object.entries(state.runs).every(([id, run]) => {
+    const suite = suites.find((candidate) => candidate.digest === (run as SuiteRun).approvalDigest);
+    return uuid(id) && isRun(run) && run.id === id && Boolean(suite) && runMatchesSuite(run, suite!);
+  })) return false;
+  return Object.entries(state.regressions).every(([id, regression]) => uuid(id) && record(regression) && exactKeys(regression, ["id", "definition", "provenance"]) && regression.id === id && Array.isArray(regression.provenance) && regression.provenance.every(shortText) && isRegressionDefinition(regression.definition));
 }
 function record(value: unknown): value is Record<string, any> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
 function exactKeys(value: Record<string, any>, keys: readonly string[]) { return Object.keys(value).length === keys.length && keys.every((key) => key in value); }
@@ -334,15 +352,34 @@ function uuid(value: unknown) { return typeof value === "string" && /^[a-f0-9-]{
 function shortText(value: unknown) { return typeof value === "string" && value.length > 0 && value.length <= 500; }
 function isSuite(value: unknown): value is DurableSuite {
   if (!record(value) || !exactKeys(value, ["definition", "expectations", "grounding", "context", "provenance", "digest"]) || !record(value.definition) || !Array.isArray(value.expectations) || !record(value.grounding) || !record(value.context) || !Array.isArray(value.provenance) || !/^sha256:[a-f0-9]{64}$/.test(value.digest ?? "")) return false;
-  if (value.definition.version !== "2" || !Array.isArray(value.definition.cases) || value.definition.cases.length < 1 || value.definition.cases.length > 5 || !Array.isArray(value.definition.releases) || value.definition.releases.length !== 2 || value.expectations.length !== value.definition.cases.length || !value.provenance.every(shortText)) return false;
+  if (!isRegressionDefinition(value.definition) || value.expectations.length !== value.definition.cases.length || !value.provenance.every(shortText)) return false;
   try {
     const suite = value as DurableSuite;
     const context = { ...suite.context, rules: suite.definition.rules, requirement: suite.definition.requirement, grounding: suite.grounding };
-    return approvalDigest(suite) === suite.digest && digestV2(suite.definition.rules) === digestV2(suite.definition.requirement?.normalizedRules) && digestV2(suite.grounding) === digestV2(suite.context.grounding) && digestV2(suite.definition.releases) === digestV2(suite.grounding.releases) && suite.definition.cases.every((item) => digestV2(validateCase(item, context)) === digestV2(item)) && digestV2(suite.definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], context), suite.definition.rules, context.catalog))) === digestV2(suite.expectations);
+    return approvalDigest(suite) === suite.digest && digestV2(suite.context.app) === digestV2(suite.definition.app) && digestV2(suite.context.catalog) === digestV2(suite.definition.app.catalog) && digestV2(suite.context.rules) === digestV2(suite.definition.rules) && digestV2(suite.context.requirement) === digestV2(suite.definition.requirement) && digestV2(suite.grounding) === digestV2(suite.context.grounding) && digestV2(suite.definition.releases) === digestV2(suite.grounding.releases) && digestV2(suite.definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], context), suite.definition.rules, context.catalog))) === digestV2(suite.expectations);
   } catch { return false; }
 }
 function isRun(value: unknown): value is SuiteRun {
   if (!record(value) || !exactKeys(value, ["id", "approvalDigest", "status", "records", "comparisons", "coverage", "verdict", "candidateVerdict", "startedAt", "endedAt"]) || !uuid(value.id) || !/^sha256:[a-f0-9]{64}$/.test(value.approvalDigest ?? "") || !["accepted", "running", "completed", "interrupted"].includes(value.status) || !Array.isArray(value.records) || !Array.isArray(value.comparisons) || !Array.isArray(value.coverage) || !["PASS", "FAIL", "INCONCLUSIVE"].includes(value.verdict) || !["PASS", "FAIL", "INCONCLUSIVE"].includes(value.candidateVerdict) || !shortText(value.startedAt) || !(value.endedAt === null || shortText(value.endedAt))) return false;
-  return value.records.length <= 10 && value.records.every((item) => record(item) && exactKeys(item, ["caseId", "releaseId", "actions", "assertions", "verdict", "startedAt", "endedAt"]) && shortText(item.caseId) && ["r1", "r2", "r3"].includes(item.releaseId) && Array.isArray(item.actions) && item.actions.length <= 10 && Array.isArray(item.assertions) && item.assertions.length <= 6 && ["PASS", "FAIL", "INCONCLUSIVE"].includes(item.verdict) && shortText(item.startedAt) && shortText(item.endedAt));
+  return value.records.length <= 10 && value.records.every((item) => record(item) && exactKeys(item, ["caseId", "releaseId", "actions", "assertions", "verdict", "startedAt", "endedAt"]) && shortText(item.caseId) && ["r1", "r2", "r3"].includes(item.releaseId) && Array.isArray(item.actions) && item.actions.length <= 10 && item.actions.every(isAction) && Array.isArray(item.assertions) && item.assertions.length <= 6 && item.assertions.every(isAssertion) && ["PASS", "FAIL", "INCONCLUSIVE"].includes(item.verdict) && shortText(item.startedAt) && shortText(item.endedAt)) && value.comparisons.every((item: unknown) => record(item) && exactKeys(item, ["caseId", "classification"]) && shortText(item.caseId) && ["regression", "resolved-failure", "persistent-failure", "stable-observation", "expectation-met", "expectation-not-met", "inconclusive", "non-comparable"].includes(item.classification)) && value.coverage.length <= 12 && value.coverage.every(shortText) && new Set(value.coverage).size === value.coverage.length;
+}
+function isAction(value: unknown) { return record(value) && exactKeys(value, ["id", "status", "startedAt", "endedAt", "url", ...(value.error === undefined ? [] : ["error"])]) && shortText(value.id) && ["completed", "blocked", "timed-out", "failed", "not-run"].includes(value.status) && (value.startedAt === null || shortText(value.startedAt)) && (value.endedAt === null || shortText(value.endedAt)) && (value.url === null || shortText(value.url)) && (value.error === undefined || shortText(value.error)); }
+function isAssertion(value: unknown) { return record(value) && exactKeys(value, ["id", "expected", "observed", "verdict", "screenshot", "timestamp", "url", ...(value.screenshotSha256 === undefined ? [] : ["screenshotSha256"])]) && shortText(value.id) && ["PASS", "FAIL", "INCONCLUSIVE"].includes(value.verdict) && shortText(value.screenshot) && shortText(value.timestamp) && shortText(value.url) && (value.screenshotSha256 === undefined || /^sha256:[a-f0-9]{64}$/.test(value.screenshotSha256)); }
+function runMatchesSuite(run: SuiteRun, suite: DurableSuite) {
+  try {
+    validateRecords(suite, run.records);
+    if (run.status === "accepted" || run.status === "running") return run.comparisons.length === 0 && run.coverage.length === 0 && run.endedAt === null;
+    const expectedCount = suite.definition.cases.length * suite.definition.releases.length;
+    return run.records.length === expectedCount && run.comparisons.length === suite.definition.cases.length && new Set(run.comparisons.map((item) => item.caseId)).size === run.comparisons.length && digestV2(run.comparisons) === digestV2(comparisonsFor(suite, run.records)) && run.verdict === verdictFor(run.records, run.coverage) && run.candidateVerdict === candidateVerdict(run.records, suite.definition.releases[1].id) && run.endedAt !== null;
+  } catch { return false; }
+}
+function isRegressionDefinition(value: unknown) {
+  if (!record(value) || !exactKeys(value, ["version", "requirement", "rules", "referenceId", "cases", "app", "releases"]) || value.version !== "2" || !record(value.requirement) || !record(value.rules) || !record(value.app) || !Array.isArray(value.cases) || value.cases.length < 1 || value.cases.length > 5 || !Array.isArray(value.releases) || value.releases.length !== 2 || typeof value.referenceId !== "string") return false;
+  try {
+    const definition = value as SuiteDefinition;
+    if (definition.app.appId !== "registered-checkout" || definition.app.adapterVersion !== "2" || !/^http:\/\/127\.0\.0\.1:\d+$/.test(definition.app.origin) || definition.app.catalog.version !== "2" || definition.app.catalog.currency !== "SGD" || !Array.isArray(definition.app.semanticTargets) || !Array.isArray(definition.requirement.criteria) || !Array.isArray(definition.requirement.adoptedReferenceIds) || definition.requirement.adoptedReferenceIds.length !== 1 || definition.referenceId !== definition.requirement.adoptedReferenceIds[0] || digestV2(definition.rules) !== digestV2(definition.requirement.normalizedRules) || definition.releases[0]?.id === definition.releases[1]?.id || new Set(definition.cases.map((item) => item.id)).size !== definition.cases.length) return false;
+    const context: V2Context = { app: definition.app, catalog: definition.app.catalog, rules: definition.rules, releases: definition.releases, grounding: { releases: definition.releases, observedTargets: [], declaredTargets: definition.app.semanticTargets.map((target) => target.id), pairFingerprint: digestV2(definition.releases.map((release) => release.fingerprint)) }, requirement: definition.requirement };
+    return definition.cases.every((item) => digestV2(validateCase(item, context)) === digestV2(item));
+  } catch { return false; }
 }
 async function exists(path: string): Promise<boolean> { try { await stat(path); return true; } catch { return false; } }

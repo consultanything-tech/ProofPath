@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { createV2Context, resolveRelease } from "./v2-checkout.js";
+import { createV2Context, resolveRelease, withSourceRequirement } from "./v2-checkout.js";
 import { createV2Planner, inspectRegisteredTarget } from "./v2-planner.js";
 import type { GroundingBundle, ReviewDecision, V2Context } from "./v2-contracts.js";
 import { V2Store } from "./v2-store.js";
 
-export type V2HttpContext = { readonly origin: string; readonly store: V2Store; readonly runtime: { start(approvalId: string): Promise<{ runId: string }>; read(runId: string): Promise<unknown> }; readonly v2: V2Context; readonly inspect?: (context: V2Context) => Promise<GroundingBundle>; readonly propose?: (context: V2Context) => Promise<import("./v2-contracts.js").ProposalResult> };
+export type V2HttpContext = { readonly origin: string; readonly store: V2Store; readonly runtime: { start(approvalId: string): Promise<{ runId: string }>; read(runId: string): Promise<unknown> }; readonly v2: V2Context; readonly inspect?: (context: V2Context) => Promise<GroundingBundle>; readonly propose?: (context: V2Context) => Promise<import("./v2-contracts.js").ProposalResult>; readonly proposalProvenance?: readonly string[] };
 class HttpError extends Error { constructor(readonly status: number, message: string) { super(message); } }
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const exact = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).length === keys.length && keys.every((key) => key in value);
@@ -22,11 +22,13 @@ export async function handleV2Request(req: IncomingMessage, res: ServerResponse,
       let base: V2Context;
       try { base = createV2Context(context.origin, [body.releases[0] as string, body.releases[1] as string]); resolveRelease(body.releases[0] as string); resolveRelease(body.releases[1] as string); }
       catch { throw new HttpError(400, "Unknown or duplicate registered releases."); }
-      const source = { ...base, requirement: { ...base.requirement, originalText: body.requirement.trim() } };
+      let source: V2Context;
+      try { source = withSourceRequirement(base, body.requirement.trim()); }
+      catch (error) { return reply(res, 200, { kind: "clarification", gaps: [error instanceof Error ? error.message : "Source requires clarification."] }); }
       const inspected = await grounded(context, source);
       const proposal = await (context.propose ?? createV2Planner({ V2_PLANNER_MODE: "fixture" }).propose)(inspected);
       if (proposal.kind === "clarification") return reply(res, 200, { kind: "clarification", gaps: proposal.gaps });
-      return reply(res, 201, await context.store.createProposal(proposal, inspected));
+      return reply(res, 201, await context.store.createProposal(proposal, inspected, context.proposalProvenance ?? ["fixture-v2"]));
     }
     const review = url.pathname.match(/^\/api\/v2\/proposals\/([a-f0-9-]{36})\/review$/);
     if (req.method === "POST" && review) {
