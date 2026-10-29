@@ -56,7 +56,7 @@ const verify = async (release) => { const hash = createHash("sha256"); const bod
 const bounded = async (work, timeout, close) => { let timer; try { return await Promise.race([work, new Promise((_, reject) => { timer = setTimeout(() => { void close(); reject(new Error("Reviewed deadline reached.")); }, Math.max(1, timeout)); })]); } finally { clearTimeout(timer); } };
 const expectedFor = (assertion, expected) => assertion.predicate === "total-minor" ? expected.totalMinor : assertion.predicate === "coupon-error" ? expected.couponError : assertion.predicate === "contact-errors" ? expected.contactErrors : expected.syntheticConfirmation;
 const action = async (page, entry, url) => {
-  if (entry.kind === "open-app") return page.goto(url, { waitUntil: "networkidle" });
+  if (entry.kind === "open-app") return page.goto(url, { waitUntil: "domcontentloaded" });
   if (entry.kind === "add-product") return page.locator('[data-sku="' + entry.target + '"]').click();
   if (entry.kind === "remove-product") return page.locator('#remove-' + entry.target).click();
   if (entry.kind === "set-quantity") { const input = page.locator('#quantity-' + entry.target); await input.fill(String(entry.value)); return input.press("Tab"); }
@@ -90,7 +90,7 @@ for (const release of releases) {
         if (Date.now() >= deadline) throw new Error("Suite deadline reached.");
         const page = await context.newPage(); const url = new URL(release.documentPath, origin).toString();
         page.on("popup", (popup) => { boundary = true; void popup.close(); }); page.on("download", (download) => { boundary = true; void download.cancel(); });
-        for (const entry of definition.actions) await bounded(action(page, entry, url), Math.min(approval.limits.caseMs, deadline - Date.now()), () => page.close());
+        for (const entry of definition.actions) { await bounded(action(page, entry, url), Math.min(approval.limits.caseMs, deadline - Date.now()), () => page.close()); await page.waitForTimeout(25); if (boundary) throw new Error("Browser crossed the reviewed resource boundary."); }
         for (const assertion of definition.assertions) assert.deepEqual(await bounded(observe(page, assertion, definition), Math.min(approval.limits.caseMs, deadline - Date.now()), () => page.close()), expectedFor(assertion, approval.expectations[index]));
         assert.equal(boundary, false, "Browser crossed the reviewed resource boundary.");
         await page.close();
