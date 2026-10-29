@@ -5,8 +5,8 @@ import { createServer, request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { createV2Context } from "../src/v2-checkout.js";
-import { validateSuiteProposal } from "../src/v2-planner.js";
+import { createV2Context, withSourceRequirement } from "../src/v2-checkout.js";
+import { createV2Planner, validateSuiteProposal } from "../src/v2-planner.js";
 import { V2Store } from "../src/v2-store.js";
 import { classifyComparison, createV2Runtime } from "../src/v2-runner.js";
 import { createPlanner } from "../src/planner.js";
@@ -70,6 +70,77 @@ test("one-use approval binds the exact reviewed snapshot, expires, and rejects t
     const tampered = await store.approveSuite(suite.id);
     store.testOnlyTamperApproval(tampered.id);
     await assert.rejects(store.consumeApproval(tampered.id), /integrity/i);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("independent source clauses remain reviewable with exact quotes and visible uncovered clauses", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofpath-v2-source-"));
+  try {
+    const source = "An invalid coupon must display an error. A coupon may be applied only once. Theme selection is not supported.";
+    const context = withSourceRequirement(createV2Context(), source);
+    assert.deepEqual(context.requirement.criteria.map((criterion) => [criterion.id, criterion.sourceQuote]), [["coupon", "An invalid coupon must display an error."], ["coupon-2", "A coupon may be applied only once."]]);
+    assert.deepEqual(context.requirement.coverageGaps, ["Uncovered source clause: Theme selection is not supported."]);
+    const proposal = await createV2Planner({ V2_PLANNER_MODE: "fixture" }).propose(context);
+    assert.equal(proposal.kind, "proposal");
+    assert.deepEqual(proposal.cases.flatMap((item) => item.criterionIds), ["coupon", "coupon-2"]);
+    const store = new V2Store(root);
+    const pending = await store.createProposal(proposal, context);
+    const reviewed = await store.reviewProposal(pending.id, { decisions: context.requirement.criteria.map((criterion) => ({ criterionId: criterion.id, interpretation: criterion.normalizedRule, scope: "unchanged" as const, adoptedReferenceIds: ["checkout-reference-v2"], acceptedGaps: context.requirement.coverageGaps, acceptedNumericRuleChanges: [] })) });
+    assert.equal((await store.approveSuite(reviewed.id)).digest, reviewed.digest);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("identical reviewed suites and saved preparations are canonical across reload", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofpath-v2-canonical-"));
+  try {
+    const store = new V2Store(root);
+    const context = createV2Context();
+    const proposal = validateSuiteProposal(proposalFor(context), context);
+    const firstPending = await store.createProposal(proposal, context);
+    const first = await store.reviewProposal(firstPending.id, reviewFor(context));
+    const secondPending = await store.createProposal(proposal, context);
+    const second = await store.reviewProposal(secondPending.id, reviewFor(context));
+    assert.equal(second.id, first.id);
+    const restarted = new V2Store(root);
+    const approval = await restarted.consumeApproval((await restarted.approveSuite(first.id)).id);
+    const job = await restarted.createJob(approval);
+    await restarted.markRunning(job.id);
+    await restarted.completeJob(job.id, [], []);
+    const saved = await restarted.saveRegression(job.id);
+    const replacementContext = createV2Context("http://127.0.0.1:4173", ["r1", "r3"]);
+    const replacement = await restarted.prepareRegression(saved.id, replacementContext);
+    const repeated = await restarted.prepareRegression(saved.id, replacementContext);
+    assert.equal(repeated.id, replacement.id);
+    assert.equal((await new V2Store(root).approveSuite(replacement.id)).digest, replacement.digest);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("reviewed numeric changes and accepted review state survive reload and saved reuse", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofpath-v2-reviewed-reload-"));
+  try {
+    const base = createV2Context();
+    const source = "SAVE10 discounts the cart subtotal by 20%.";
+    const context = { ...base, requirement: { ...base.requirement, originalText: source, criteria: base.requirement.criteria.map((criterion) => criterion.id === "coupon" ? { ...criterion, sourceQuote: source, normalizedRule: "SAVE10 uses the accepted 20% rate." } : criterion) } };
+    const change = { criterionId: "coupon", field: "couponBasisPoints" as const, value: 2000, sourceQuote: source };
+    const gap = "Coupon wording is accepted without a separate UI explanation assertion.";
+    const proposal = validateSuiteProposal({ ...proposalFor(context), requirement: { version: "2" as const, originalText: source, criteria: context.requirement.criteria, numericRuleChanges: [change], expectationScope: context.requirement.expectationScope, coverageGaps: [gap] }, gaps: [gap] }, context);
+    const review = { decisions: context.requirement.criteria.map((criterion) => criterion.id === "coupon"
+      ? { criterionId: criterion.id, interpretation: "SAVE10 uses the accepted 20% rate.", scope: "new-or-changed" as const, adoptedReferenceIds: [], acceptedGaps: [gap], acceptedNumericRuleChanges: [change] }
+      : { criterionId: criterion.id, interpretation: criterion.normalizedRule, scope: "unchanged" as const, adoptedReferenceIds: ["checkout-reference-v2"], acceptedGaps: [], acceptedNumericRuleChanges: [] }) };
+    const store = new V2Store(root);
+    const preparedProposal = await store.createProposal(proposal, context);
+    const suite = await store.reviewProposal(preparedProposal.id, review);
+    const restarted = new V2Store(root);
+    const approval = await restarted.consumeApproval((await restarted.approveSuite(suite.id)).id);
+    assert.equal(approval.rules.couponBasisPoints, 2000);
+    const job = await restarted.createJob(approval);
+    await restarted.markRunning(job.id);
+    await restarted.completeJob(job.id, [], []);
+    const saved = await restarted.saveRegression(job.id);
+    const replacementBase = createV2Context("http://127.0.0.1:4173", ["r1", "r3"]);
+    const replacementContext = { ...context, app: replacementBase.app, grounding: replacementBase.grounding };
+    const replacement = await restarted.prepareRegression(saved.id, replacementContext);
+    assert.equal((await new V2Store(root).approveSuite(replacement.id)).digest, replacement.digest);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -227,7 +298,7 @@ test("v2 HTTP routes use exact local JSON requests and never create an approval 
   await new Promise<void>((resolve) => probe.close(() => resolve()));
   const instance = createProofPathServer(port, createPlanner({ PLANNER_MODE: "fixture" }), {
     inspect: async (input) => { inspections += 1; return { ...input.grounding, observedTargets: ["checkout"] }; },
-    propose: async (input) => { proposals += 1; proposedSource = input.requirement.originalText; assert.ok(input.requirement.criteria.every((criterion) => source.includes(criterion.sourceQuote))); return validateSuiteProposal(proposalFor(input), input); }
+    propose: async (input) => { proposals += 1; proposedSource = input.requirement.originalText; assert.ok(input.requirement.criteria.every((criterion) => input.requirement.originalText.includes(criterion.sourceQuote))); return input.requirement.criteria.length === 4 ? validateSuiteProposal(proposalFor(input), input) : createV2Planner({ V2_PLANNER_MODE: "fixture" }).propose(input); }
   });
   await new Promise<void>((resolve) => instance.server.listen(port, "127.0.0.1", resolve));
   const address = instance.server.address();
@@ -250,6 +321,11 @@ test("v2 HTTP routes use exact local JSON requests and never create an approval 
     assert.equal(proposal.status, 201);
     assert.equal(proposals, 1);
     assert.equal(proposedSource, source);
+    const couponOnly = "An invalid coupon must display an error.";
+    const couponProposal = await send("/api/v2/proposals", { requirement: couponOnly, releases: ["r1", "r2"] });
+    assert.equal(couponProposal.status, 201);
+    const couponContext = withSourceRequirement(createV2Context(instance.origin), couponOnly);
+    assert.equal((await send(`/api/v2/proposals/${couponProposal.body.id}/review`, { review: reviewFor(couponContext) })).status, 201);
     assert.equal((await send(`/api/v2/proposals/${proposal.body.id}/review`, { review: {}, unexpected: true })).status, 400);
     const reviewed = await send(`/api/v2/proposals/${proposal.body.id}/review`, { review: reviewFor(context) });
     assert.equal(reviewed.status, 201);

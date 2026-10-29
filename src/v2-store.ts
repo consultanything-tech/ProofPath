@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { calculateCheckout } from "./v2-oracle.js";
 import { deriveCaseInput, digestV2, validateCase } from "./v2-checkout.js";
-import { compileReviewedSuite } from "./v2-planner.js";
+import { applyReviewedNumericRuleChanges, compileReviewedSuite } from "./v2-planner.js";
 import { classifyComparison } from "./v2-comparison.js";
 import type { ApprovalReceipt, CaseComparison, CaseReleaseRecord, PreparedProposal, PreparedSuite, ProposalResult, ReviewDecision, SavedRegression, SuiteApproval, SuiteDefinition, SuiteRun, V2Context } from "./v2-contracts.js";
 
@@ -45,8 +45,14 @@ export class V2Store {
     const expectations = definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], { ...proposal.context, rules: definition.rules, requirement: definition.requirement }), definition.rules, proposal.context.catalog));
     const record: DurableSuite = { definition: clone(definition), expectations: clone(expectations), grounding: clone(proposal.context.grounding), context: clone(proposal.context), provenance: [...pending.provenance, "reviewed-v2"], digest: "" };
     record.digest = approvalDigest(record);
-    const id = randomUUID();
     const state = await this.ready();
+    const duplicate = Object.entries(state.suites).find(([, candidate]) => candidate.digest === record.digest);
+    if (duplicate) {
+      if (digestV2(duplicate[1]) !== digestV2(record)) throw new Error("Durable suite digest collision.");
+      this.proposals.delete(proposalId);
+      return { id: duplicate[0], definition: clone(duplicate[1].definition), expectations: clone(duplicate[1].expectations), digest: duplicate[1].digest };
+    }
+    const id = randomUUID();
     state.suites[id] = record;
     await this.persist();
     this.proposals.delete(proposalId);
@@ -166,13 +172,19 @@ export class V2Store {
   async prepareRegression(regressionId: string, context: V2Context): Promise<PreparedSuite> {
     const regression = (await this.ready()).regressions[regressionId];
     if (!regression || regression.definition.app.appId !== context.app.appId) throw new Error("Unknown compatible saved regression.");
-    if (digestV2(regression.definition.app.catalog) !== digestV2(context.app.catalog) || regression.definition.app.adapterVersion !== context.app.adapterVersion || regression.definition.referenceId !== context.requirement.adoptedReferenceIds[0] || digestV2(regression.definition.rules) !== digestV2(context.requirement.normalizedRules) || regression.definition.requirement.originalText !== context.requirement.originalText || digestV2(regression.definition.requirement.adoptedReferenceIds) !== digestV2(context.requirement.adoptedReferenceIds)) throw new Error("Saved regression is incompatible with the current reviewed app or reference identity.");
+    if (digestV2(regression.definition.app.catalog) !== digestV2(context.app.catalog) || regression.definition.app.adapterVersion !== context.app.adapterVersion || regression.definition.referenceId !== context.requirement.adoptedReferenceIds[0] || digestV2(regression.definition.requirement.criteria.map(({ id, sourceQuote }) => ({ id, sourceQuote }))) !== digestV2(context.requirement.criteria.map(({ id, sourceQuote }) => ({ id, sourceQuote }))) || digestV2(regression.definition.rules) !== digestV2(applyReviewedNumericRuleChanges(context.rules, regression.definition.requirement.numericRuleChanges)) || regression.definition.requirement.originalText !== context.requirement.originalText || digestV2(regression.definition.requirement.adoptedReferenceIds) !== digestV2(context.requirement.adoptedReferenceIds)) throw new Error("Saved regression is incompatible with the current reviewed app or reference identity.");
     const definition: SuiteDefinition = { ...clone(regression.definition), releases: [context.grounding.releases[0], context.grounding.releases[1]] };
     const expectations = definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], { ...context, rules: definition.rules, requirement: definition.requirement }), definition.rules, context.catalog));
     const record: DurableSuite = { definition, expectations, grounding: clone(context.grounding), context: clone(context), provenance: [...regression.provenance, "saved-regression"], digest: "" };
     record.digest = approvalDigest(record);
+    const state = await this.ready();
+    const duplicate = Object.entries(state.suites).find(([, candidate]) => candidate.digest === record.digest);
+    if (duplicate) {
+      if (digestV2(duplicate[1]) !== digestV2(record)) throw new Error("Durable suite digest collision.");
+      return { id: duplicate[0], definition: clone(duplicate[1].definition), expectations: clone(duplicate[1].expectations), digest: duplicate[1].digest };
+    }
     const id = randomUUID();
-    (await this.ready()).suites[id] = record;
+    state.suites[id] = record;
     await this.persist();
     return { id, definition: clone(definition), expectations: clone(expectations), digest: record.digest };
   }
@@ -356,7 +368,7 @@ function isSuite(value: unknown): value is DurableSuite {
   try {
     const suite = value as DurableSuite;
     const context = { ...suite.context, rules: suite.definition.rules, requirement: suite.definition.requirement, grounding: suite.grounding };
-    return approvalDigest(suite) === suite.digest && digestV2(suite.context.app) === digestV2(suite.definition.app) && digestV2(suite.context.catalog) === digestV2(suite.definition.app.catalog) && digestV2(suite.context.rules) === digestV2(suite.definition.rules) && digestV2(suite.context.requirement) === digestV2(suite.definition.requirement) && digestV2(suite.grounding) === digestV2(suite.context.grounding) && digestV2(suite.definition.releases) === digestV2(suite.grounding.releases) && digestV2(suite.definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], context), suite.definition.rules, context.catalog))) === digestV2(suite.expectations);
+    return approvalDigest(suite) === suite.digest && digestV2(suite.context.app) === digestV2(suite.definition.app) && digestV2(suite.context.catalog) === digestV2(suite.definition.app.catalog) && reviewedDefinitionMatchesContext(suite.definition, suite.context) && digestV2(suite.grounding) === digestV2(suite.context.grounding) && digestV2(suite.definition.releases) === digestV2(suite.grounding.releases) && digestV2(suite.definition.cases.map((item) => calculateCheckout(deriveCaseInput([...item.actions], context), suite.definition.rules, context.catalog))) === digestV2(suite.expectations);
   } catch { return false; }
 }
 function isRun(value: unknown): value is SuiteRun {
@@ -380,6 +392,13 @@ function isRegressionDefinition(value: unknown) {
     if (definition.app.appId !== "registered-checkout" || definition.app.adapterVersion !== "2" || !/^http:\/\/127\.0\.0\.1:\d+$/.test(definition.app.origin) || definition.app.catalog.version !== "2" || definition.app.catalog.currency !== "SGD" || !Array.isArray(definition.app.semanticTargets) || !Array.isArray(definition.requirement.criteria) || !Array.isArray(definition.requirement.adoptedReferenceIds) || definition.requirement.adoptedReferenceIds.length !== 1 || definition.referenceId !== definition.requirement.adoptedReferenceIds[0] || digestV2(definition.rules) !== digestV2(definition.requirement.normalizedRules) || definition.releases[0]?.id === definition.releases[1]?.id || new Set(definition.cases.map((item) => item.id)).size !== definition.cases.length) return false;
     const context: V2Context = { app: definition.app, catalog: definition.app.catalog, rules: definition.rules, releases: definition.releases, grounding: { releases: definition.releases, observedTargets: [], declaredTargets: definition.app.semanticTargets.map((target) => target.id), pairFingerprint: digestV2(definition.releases.map((release) => release.fingerprint)) }, requirement: definition.requirement };
     return definition.cases.every((item) => digestV2(validateCase(item, context)) === digestV2(item));
+  } catch { return false; }
+}
+function reviewedDefinitionMatchesContext(definition: SuiteDefinition, context: V2Context) {
+  try {
+    const reviewedSource = definition.requirement.criteria.map(({ id, sourceQuote }) => ({ id, sourceQuote }));
+    const originalSource = context.requirement.criteria.map(({ id, sourceQuote }) => ({ id, sourceQuote }));
+    return definition.requirement.originalText === context.requirement.originalText && definition.referenceId === context.requirement.adoptedReferenceIds[0] && digestV2(definition.requirement.adoptedReferenceIds) === digestV2(context.requirement.adoptedReferenceIds) && digestV2(reviewedSource) === digestV2(originalSource) && digestV2(definition.rules) === digestV2(applyReviewedNumericRuleChanges(context.rules, definition.requirement.numericRuleChanges)) && context.requirement.coverageGaps.every((gap) => definition.requirement.coverageGaps.includes(gap));
   } catch { return false; }
 }
 async function exists(path: string): Promise<boolean> { try { await stat(path); return true; } catch { return false; } }

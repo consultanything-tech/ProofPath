@@ -202,6 +202,7 @@ export function applyReviewedNumericRuleChanges(reference: CheckoutRules, change
 
 function validateRequirement(value: unknown, context: V2Context): RequirementProposal {
   if (!isRecord(value) || !exactKeys(value, ["version", "originalText", "criteria", "numericRuleChanges", "expectationScope", "coverageGaps"]) || value.version !== "2" || value.originalText !== context.requirement.originalText || !Array.isArray(value.criteria) || value.criteria.length !== context.requirement.criteria.length || !Array.isArray(value.numericRuleChanges) || !Array.isArray(value.expectationScope) || !Array.isArray(value.coverageGaps)) throw new V2PlannerError("Proposal requirement has an invalid shape.");
+  if (!context.requirement.coverageGaps.every((gap) => (value.coverageGaps as unknown[]).includes(gap))) throw new V2PlannerError("Proposal must retain source coverage gaps.");
   const criteria = value.criteria.map((criterion) => {
     if (!isRecord(criterion) || !exactKeys(criterion, ["id", "sourceQuote", "normalizedRule"]) || !text(criterion.id, 64) || !text(criterion.sourceQuote, 1_000) || !text(criterion.normalizedRule, 1_000)) throw new V2PlannerError("Proposal criterion has an invalid shape.");
     const source = context.requirement.criteria.find((item) => item.id === criterion.id);
@@ -231,13 +232,14 @@ function validateRequirement(value: unknown, context: V2Context): RequirementPro
 function validateCoverage(caseDefinition: CaseDefinition, context: V2Context) {
   const input = deriveCaseInput([...caseDefinition.actions], context);
   calculateCheckout(input, context.rules, context.catalog);
-  const coversCoupon = caseDefinition.criterionIds.some((id) => context.requirement.criteria.find((criterion) => criterion.id === id)?.sourceQuote.includes(context.rules.couponCode));
+  const coversCoupon = caseDefinition.criterionIds.some((id) => id === "coupon" || id.startsWith("coupon-"));
   if (coversCoupon && !input.state.couponAttempted) throw new V2PlannerError("Coupon interaction coverage requires an applied coupon action.");
 }
 
 export function validateSuiteProposal(value: unknown, context: V2Context): ProposalResult {
   if (!isRecord(value) || !exactKeys(value, ["kind", "requirement", "cases", "gaps"]) || (value.kind !== "proposal" && value.kind !== "clarification") || !Array.isArray(value.cases) || !Array.isArray(value.gaps) || value.cases.length > 5 || !value.gaps.every((gap) => text(gap, 500)) || !ids(value.gaps as string[]) || value.gaps.length > 12) throw new V2PlannerError("Suite proposal has an invalid shape.");
   const requirement = validateRequirement(value.requirement, context);
+  if (!context.requirement.coverageGaps.every((gap) => (value.gaps as unknown[]).includes(gap))) throw new V2PlannerError("Proposal gaps must retain source coverage gaps.");
   const proposalContext = { ...context, rules: applyReviewedNumericRuleChanges(context.rules, requirement.numericRuleChanges) };
   const cases = value.cases.map((candidate) => {
     const parsed = validateCase(candidate, proposalContext);
@@ -292,24 +294,40 @@ export function compileReviewedSuite(proposal: ProposalResult, review: ReviewDec
 }
 
 function fixtureProposal(context: V2Context): ProposalResult {
+  const grouped = (domain: string) => context.requirement.criteria.filter((criterion) => criterion.id === domain || criterion.id.startsWith(`${domain}-`)).map((criterion) => criterion.id);
+  const cases: CaseDefinition[] = [];
+  const cart = grouped("cart");
+  if (cart.length) cases.push({ id: "cart-total", criterionIds: cart, category: "happy", rationale: "Checks the reviewed cart state.", actions: [
+    { id: "open", kind: "open-app", target: "checkout", value: null },
+    { id: "lamp", kind: "add-product", target: "desk-lamp", value: null }
+  ], assertions: [{ id: "total", predicate: "total-minor" }] });
+  const coupon = grouped("coupon");
+  if (coupon.length) cases.push({ id: "coupon-error", criterionIds: coupon, category: "negative", rationale: "Checks the reviewed invalid coupon response.", actions: [
+    { id: "open", kind: "open-app", target: "checkout", value: null },
+    { id: "lamp", kind: "add-product", target: "desk-lamp", value: null },
+    { id: "coupon", kind: "fill-coupon", target: "coupon", value: "NOPE" },
+    { id: "apply", kind: "apply-coupon", target: "coupon", value: null }
+  ], assertions: [{ id: "coupon-error", predicate: "coupon-error" }] });
+  const delivery = grouped("delivery");
+  if (delivery.length) cases.push({ id: "delivery-total", criterionIds: delivery, category: "interaction", rationale: "Checks the reviewed delivery calculation.", actions: [
+    { id: "open", kind: "open-app", target: "checkout", value: null },
+    { id: "lamp-one", kind: "add-product", target: "desk-lamp", value: null },
+    { id: "lamp-two", kind: "add-product", target: "desk-lamp", value: null },
+    { id: "coupon", kind: "fill-coupon", target: "coupon", value: context.rules.couponCode },
+    { id: "apply", kind: "apply-coupon", target: "coupon", value: null }
+  ], assertions: [{ id: "total", predicate: "total-minor" }] });
+  const contact = grouped("contact");
+  if (contact.length) cases.push({ id: "blank-contact", criterionIds: contact, category: "negative", rationale: "Checks the reviewed required contact fields.", actions: [
+    { id: "open", kind: "open-app", target: "checkout", value: null },
+    { id: "lamp", kind: "add-product", target: "desk-lamp", value: null },
+    { id: "contact", kind: "open-contact", target: "contact", value: null },
+    { id: "confirm", kind: "confirm-synthetic-order", target: "synthetic-order", value: null }
+  ], assertions: [{ id: "contact-errors", predicate: "contact-errors" }] });
   return validateSuiteProposal({
     kind: "proposal",
-    requirement: { version: "2", originalText: context.requirement.originalText, criteria: context.requirement.criteria, numericRuleChanges: [], expectationScope: context.requirement.expectationScope, coverageGaps: [] },
-    cases: [
-      { id: "coupon-delivery", criterionIds: ["cart", "coupon", "delivery"], category: "interaction", rationale: "Applies the reviewed coupon to a bounded cart.", actions: [
-        { id: "open", kind: "open-app", target: "checkout", value: null },
-        { id: "lamp", kind: "add-product", target: "desk-lamp", value: null },
-        { id: "coupon", kind: "fill-coupon", target: "coupon", value: "SAVE10" },
-        { id: "apply", kind: "apply-coupon", target: "coupon", value: null }
-      ], assertions: [{ id: "total", predicate: "total-minor" }] },
-      { id: "blank-contact", criterionIds: ["contact"], category: "negative", rationale: "Checks the reviewed required contact fields.", actions: [
-        { id: "open", kind: "open-app", target: "checkout", value: null },
-        { id: "lamp", kind: "add-product", target: "desk-lamp", value: null },
-        { id: "contact", kind: "open-contact", target: "contact", value: null },
-        { id: "confirm", kind: "confirm-synthetic-order", target: "synthetic-order", value: null }
-      ], assertions: [{ id: "contact-errors", predicate: "contact-errors" }] }
-    ],
-    gaps: []
+    requirement: { version: "2", originalText: context.requirement.originalText, criteria: context.requirement.criteria, numericRuleChanges: [], expectationScope: context.requirement.expectationScope, coverageGaps: context.requirement.coverageGaps },
+    cases,
+    gaps: context.requirement.coverageGaps
   }, context);
 }
 

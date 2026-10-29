@@ -201,13 +201,49 @@ export function createV2Context(origin = "http://127.0.0.1:4173", releaseIds: re
 }
 
 export function withSourceRequirement(context: V2Context, originalText: string): V2Context {
-  const fragments = originalText.split(/(?<=[.!?])\s+/).map((item) => item.trim()).filter(Boolean);
-  const quoteFor = (pattern: RegExp) => fragments.find((fragment) => pattern.test(fragment));
-  const quotes: Record<string, string | undefined> = {
-    cart: quoteFor(/quantity|cart/i), coupon: quoteFor(/coupon|save10/i), delivery: quoteFor(/delivery/i), contact: quoteFor(/contact|email|postal/i)
+  const clauses = originalText.split(/(?<=[.!?;])\s+/).map((item) => item.trim()).filter(Boolean);
+  const domains = [
+    { id: "cart", pattern: /quantity|cart/i },
+    { id: "coupon", pattern: /coupon|save10/i },
+    { id: "delivery", pattern: /delivery/i },
+    { id: "contact", pattern: /contact|email|postal/i }
+  ] as const;
+  const reference = new Map(context.requirement.criteria.map((criterion) => [criterion.id, criterion]));
+  const counts = new Map<string, number>();
+  const criteria: V2Context["requirement"]["criteria"][number][] = [];
+  const coverageGaps: string[] = [];
+  for (const clause of clauses) {
+    if (clause.length > 1_000) throw new Error("Source clause exceeds the supported quote length.");
+    const matches = domains.filter((domain) => domain.pattern.test(clause));
+    if (matches.length === 0) {
+      coverageGaps.push(`Uncovered source clause: ${clause}`);
+      continue;
+    }
+    for (const domain of matches) {
+      const source = reference.get(domain.id);
+      if (!source) throw new Error("Registered reference criterion is unavailable.");
+      const count = (counts.get(domain.id) ?? 0) + 1;
+      counts.set(domain.id, count);
+      if (criteria.length >= 6) {
+        coverageGaps.push(`Uncovered source clause: ${clause}`);
+        continue;
+      }
+      criteria.push({ id: count === 1 ? domain.id : `${domain.id}-${count}`, sourceQuote: clause, normalizedRule: source.normalizedRule });
+    }
+  }
+  if (criteria.length === 0) throw new Error("Source has no supported checkout criterion; clarify the requested behavior.");
+  if (coverageGaps.length > 12) throw new Error("Source has too many uncovered clauses; clarify the requested behavior.");
+  return {
+    ...context,
+    requirement: {
+      ...context.requirement,
+      originalText,
+      criteria,
+      reviewedReferences: criteria.map((criterion) => ({ criterionId: criterion.id, adoptedReferenceIds: context.requirement.adoptedReferenceIds })),
+      expectationScope: criteria.map((criterion) => ({ criterionId: criterion.id, scope: "unchanged" as const })),
+      coverageGaps
+    }
   };
-  if (Object.values(quotes).some((quote) => !quote || quote.length > 1_000)) throw new Error("Source must explicitly cover cart quantity, coupon, delivery, and contact requirements.");
-  return { ...context, requirement: { ...context.requirement, originalText, criteria: context.requirement.criteria.map((criterion) => ({ ...criterion, sourceQuote: quotes[criterion.id]! })) } };
 }
 
 function canonical(value: unknown): string {
