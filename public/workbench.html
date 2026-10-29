@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/styles.css">
+  <title>ProofPath workbench</title>
+</head>
+<body class="proofpath-workbench">
+  <main class="workbench-shell">
+    <header>
+      <p class="label">Version 2 workbench · Fixture mode · Live model disabled</p>
+      <h1>Reviewed checkout regression workbench</h1>
+      <p>Only the registered synthetic checkout releases can be inspected and run. Changing a source requirement or release pair discards the current proposal.</p>
+    </header>
+    <section aria-labelledby="setup-heading">
+      <h2 id="setup-heading">1. Inspect and propose</h2>
+      <label for="v2-requirement">Source requirement</label>
+      <textarea id="v2-requirement" maxlength="4000">Cart total must match unit prices. An invalid coupon must display an error. SAVE10 discounts the cart subtotal by 10%. Delivery is free at discounted subtotal S$75.00 or more. Contact fields are required before synthetic confirmation.</textarea>
+      <div class="release-grid">
+        <label for="v2-baseline">Baseline release<select id="v2-baseline"><option value="r1">r1</option><option value="r2">r2</option></select></label>
+        <label for="v2-candidate">Candidate release<select id="v2-candidate"><option value="r2">r2 (seeded defect)</option><option value="r3">r3 (fixed)</option></select></label>
+      </div>
+      <button id="v2-propose">Inspect registered pair and propose</button>
+      <div id="v2-grounding"></div>
+    </section>
+    <section id="v2-review" hidden aria-labelledby="v2-review-heading">
+      <h2 id="v2-review-heading" tabindex="-1">2. Review exact rules, cases and gaps</h2>
+      <div id="v2-review-output"></div>
+      <label class="check"><input id="v2-accept-gaps" type="checkbox"> I reviewed and accept every visible coverage gap.</label>
+      <button id="v2-review-submit">Compile reviewed snapshot</button>
+    </section>
+    <section id="v2-approval" hidden aria-labelledby="v2-approval-heading">
+      <h2 id="v2-approval-heading" tabindex="-1">3. Final one-use approval</h2>
+      <div id="v2-approval-output"></div>
+      <button id="v2-approve">Approve exact reviewed snapshot</button>
+      <button id="v2-run" disabled>Run approved pair</button>
+    </section>
+    <section id="v2-report" hidden aria-labelledby="v2-report-heading">
+      <h2 id="v2-report-heading" tabindex="-1">4. Candidate, coverage and comparison report</h2>
+      <div id="v2-report-output"></div>
+      <button id="v2-save">Save immutable reviewed regression</button>
+      <p id="v2-downloads" class="downloads"></p>
+    </section>
+    <section aria-labelledby="v2-saved-heading">
+      <h2 id="v2-saved-heading">5. Reuse a saved regression</h2>
+      <p>A saved definition is immutable. Reuse binds it to the selected registered pair and still needs a fresh final approval.</p>
+      <label for="v2-saved">Saved definition</label>
+      <select id="v2-saved"><option value="">No saved definition selected</option></select>
+      <button id="v2-refresh-saved">Refresh saved definitions</button>
+      <button id="v2-prepare">Prepare selected saved definition</button>
+    </section>
+    <p id="v2-status" role="status" aria-live="polite"></p>
+  </main>
+  <script src="/workbench.js"></script>
+</body>
+</html>

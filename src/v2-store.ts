@@ -90,7 +90,7 @@ export class V2Store {
     const state = await this.ready();
     this.revalidateApproval(approval);
     if (state.executionCount >= 50) throw new Error("This runtime data set has reached its 50 accepted suite-job limit.");
-    const run: SuiteRun = { id: randomUUID(), approvalDigest: approval.digest, status: "accepted", records: [], comparisons: [], coverage: [], verdict: "INCONCLUSIVE", candidateVerdict: "INCONCLUSIVE", startedAt: nowIso(this.clock), endedAt: null };
+    const run: SuiteRun = { id: randomUUID(), approvalDigest: approval.digest, artifact: { definition: clone(approval.definition), expectations: clone(approval.expectations), provenance: clone(approval.provenance) }, status: "accepted", records: [], comparisons: [], coverage: [], verdict: "INCONCLUSIVE", candidateVerdict: "INCONCLUSIVE", startedAt: nowIso(this.clock), endedAt: null };
     state.executionCount += 1;
     state.runs[run.id] = run;
     await this.persist();
@@ -157,6 +157,16 @@ export class V2Store {
       this.failure = new Error("V2 recovery failed; this runtime data set is fail-closed.");
       throw this.failure;
     }
+  }
+
+  async listRegressions(): Promise<readonly SavedRegression[]> {
+    return Object.values((await this.ready()).regressions).map(clone);
+  }
+
+  async readRegression(regressionId: string): Promise<SavedRegression> {
+    const regression = (await this.ready()).regressions[regressionId];
+    if (!regression) throw new Error("Unknown saved regression.");
+    return clone(regression);
   }
 
   async saveRegression(runId: string): Promise<SavedRegression> {
@@ -372,18 +382,22 @@ function isSuite(value: unknown): value is DurableSuite {
   } catch { return false; }
 }
 function isRun(value: unknown): value is SuiteRun {
-  if (!record(value) || !exactKeys(value, ["id", "approvalDigest", "status", "records", "comparisons", "coverage", "verdict", "candidateVerdict", "startedAt", "endedAt"]) || !uuid(value.id) || !/^sha256:[a-f0-9]{64}$/.test(value.approvalDigest ?? "") || !["accepted", "running", "completed", "interrupted"].includes(value.status) || !Array.isArray(value.records) || !Array.isArray(value.comparisons) || !Array.isArray(value.coverage) || !["PASS", "FAIL", "INCONCLUSIVE"].includes(value.verdict) || !["PASS", "FAIL", "INCONCLUSIVE"].includes(value.candidateVerdict) || !shortText(value.startedAt) || !(value.endedAt === null || shortText(value.endedAt))) return false;
+  if (!record(value) || !exactKeys(value, ["id", "approvalDigest", "artifact", "status", "records", "comparisons", "coverage", "verdict", "candidateVerdict", "startedAt", "endedAt"]) || !uuid(value.id) || !/^sha256:[a-f0-9]{64}$/.test(value.approvalDigest ?? "") || !isArtifactSnapshot(value.artifact) || !["accepted", "running", "completed", "interrupted"].includes(value.status) || !Array.isArray(value.records) || !Array.isArray(value.comparisons) || !Array.isArray(value.coverage) || !["PASS", "FAIL", "INCONCLUSIVE"].includes(value.verdict) || !["PASS", "FAIL", "INCONCLUSIVE"].includes(value.candidateVerdict) || !shortText(value.startedAt) || !(value.endedAt === null || shortText(value.endedAt))) return false;
   return value.records.length <= 10 && value.records.every((item) => record(item) && exactKeys(item, ["caseId", "releaseId", "actions", "assertions", "verdict", "startedAt", "endedAt"]) && shortText(item.caseId) && ["r1", "r2", "r3"].includes(item.releaseId) && Array.isArray(item.actions) && item.actions.length <= 10 && item.actions.every(isAction) && Array.isArray(item.assertions) && item.assertions.length <= 6 && item.assertions.every(isAssertion) && ["PASS", "FAIL", "INCONCLUSIVE"].includes(item.verdict) && shortText(item.startedAt) && shortText(item.endedAt)) && value.comparisons.every((item: unknown) => record(item) && exactKeys(item, ["caseId", "classification"]) && shortText(item.caseId) && ["regression", "resolved-failure", "persistent-failure", "stable-observation", "expectation-met", "expectation-not-met", "inconclusive", "non-comparable"].includes(item.classification)) && value.coverage.length <= 12 && value.coverage.every(shortText) && new Set(value.coverage).size === value.coverage.length;
 }
 function isAction(value: unknown) { return record(value) && exactKeys(value, ["id", "status", "startedAt", "endedAt", "url", ...(value.error === undefined ? [] : ["error"])]) && shortText(value.id) && ["completed", "blocked", "timed-out", "failed", "not-run"].includes(value.status) && (value.startedAt === null || shortText(value.startedAt)) && (value.endedAt === null || shortText(value.endedAt)) && (value.url === null || shortText(value.url)) && (value.error === undefined || shortText(value.error)); }
 function isAssertion(value: unknown) { return record(value) && exactKeys(value, ["id", "expected", "observed", "verdict", "screenshot", "timestamp", "url", ...(value.screenshotSha256 === undefined ? [] : ["screenshotSha256"])]) && shortText(value.id) && ["PASS", "FAIL", "INCONCLUSIVE"].includes(value.verdict) && shortText(value.screenshot) && shortText(value.timestamp) && shortText(value.url) && (value.screenshotSha256 === undefined || /^sha256:[a-f0-9]{64}$/.test(value.screenshotSha256)); }
 function runMatchesSuite(run: SuiteRun, suite: DurableSuite) {
   try {
+    if (digestV2(run.artifact) !== digestV2({ definition: suite.definition, expectations: suite.expectations, provenance: suite.provenance })) return false;
     validateRecords(suite, run.records);
     if (run.status === "accepted" || run.status === "running") return run.comparisons.length === 0 && run.coverage.length === 0 && run.endedAt === null;
     const expectedCount = suite.definition.cases.length * suite.definition.releases.length;
     return run.records.length === expectedCount && run.comparisons.length === suite.definition.cases.length && new Set(run.comparisons.map((item) => item.caseId)).size === run.comparisons.length && digestV2(run.comparisons) === digestV2(comparisonsFor(suite, run.records)) && run.verdict === verdictFor(run.records, run.coverage) && run.candidateVerdict === candidateVerdict(run.records, suite.definition.releases[1].id) && run.endedAt !== null;
   } catch { return false; }
+}
+function isArtifactSnapshot(value: unknown) {
+  return record(value) && exactKeys(value, ["definition", "expectations", "provenance"]) && isRegressionDefinition(value.definition) && Array.isArray(value.expectations) && value.expectations.length > 0 && value.expectations.length <= 5 && Array.isArray(value.provenance) && value.provenance.every(shortText);
 }
 function isRegressionDefinition(value: unknown) {
   if (!record(value) || !exactKeys(value, ["version", "requirement", "rules", "referenceId", "cases", "app", "releases"]) || value.version !== "2" || !record(value.requirement) || !record(value.rules) || !record(value.app) || !Array.isArray(value.cases) || value.cases.length < 1 || value.cases.length > 5 || !Array.isArray(value.releases) || value.releases.length !== 2 || typeof value.referenceId !== "string") return false;

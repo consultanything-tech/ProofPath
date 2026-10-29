@@ -36,3 +36,18 @@ img { display: block; max-width: 100%; margin-top: .6rem; border: 1px solid #dde
   main { margin: 0; min-height: 100dvh; padding: 1.25rem; border-radius: 0; box-shadow: none; }
   .proofpath-app .report-panel { padding: .85rem; }
 }
+
+.proofpath-workbench .workbench-shell { max-width: 960px; margin: 2rem auto; padding: 2rem; background: #fff; border-radius: 12px; box-shadow: 0 8px 30px #17202a16; }
+.proofpath-workbench h1, .proofpath-workbench h2, .proofpath-workbench h3 { line-height: 1.2; text-wrap: balance; }
+.proofpath-workbench h2:focus, .proofpath-workbench button:focus-visible, .proofpath-workbench select:focus-visible, .proofpath-workbench textarea:focus-visible, .proofpath-workbench summary:focus-visible { outline: 3px solid #6941c6; outline-offset: 3px; }
+.proofpath-workbench section { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #dde3ed; }
+.proofpath-workbench .release-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.proofpath-workbench .release-grid select { display: block; width: 100%; margin-top: .5rem; padding: .7rem; font: inherit; }
+.proofpath-workbench .check { display: block; margin: 1rem 0; }
+.proofpath-workbench .workbench-panel { margin: 1rem 0 0; padding: 1rem; border: 1px solid #dde3ed; border-radius: 8px; background: #fff; }
+.proofpath-workbench .workbench-panel h3 { margin-top: 0; }
+.proofpath-workbench .workbench-panel p, .proofpath-workbench li, .proofpath-workbench pre, .proofpath-workbench .downloads { overflow-wrap: anywhere; }
+.proofpath-workbench .raw-details pre { max-height: 20rem; overflow: auto; padding: 1rem; background: #f5f7fb; }
+.proofpath-workbench button + button { margin-left: .6rem; }
+.proofpath-workbench #v2-status { min-height: 1.5rem; margin-top: 1.5rem; font-weight: 600; }
+@media (max-width: 640px) { .proofpath-workbench .workbench-shell { margin: 0; min-height: 100dvh; padding: 1.25rem; border-radius: 0; box-shadow: none; } .proofpath-workbench .release-grid { grid-template-columns: 1fr; } .proofpath-workbench button { margin: .35rem 0; width: 100%; } .proofpath-workbench button + button { margin-left: 0; } }

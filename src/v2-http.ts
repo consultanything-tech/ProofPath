@@ -1,10 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createV2Context, resolveRelease, withSourceRequirement } from "./v2-checkout.js";
+import { renderBugPacket, renderHistoricalPlaywrightExport } from "./v2-artifacts.js";
 import { createV2Planner, inspectRegisteredTarget } from "./v2-planner.js";
-import type { GroundingBundle, ReviewDecision, V2Context } from "./v2-contracts.js";
+import type { GroundingBundle, ReviewDecision, SuiteRun, V2Context } from "./v2-contracts.js";
 import { V2Store } from "./v2-store.js";
 
-export type V2HttpContext = { readonly origin: string; readonly store: V2Store; readonly runtime: { start(approvalId: string): Promise<{ runId: string }>; read(runId: string): Promise<unknown> }; readonly v2: V2Context; readonly inspect?: (context: V2Context) => Promise<GroundingBundle>; readonly propose?: (context: V2Context) => Promise<import("./v2-contracts.js").ProposalResult>; readonly proposalProvenance?: readonly string[] };
+export type V2HttpContext = { readonly origin: string; readonly store: V2Store; readonly runtime: { start(approvalId: string): Promise<{ runId: string }>; read(runId: string): Promise<SuiteRun> }; readonly v2: V2Context; readonly inspect?: (context: V2Context) => Promise<GroundingBundle>; readonly propose?: (context: V2Context) => Promise<import("./v2-contracts.js").ProposalResult>; readonly proposalProvenance?: readonly string[] };
 class HttpError extends Error { constructor(readonly status: number, message: string) { super(message); } }
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const exact = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).length === keys.length && keys.every((key) => key in value);
@@ -49,6 +50,31 @@ export async function handleV2Request(req: IncomingMessage, res: ServerResponse,
     }
     const run = url.pathname.match(/^\/api\/v2\/runs\/([a-f0-9-]{36})$/);
     if (req.method === "GET" && run) return reply(res, 200, await context.runtime.read(run[1]!));
+    const save = url.pathname.match(/^\/api\/v2\/runs\/([a-f0-9-]{36})\/regressions$/);
+    if (req.method === "POST" && save) {
+      await emptyMutation(req, context.origin);
+      return reply(res, 201, await context.store.saveRegression(save[1]!));
+    }
+    const packet = url.pathname.match(/^\/api\/v2\/runs\/([a-f0-9-]{36})\/bug-packet$/);
+    if (req.method === "GET" && packet) return download(res, `proofpath-${packet[1]}.md`, "text/markdown; charset=utf-8", renderBugPacket(await context.runtime.read(packet[1]!)));
+    const exportFile = url.pathname.match(/^\/api\/v2\/runs\/([a-f0-9-]{36})\/playwright\.test\.mjs$/);
+    if (req.method === "GET" && exportFile) return download(res, `proofpath-${exportFile[1]}.test.mjs`, "text/javascript; charset=utf-8", renderHistoricalPlaywrightExport(await context.runtime.read(exportFile[1]!)));
+    if (req.method === "GET" && url.pathname === "/api/v2/regressions") return reply(res, 200, await context.store.listRegressions());
+    const regression = url.pathname.match(/^\/api\/v2\/regressions\/([a-f0-9-]{36})$/);
+    if (req.method === "GET" && regression) return reply(res, 200, await context.store.readRegression(regression[1]!));
+    const prepare = url.pathname.match(/^\/api\/v2\/regressions\/([a-f0-9-]{36})\/prepare$/);
+    if (req.method === "POST" && prepare) {
+      const body = await mutation(req, context.origin);
+      if (!isRecord(body) || !exact(body, ["releases"]) || !Array.isArray(body.releases) || body.releases.length !== 2 || !body.releases.every((id) => typeof id === "string")) throw new HttpError(400, "Exactly two registered releases are required.");
+      let base: V2Context;
+      try { base = createV2Context(context.origin, [body.releases[0] as string, body.releases[1] as string]); resolveRelease(body.releases[0] as string); resolveRelease(body.releases[1] as string); }
+      catch { throw new HttpError(400, "Unknown or duplicate registered releases."); }
+      const saved = await context.store.readRegression(prepare[1]!);
+      let preparedContext: V2Context;
+      try { preparedContext = withSourceRequirement(base, saved.definition.requirement.originalText); }
+      catch { throw new HttpError(400, "Saved regression source is no longer compatible with the registered fixture."); }
+      return reply(res, 201, await context.store.prepareRegression(prepare[1]!, preparedContext));
+    }
     if (!["GET", "POST"].includes(req.method ?? "")) throw new HttpError(405, "Method not allowed.");
     throw new HttpError(404, "Not found.");
   } catch (error) {
@@ -69,3 +95,4 @@ async function grounded(request: V2HttpContext, context: V2Context): Promise<V2C
 }
 async function emptyMutation(req: IncomingMessage, origin: string) { const value = await mutation(req, origin); if (!isRecord(value) || !exact(value, [])) throw new HttpError(400, "An empty JSON body is required."); }
 function reply(res: ServerResponse, status: number, body: unknown): true { res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Content-Security-Policy": "default-src 'self'; base-uri 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" }); res.end(JSON.stringify(body)); return true; }
+function download(res: ServerResponse, filename: string, type: string, body: string): true { res.writeHead(200, { "Content-Type": type, "Content-Disposition": `attachment; filename=\"${filename}\"`, "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" }); res.end(body); return true; }
