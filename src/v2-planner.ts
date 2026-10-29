@@ -301,15 +301,23 @@ function fixtureCoverageGap(criterionId: string) {
   return `Uncovered criterion ${criterionId}: Fixture actions and assertions do not exercise this source clause.`;
 }
 
-function fixtureCriteria(context: V2Context, domain: "cart" | "coupon" | "delivery" | "contact", obligation: "cart-total" | "coupon-error" | "coupon-discount" | "delivery-total" | "contact-errors") {
-  const matches = {
-    "cart-total": (quote: string) => /\bcart\s+total\b|\btotal\b.*\bcart\b/i.test(quote),
-    "coupon-error": (quote: string) => /\binvalid\b.*\bcoupon\b.*\berror\b|\bcoupon\b.*\binvalid\b.*\berror\b/i.test(quote),
-    "coupon-discount": (quote: string) => /\bsave10\b.*\b(discount|subtotal)\b|\b(discount|subtotal)\b.*\bsave10\b/i.test(quote),
-    "delivery-total": (quote: string) => /\bdelivery\b.*\b(free|threshold|subtotal)\b|\b(free|threshold|subtotal)\b.*\bdelivery\b/i.test(quote),
-    "contact-errors": (quote: string) => /\b(contact|email|postal)\b.*\b(required|blank|block)\b|\b(required|blank|block)\b.*\b(contact|email|postal)\b/i.test(quote)
-  } as const;
-  return context.requirement.criteria.filter((criterion) => (criterion.id === domain || criterion.id.startsWith(`${domain}-`)) && matches[obligation](criterion.sourceQuote));
+type FixtureObligation = "cart-total" | "coupon-error" | "coupon-discount" | "delivery-total" | "contact-errors";
+
+const FIXTURE_CLAUSE_OBLIGATIONS: Readonly<Record<string, FixtureObligation>> = {
+  "cart total must match unit prices": "cart-total",
+  "an invalid coupon must display an error": "coupon-error",
+  "save10 applies the reviewed discount": "coupon-discount",
+  "save10 discounts the cart subtotal by 10%": "coupon-discount",
+  "delivery is free at discounted subtotal s$75.00 or more": "delivery-total",
+  "contact fields are required before synthetic confirmation": "contact-errors"
+};
+
+function normalizeFixtureClause(quote: string) {
+  return quote.trim().toLocaleLowerCase().replace(/\s+/gu, " ").replace(/[.!?;:]+$/gu, "").trim();
+}
+
+function fixtureCriteria(context: V2Context, domain: "cart" | "coupon" | "delivery" | "contact", obligation: FixtureObligation) {
+  return context.requirement.criteria.filter((criterion) => (criterion.id === domain || criterion.id.startsWith(`${domain}-`)) && FIXTURE_CLAUSE_OBLIGATIONS[normalizeFixtureClause(criterion.sourceQuote)] === obligation);
 }
 
 function fixtureProposal(context: V2Context): ProposalResult {

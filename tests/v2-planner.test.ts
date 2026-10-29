@@ -208,3 +208,19 @@ test("fixture links only source clauses exercised by its bounded actions and ass
     "Uncovered criterion contact: Fixture actions and assertions do not exercise this source clause."
   ]);
 });
+
+test("fixture recognizes only complete known clauses and leaves unsupported variants uncovered", async () => {
+  const context = withSourceRequirement(createV2Context(), "Cart total must match unit prices. Cart total must persist after refresh. SAVE10 applies the reviewed discount. SAVE10 discount must persist after refresh. Cart total must not match unit prices. Cart total must match unit prices after refresh.");
+  const proposal = await createV2Planner({ V2_PLANNER_MODE: "fixture" }).propose(context);
+  assert.equal(proposal.kind, "proposal");
+  assert.deepEqual(proposal.cases.map((candidate) => [candidate.id, candidate.criterionIds]), [
+    ["cart-total", ["cart"]],
+    ["delivery-total", ["coupon"]]
+  ]);
+  assert.deepEqual(proposal.gaps, [
+    "Uncovered criterion cart-2: Fixture actions and assertions do not exercise this source clause.",
+    "Uncovered criterion coupon-2: Fixture actions and assertions do not exercise this source clause.",
+    "Uncovered criterion cart-3: Fixture actions and assertions do not exercise this source clause.",
+    "Uncovered criterion cart-4: Fixture actions and assertions do not exercise this source clause."
+  ]);
+});
