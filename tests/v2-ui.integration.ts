@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -205,6 +206,120 @@ test("workbench never runs an unused A approval after delayed saved B preparatio
     if (page) {
       await mkdir(screenshots, { recursive: true });
       await page.screenshot({ path: join(screenshots, "receipt-binding-failure.png"), fullPage: true }).catch(() => {});
+    }
+    throw error;
+  } finally {
+    await browser?.close();
+    instance.server.closeAllConnections();
+    await new Promise<void>((resolve) => instance.server.close(() => resolve()));
+    if (prior === undefined) delete process.env.DATA_DIR; else process.env.DATA_DIR = prior;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("workbench retains delayed runs and reopens readable persisted evidence", { timeout: 120_000 }, async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofpath-v2-ui-persisted-"));
+  const prior = process.env.DATA_DIR;
+  process.env.DATA_DIR = root;
+  const selectedPort = await port();
+  const instance = createProofPathServer(selectedPort, createPlanner({ PLANNER_MODE: "fixture" }));
+  const screenshots = join(process.cwd(), "test-results", "task4");
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+  let page: import("playwright").Page | undefined;
+  try {
+    await new Promise<void>((resolve) => instance.server.listen(selectedPort, "127.0.0.1", resolve));
+    browser = await chromium.launch({ headless: true });
+    page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    page.setDefaultTimeout(5_000);
+    await page.goto(`${instance.origin}/workbench.html`);
+    await page.getByText("Fixture-only workbench ready; live model use is disabled").waitFor();
+    await page.getByRole("button", { name: "Inspect registered pair and propose" }).click();
+    await page.getByRole("heading", { name: "2. Review exact rules, cases and gaps" }).waitFor({ timeout: 30_000 });
+    for (const check of await page.locator("[data-accept], [data-reference], [data-gap]").all()) await check.check();
+    for (const scope of await page.locator("[data-scope]").all()) await scope.selectOption("unchanged");
+    await page.getByRole("button", { name: "Compile reviewed snapshot" }).click();
+    await page.getByRole("heading", { name: "3. Final one-use approval" }).waitFor({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Approve exact reviewed snapshot" }).click();
+    let delayStarted = 0;
+    const delayedRun = async (route: import("playwright").Route) => {
+      const response = await route.fetch();
+      const body = await response.json() as any;
+      if (!delayStarted) delayStarted = Date.now();
+      if (Date.now() - delayStarted < 10_250) {
+        await route.fulfill({ response, json: { ...body, status: "running", endedAt: null } });
+        return;
+      }
+      await route.fulfill({ response });
+    };
+    await page.route("**/api/v2/runs/*", delayedRun);
+    await page.getByRole("button", { name: "Run approved pair" }).click();
+    await page.getByRole("heading", { name: "4. Candidate, coverage and comparison report" }).waitFor({ timeout: 30_000 });
+    await page.getByText("Paired run completed; save the immutable definition or download artifacts.").waitFor({ timeout: 30_000 });
+    assert.ok(Date.now() - delayStarted >= 10_000);
+    await page.unroute("**/api/v2/runs/*", delayedRun);
+    const reportLink = await page.getByRole("link", { name: "Open this report" }).getAttribute("href");
+    assert.match(reportLink ?? "", /^\/workbench\.html\?run=[a-f0-9-]{36}$/);
+    const runId = new URL(reportLink!, instance.origin).searchParams.get("run")!;
+    const rawResponse = await fetch(`${instance.origin}/api/v2/runs/${runId}`);
+    assert.ok(rawResponse.ok);
+    const raw = await rawResponse.json() as any;
+    assert.equal(raw.status, "completed");
+    const contact = raw.records.flatMap((record: any) => record.assertions).find((assertion: any) => assertion.id === "contact-errors");
+    assert.deepEqual(contact.expected, { email: "required", postalCode: "required" });
+    assert.deepEqual(contact.observed, { email: "required", postalCode: "required" });
+    const readablePanels = (await page.locator("#v2-report-output .workbench-panel").allTextContents()).join(" ");
+    assert.match(readablePanels, /contact-errors PASS; expected email: required, postalCode: required; observed email: required, postalCode: required/);
+    assert.doesNotMatch(readablePanels, /\[object Object\]/);
+    const evidence = raw.records.flatMap((record: any) => record.assertions).find((assertion: any) => assertion.screenshotSha256 && assertion.screenshot !== "not-captured.png");
+    const evidencePath = `/api/v2/runs/${runId}/evidence/${evidence.screenshot}`;
+    const evidenceLink = page.locator(`a[href="${evidencePath}"]`);
+    assert.equal(await evidenceLink.count(), 1);
+    const [evidenceResponse] = await Promise.all([page.waitForResponse((response) => new URL(response.url()).pathname === evidencePath), evidenceLink.click()]);
+    assert.equal(evidenceResponse.headers()["content-type"], "image/png");
+    assert.equal(`sha256:${createHash("sha256").update(await evidenceResponse.body()).digest("hex")}`, evidence.screenshotSha256);
+    assert.notEqual((await fetch(`${instance.origin}/api/v2/runs/${runId}/evidence/not-a-run-id.png`)).status, 200);
+
+    const reopened = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    reopened.setDefaultTimeout(5_000);
+    const readonlyRequests: Array<{ method: string; path: string }> = [];
+    reopened.on("request", (request) => {
+      const url = new URL(request.url());
+      if (url.origin === instance.origin && url.pathname.startsWith("/api/v2/")) readonlyRequests.push({ method: request.method(), path: url.pathname });
+    });
+    await reopened.goto(`${instance.origin}${reportLink}`);
+    await reopened.getByText("Loaded persisted read-only run report.").waitFor({ timeout: 30_000 });
+    assert.equal(await reopened.locator("#v2-run").isDisabled(), true);
+    const refreshResponse = reopened.waitForResponse((response) => new URL(response.url()).pathname === `/api/v2/runs/${runId}` && response.request().method() === "GET");
+    await reopened.getByRole("button", { name: "Refresh report" }).click();
+    await refreshResponse;
+    await reopened.getByText("Refreshed persisted read-only run report.").waitFor();
+    assert.ok(readonlyRequests.filter((request) => request.path === `/api/v2/runs/${runId}` && request.method === "GET").length >= 2);
+    assert.equal(readonlyRequests.filter((request) => request.method === "POST" || /\/(proposals|approve|runs)$/.test(request.path)).length, 0);
+
+    const displayFixture = structuredClone(raw);
+    const fixtureAssertions = displayFixture.records.flatMap((record: any) => record.assertions);
+    const unavailable = fixtureAssertions.find((assertion: any) => assertion.id === "contact-errors");
+    const recordedNone = fixtureAssertions.find((assertion: any) => assertion.id !== "contact-errors");
+    unavailable.observed = null;
+    unavailable.verdict = "INCONCLUSIVE";
+    recordedNone.expected = null;
+    recordedNone.observed = null;
+    recordedNone.verdict = "PASS";
+    const fixturePage = await browser.newPage();
+    await fixturePage.route(`**/api/v2/runs/${runId}`, (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify(displayFixture) }));
+    await fixturePage.goto(`${instance.origin}${reportLink}`);
+    await fixturePage.getByText("Loaded persisted read-only run report.").waitFor({ timeout: 30_000 });
+    const fixturePanels = (await fixturePage.locator("#v2-report-output .workbench-panel").allTextContents()).join(" ");
+    assert.match(fixturePanels, /expected Recorded none; observed Recorded none/);
+    assert.match(fixturePanels, /contact-errors INCONCLUSIVE; expected email: required, postalCode: required; observed Unavailable observation/);
+    assert.doesNotMatch(fixturePanels, /\[object Object\]/);
+    assert.match((await fixturePage.locator("#v2-report-output details pre").textContent()) ?? "", /"observed": null/);
+    await fixturePage.close();
+    await reopened.close();
+  } catch (error) {
+    if (page) {
+      await mkdir(screenshots, { recursive: true });
+      await page.screenshot({ path: join(screenshots, "persisted-report-failure.png"), fullPage: true }).catch(() => {});
     }
     throw error;
   } finally {
