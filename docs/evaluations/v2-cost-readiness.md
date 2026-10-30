@@ -1,11 +1,27 @@
-# V2 offline cost readiness — October 30, 2026
+# V2 cost readiness — updated October 31, 2026
 
-**Gate: blocked.** The approved targets remain 3 proposals per reviewer code,
-50 proposals globally, US$0.05 reserved per proposal including retries, and
-US$2.50 total. A locally tested mock-only path now enforces fixed reservations
-against those limits; production reviewer wiring and a verified billable-input
-bound remain incomplete. V2 live Meta dispatch stays disabled. No real provider
-request or user credential read was needed for this assessment.
+**Current gate: restricted local Responses canary verified.** The exact immutable
+Responses body is counted before generation under the [restricted admission
+basis](v2-responses-admission-basis.md). A separate signed live ledger enforces
+3 proposals/code, 50 globally, US$0.05 per proposal including retries and
+US$2.50 total. The [October 31 canary](v2-live-canary.md) verified provider schema
+acceptance and one count/usage comparison through local browser execution.
+This is not invoice reconciliation, an account-wide spending cap or a general
+provider reliability claim. Frozen-holdout evaluation and managed hosting remain
+open; no additional live call is authorized by this record.
+
+The following October 30 assessment is retained as historical **Chat Completions
+and mock-only** analysis. Its blocked recommendation was superseded for the
+restricted Responses path, not by interpreting a Responses count as a Chat
+Completions count. The mock version-1 ledger is never automatically migrated or
+reset into live capacity.
+
+## October 30 historical assessment
+
+The then-approved targets were 3 proposals per reviewer code, 50 globally,
+US$0.05/proposal and US$2.50 total. At that checkpoint only mock reservations
+were implemented, with real dispatch disabled. No real request or credential
+read was needed for that assessment.
 
 ## Public sources refreshed
 

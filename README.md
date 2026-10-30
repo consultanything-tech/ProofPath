@@ -6,16 +6,17 @@ The selected next product direction is a checkout/order QA workbench: acceptance
 criteria → reviewed suites → paired release evidence → saved regression cases
 and exports. The [v2 PRD/design](docs/superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
 and [implementation plan](docs/superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
-now have a local fixture implementation. It has no v2 live-model or deployment
-evidence: `V2_PLANNER_MODE=meta` remains fail-closed pending the recorded
-[cost readiness assessment](docs/evaluations/v2-cost-readiness.md), a separately
-authorised request, and evaluation of the frozen holdout.
+now have local fixture and guarded Meta Responses implementations. One authorized
+live v2 proposal completed local review, seeded-defect execution and saved fixed
+rerun on October 31. See the [canary record](docs/evaluations/v2-live-canary.md)
+and [admission basis](docs/evaluations/v2-responses-admission-basis.md).
+The frozen holdout, independent review and managed-host deployment remain open.
 
-The test-only budgeted mock path enforces 3 proposals per allowlisted reviewer
-code, 50 globally, and US$0.05 reserved per proposal (US$2.50 total). It records
-reservations and retry attempts on disk and retains them after failures or
-restart. It is not a live-cost meter or a deployed reviewer access system;
-V2 Meta dispatch remains disabled.
+Controlled Meta mode enforces 3 proposals per allowlisted reviewer code,
+50 globally, and US$0.05 reserved per proposal including retries (US$2.50 total).
+Signed durable state retains reservations after failure and restart. This is a
+local admission control, not account-wide billing reconciliation or proof of a
+deployed reviewer service. The older mock-only ledger remains test evidence.
 
 ## Hackathon scope
 
@@ -37,7 +38,7 @@ The V1 demo is deliberately narrow:
 
 `PASS` and `FAIL` come from deterministic assertions. The model may explain linked browser evidence but cannot override a verdict. Missing or conflicting evidence is `INCONCLUSIVE`.
 
-### V2 local fixture workflow
+### V2 local workbench
 
 At `/workbench.html`, an owned checkout requirement becomes an inspected,
 reviewed suite with bounded semantic actions. The independent typed oracle derives
@@ -47,7 +48,8 @@ separate candidate and suite verdicts, so a passing candidate can still leave th
 suite `INCONCLUSIVE` when accepted coverage is partial. A reviewed regression can
 be saved, rebound to a compatible release pair without another planner call, and
 downloaded as an evidence-linked bug packet or Playwright test. These are local
-fixture capabilities; they do not establish v2 live Meta behavior.
+capabilities. The guarded live canary exercised the same workflow with a real
+Meta-generated suite; that selected case does not establish general reliability.
 
 Start with [the PRD](docs/PRD.md) and [development kit](docs/DEVELOPMENT_KIT.md). See also [the plan](docs/PLAN.md) and [the build log](docs/BUILD_LOG.md).
 
@@ -82,18 +84,48 @@ test spending boundary are confirmed. Never put keys in chat or commit them.
 There is no startup/background model call. Propose plan in Meta mode sends the
 synthetic requirement and public scenario facts to Meta; a clarification creates
 no approvable plan, and provider errors never substitute a fixture.
-The v2 workbench remains fixture-only; configuring the v1 planner does not
-enable v2 model calls.
+The v1 direct adapter has no proposal-budget ledger; use the controlled v2
+bootstrap below for budgeted Meta work. It disables v1 mutation/model routes.
+
+### Controlled local v2 Meta mode
+
+Configure `MODEL_API_KEY` only in ignored `.env`. Explicit initialization creates
+one private reviewer code and a fresh version-2 live ledger; **run it once for a
+new operator directory**, never to replenish an existing budget:
+
+```sh
+pnpm operator:v2:init
+V2_PLANNER_MODE=meta PLANNER_MODE=fixture \
+  DATA_DIR=runs/v2-live/data V2_OPERATOR_DIR=runs/v2-live/operator \
+  PORT=3010 pnpm dev
+```
+
+Open `http://127.0.0.1:3010/workbench.html`. Retrieve the code locally from
+`runs/v2-live/operator/reviewer-code.txt`; never paste it into chat or a URL.
+The code stays in page memory and is needed again after reload. “Open protected
+workbench” reopens saved reports without spending a proposal, even after quota
+exhaustion. Counts and generation use the exact same immutable Responses body.
+Oversized input, invalid authentication, quota exhaustion or unavailable durable
+state prevents generation; no fixture fallback occurs.
+
+The October 31 setup already exists and its preview uses port 3010. Do not
+initialize it again or start a second owner while that server is running. Keep
+the private operator directory and data on durable storage; normal startup
+refuses missing/corrupt state, old mock state and another owner. Crash-left locks
+require explicit operator investigation, never automatic deletion or budget
+reset. This loopback-only bootstrap does not authorize public hosting or more
+live requests. The canary used one proposal; 2 remain for that code and 49
+globally, with US$0.05 permanently reserved.
 
 ## V1 implementation and evidence
 
 The stack is Node.js, TypeScript, pnpm, Playwright and a thin local server. Fixture mode creates canned plans and explicitly says it does not interpret text or call Meta. Meta mode uses a direct Model API adapter with strict schema validation and no fallback; live-generated add-to-cart and saved quantity plans have controlled local browser evidence. UI labels and immutable approval/report provenance identify the selected mode.
 
-The v2 workbench keeps its own fixture mode and does not use the v1 evidence as
-v2 Meta evidence. Its agent-drafted [frozen holdout](docs/evaluations/v2-frozen-requirements.json)
-awaits owner annotation review; annotations are excluded from a future product
-planner request. Its strict structured-output schema has offline tests, while
-v2 live dispatch stays disabled.
+The v2 workbench retains explicit fixture and controlled Meta modes; v1 evidence
+is separate. Its agent-drafted [frozen holdout](docs/evaluations/v2-frozen-requirements.json)
+awaits owner annotation review; annotations stay outside product planner
+requests. Strict structured output was accepted by the provider in the one
+recorded v2 live canary. No frozen-holdout reliability claim is made.
 
 The server hashes the requirement, scenario revision, target registry, planner provenance and validated plan into a one-use ten-minute approval. A fresh browser context permits only the synthetic shop and its two assets. Runs are serialized, bounded and reported as completed, blocked, timed-out or failed. The seeded quantity revision observes 3900 cents for quantity 2 and fails; the fixed revision observes 7800 and passes. Blank checkout requires both visible errors and an active checkout state. Reports retain approval snapshots, replay, URL/time, screenshots and hashes. Missing evidence cannot produce PASS, and a known failure survives interrupted execution.
 

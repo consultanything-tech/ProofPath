@@ -1,0 +1,239 @@
+{
+  "version": 1,
+  "recordedDateSgt": "2026-10-31",
+  "scope": "One authorized local guarded Meta Responses proposal; no deployment or holdout evaluation",
+  "protocol": "Responses",
+  "model": "muse-spark-1.3",
+  "proposalId": "a18e3394-838c-4416-b4ef-1dcedf62a75e",
+  "requirement": "SAVE10 discounts the cart subtotal by 10%. Delivery is free at discounted subtotal S$75.00 or more. Verify delivery when applying the coupon changes a cart's free-delivery eligibility.",
+  "frozenHoldoutUsed": false,
+  "policy": {
+    "perCode": 3,
+    "globalProposals": 50,
+    "reservationMicroUsd": 50000,
+    "totalMicroUsd": 2500000,
+    "maxInputTokens": 6073,
+    "maxOutputTokens": 4096,
+    "maxAttempts": 2,
+    "refunds": false
+  },
+  "requestDigest": "sha256:05667e098aac48f5cfa2d54ca44c791022f8da8b60d32ad18ac8eec8d81a5007",
+  "renderedInputTokens": 1996,
+  "attempts": [
+    {
+      "number": 1,
+      "startedAt": "2026-10-30T22:49:46.613Z",
+      "usage": {
+        "inputTokens": 1853,
+        "outputTokens": 2758,
+        "totalTokens": 4611
+      }
+    }
+  ],
+  "estimatedUsageUsd": 0.01403775,
+  "reservedUsd": 0.05,
+  "ledgerMacVerified": true,
+  "billingReconciled": false,
+  "approvalEvidence": "Exact live proposal receipt restored for UI review after local validation of unchanged numeric rules; fresh automated UI approvals under user-authorized synthetic smoke; no human click claimed",
+  "evidenceDirectory": "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e",
+  "runs": {
+    "seeded": {
+      "runId": "c171bad0-d5f4-4cbe-a0a9-dc9b1d04b4b5",
+      "digest": "sha256:2dadf5d7dbaba7e3ccf18928624c3f28cc777f0166cbe2356104f65c1eaf0dbd",
+      "verdict": "FAIL",
+      "candidateVerdict": "FAIL",
+      "coverage": [
+        "Delivery fee amount not stated in source text so fee impact is not asserted beyond eligibility change.",
+        "Rounding rule for discount calculation not stated in source text."
+      ],
+      "comparisons": [
+        {
+          "caseId": "flip-eligibility",
+          "classification": "regression"
+        },
+        {
+          "caseId": "remains-free",
+          "classification": "stable-observation"
+        },
+        {
+          "caseId": "remains-paid",
+          "classification": "stable-observation"
+        }
+      ],
+      "manifestPath": "runs/v2-live/data/runs/v2/c171bad0-d5f4-4cbe-a0a9-dc9b1d04b4b5/manifest.json",
+      "manifestSha256": "282a44195ca95695f3e19b696081b6a6f84be8a2174917adefa1a0846c6def31",
+      "verifiedScreenshotCount": 6
+    },
+    "fixed": {
+      "runId": "b191131a-737b-4d31-aa34-0149181973c9",
+      "digest": "sha256:2aaaf63020a952ed248c7cd257a3949f282f6088033a6b60706c7ccdcefc2168",
+      "verdict": "INCONCLUSIVE",
+      "candidateVerdict": "PASS",
+      "coverage": [
+        "Delivery fee amount not stated in source text so fee impact is not asserted beyond eligibility change.",
+        "Rounding rule for discount calculation not stated in source text."
+      ],
+      "comparisons": [
+        {
+          "caseId": "flip-eligibility",
+          "classification": "stable-observation"
+        },
+        {
+          "caseId": "remains-free",
+          "classification": "stable-observation"
+        },
+        {
+          "caseId": "remains-paid",
+          "classification": "stable-observation"
+        }
+      ],
+      "manifestPath": "runs/v2-live/data/runs/v2/b191131a-737b-4d31-aa34-0149181973c9/manifest.json",
+      "manifestSha256": "5c52ec4b6d03908cdc5c9232eedf24befd2a6893459317733b5b174fdc57a4f9",
+      "verifiedScreenshotCount": 6
+    }
+  },
+  "artifactHashes": {
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/seeded-regression.test.mjs": "1b71943ec1a9c82d77ac3b67746b1ec551d46d514157b117d66eb92b189a273d",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/regression.test.mjs": "98e6060295cf2bd08438c85f197864ceb25be77e6931242e3488bfcc537d5e07",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/bug-packet.md": "4b05567eba61d1a43bc9274de1e3bdaecd66d9bac3c429f1657ac78f3a2f2531",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/summary.json": "d2fd3af1e35c68ba5ca1834da430766d4f60325247b06254beba7339f49b9143",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/proposal.json": "9da55fb431d21770decb094e55a7b5008cba8ce5a3238ffe2e55be95a23e518b",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/source.json": "2770efa124cfea75e475a396d548f9687170041e2733ff4d990ed8c92cacbd27",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/reviewed.json": "210b5c4d145cfcf8e3377df968c0526aad93feaeccb0856595738385db7b4cd2",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/seeded-run.json": "c2ec930f244d1811a3b9f469d03483241ac8ccde95f2cc530e61615101b692ea",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/fixed-run.json": "42d9babfe322b30231b653179ef3c5ada4e593bc6ed643adfeabdef15b2d28a5",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/export-checks.json": "a584af554190ae786e8f91fda9c51ef6cc76c2f79a501a431a776a05e7a8f9c9",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/live-review.png": "2e529eb4d39a66c3f0c56bfe6dc3127a3ab80e2749745e4144d5bee25be10f90",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/live-seeded-report.png": "dc3c22416d76a9b076b3bcc8e608ea435ba8a151c270ed1a9070c53512f35efd",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/live-fixed-report.png": "704c96553cc516e291483719e7cf7820d84bfea7a6aa58266f9884b952a7ec64",
+    "runs/v2-live/evidence/b1db9994-9d39-46d9-af3f-78e079e0228e/live-fixed-mobile.png": "864443abe62c5ed4434a336f23baddeb1ccfedfff754ab77efdb95297cb4c272"
+  },
+  "sourceHashes": {
+    "src/v2-live-proposal.ts": "19b8e46e1854751527d86eb3992df0e45d42c6fc728506e31e05d5b26b96ba8c",
+    "src/v2-operator.ts": "f2807462d422c2fb9ca221422e2e7fcf27ec24e02c35c883e8920b1c26520c99",
+    "src/v2-planner.ts": "fb03ad1174f363d457ac6d431235076a491c5b29242894d4dd052846d3d6bf99",
+    "src/v2-http.ts": "d9e3e6631f3b356030319d28decdf6ee292d5d79ce410fb8f6e531c0b96a80fc",
+    "src/server.ts": "a7bb05bbce0a6a64b73a66a55aed2df71de3b0f3a5320c0950430e3e3ca2dec2",
+    "src/v2-proposal-budget.ts": "f7368f3f3ab850779325b3557ae9b97ab4e41efb01260f73a69d74f2f88cdc8d",
+    "src/v2-artifacts.ts": "7bc025e47b19b41e80d4e35559bd85933d8b88d26c075268149afeb820853e92",
+    "public/workbench.js": "4268ed607ac4697e8171b8e5aa3fbdc2bda6124392b2611af4b5f62791c91714",
+    "public/workbench.html": "832eb79779beafdd912ae2852d7fac3692003b61bf9c4601982415913332fa30",
+    "tests/v2-live-proposal.test.ts": "10417ed413bd8846b283d62cc91fbb60908ff15e2d84e88ec1a384028e114455",
+    "tests/v2-live-boundary.test.ts": "c4f68b99d90f6c3ecc0c58614ff8fd2e6f5ea6e283f8b4530b9d7c74aa475ccb",
+    "tests/v2-operator.test.ts": "592fc99705f1baa4757f491b2416ee4c1d323cf3dc1637e4e362d6db9fc1c474",
+    "tests/v2-controlled.integration.ts": "f41ad649c18735dd4f8f2abb4b57401f213f43847c11747c0572ada04c2db0e2",
+    "package.json": "a32e96ed25da13c5f9aa04b4f9589d1a348f7d16e27a514ec74636526561794a"
+  },
+  "validation": {
+    "checks": [
+      {
+        "name": "typecheck",
+        "command": [
+          "pnpm",
+          "typecheck"
+        ],
+        "exitCode": 0,
+        "seconds": 1.8
+      },
+      {
+        "name": "build",
+        "command": [
+          "pnpm",
+          "build"
+        ],
+        "exitCode": 0,
+        "seconds": 1.81
+      },
+      {
+        "name": "live-focused",
+        "command": [
+          "node",
+          "--test",
+          "dist/tests/v2-live-proposal.test.js",
+          "dist/tests/v2-live-boundary.test.js",
+          "dist/tests/v2-operator.test.js"
+        ],
+        "exitCode": 0,
+        "seconds": 2.4
+      },
+      {
+        "name": "all-unit",
+        "command": [
+          "pnpm",
+          "test"
+        ],
+        "exitCode": 0,
+        "seconds": 21.18
+      },
+      {
+        "name": "safety",
+        "command": [
+          "pnpm",
+          "test:safety"
+        ],
+        "exitCode": 0,
+        "seconds": 11.87
+      },
+      {
+        "name": "v1-ui",
+        "command": [
+          "pnpm",
+          "test:ui"
+        ],
+        "exitCode": 0,
+        "seconds": 6.35
+      },
+      {
+        "name": "v2-browser",
+        "command": [
+          "pnpm",
+          "test:v2:browser"
+        ],
+        "exitCode": 0,
+        "seconds": 110.34
+      },
+      {
+        "name": "diff-check",
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exitCode": 0,
+        "seconds": 0.04
+      }
+    ],
+    "counts": {
+      "focused": 12,
+      "unit": 78,
+      "safety": 10,
+      "v1Ui": 1,
+      "v2Browser": 10
+    },
+    "subsequentAffectedRecheck": {
+      "passed": 13,
+      "scope": "Controlled UI plus runtime after inspection-error sanitization; full suites preceded that small change"
+    }
+  },
+  "limitations": [
+    "One synthetic requirement, not language reliability or frozen-holdout evidence.",
+    "Exact saved proposal receipt restored after inspection of unchanged numeric rules; fresh automated UI approvals, no human click or uninterrupted walkthrough claimed.",
+    "Fixed candidate PASS, suite INCONCLUSIVE due two accepted coverage gaps.",
+    "Rendered count is a restricted-profile admission bound, not invoice or account-wide billing verification.",
+    "Loopback only; managed hosting, independent review and submission artifacts remain open."
+  ],
+  "exportChecks": [
+    {
+      "name": "seeded-export",
+      "release": "r2",
+      "exitCode": 1,
+      "expectedExitCode": 1
+    },
+    {
+      "name": "fixed-export",
+      "release": "r3",
+      "exitCode": 0,
+      "expectedExitCode": 0
+    }
+  ]
+}

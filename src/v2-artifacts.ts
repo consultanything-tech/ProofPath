@@ -13,7 +13,7 @@ function snapshot(run: SuiteRun): ArtifactApproval {
 export function renderBugPacket(run: SuiteRun): string {
   const approval = snapshot(run);
   return [
-    "# ProofPath bug packet", "", "Fixture-only synthetic checkout evidence. This packet records observed behavior; it does not assert a root cause.", "",
+    "# ProofPath bug packet", "", "Synthetic checkout evidence. Planner provenance is recorded below; this packet records observed behavior and does not assert a root cause.", "",
     "```json", literal({
       version: "2", run: { id: run.id, approvalDigest: run.approvalDigest, status: run.status, verdict: run.verdict, candidateVerdict: run.candidateVerdict, startedAt: run.startedAt, endedAt: run.endedAt },
       reviewed: { app: { id: approval.definition.app.appId, adapterVersion: approval.definition.app.adapterVersion }, referenceId: approval.definition.referenceId, source: approval.definition.requirement.originalText, criteria: approval.definition.requirement.criteria, rules: approval.definition.rules, coverageGaps: approval.definition.requirement.coverageGaps, releases: approval.definition.releases.map(({ id, documentPath, fingerprint }) => ({ id, documentPath, fingerprint })), cases: approval.definition.cases, provenance: approval.provenance },

@@ -1,28 +1,38 @@
 # ProofPath build handoff
 
-**Current direction, October 28:** the user selected the checkout/order QA
-workbench expansion. The [v2 design](superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
+**Current direction, October 31:** the checkout/order QA workbench has fixture
+and guarded Meta Responses implementations. Preserve `4ace907` as the v1
+fallback and `d6b345b` as the mock-budget checkpoint. The [v2 design](superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
 and [implementation plan](superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
-now have a local fixture implementation. This handoff records v1 decisions and
-verification separately; preserve checkpoint `4ace907` as the fallback. V2 live
-model, hosted reviewer access, and deployment are still unverified.
+remain the product contract.
 
-**October 30 continuation:** all six v2 capabilities have local fixture tests.
-The next development gate is defensible real-input admission and production
-wiring of the mock-verified proposal ledger, followed by bounded live evaluation
-and reviewer hosting.
-The selected managed-container/persistent-storage path and limits (3 proposals
-per code, 50 total, US$0.05 reserved per proposal, US$2.50 total) remain planning
-targets for the production path. The local mock-only service now enforces them;
-the separate 50-browser-job limit does not. See the
-[cost assessment](evaluations/v2-cost-readiness.md) and
-[fixture readiness record](evaluations/v2-fixture-readiness.json).
+**Completed continuation:** the user-authorized restricted Responses admission,
+private local operator bootstrap and one live canary are verified. The exact
+counted/generated body uses `muse-spark-1.3`, at most 6,073 rendered input tokens,
+4,096 output tokens and two generation attempts. A fresh signed version-2 ledger
+reserves US$0.05 before generation and journals attempts, usage and durable
+failure blocks. It enforces 3 proposals/code, 50 global and US$2.50 total with no
+refund. The controlled bootstrap disables v1 mutation/model routes and protects
+v2 reports, artifacts and saved-workbench reopening with the reviewer code.
+These are local controls; managed-host ingress and persistent-volume operations
+remain unverified. See [admission basis](evaluations/v2-responses-admission-basis.md)
+and [live canary](evaluations/v2-live-canary.md).
 
-The local mock-only proposal ledger now durably reserves the whole US$0.05
-before each mocked dispatch and retains it on failure or restart. It requires
-an allowlisted code digest and a test-only accounting certificate. Real input
-accounting, code issuance, managed-host wiring, recovery of stale locks and
-protection of the separate V1 model route remain open.
+The one live proposal used 1,996 rendered input tokens; provider usage was
+1,853 input and 2,758 output tokens in one attempt, estimated US$0.01403775.
+US$0.05 remains reserved. The model-generated suite found the seeded r2
+delivery regression; saved reuse on r3 passed all three candidate cases without
+another model call. The fixed suite remains INCONCLUSIVE because two accepted
+coverage gaps remain. Fresh automated UI approvals used the exact saved live
+receipt after review of unchanged numeric rules; no human click or uninterrupted
+walkthrough is claimed. Full evidence and integrity hashes are in the canary
+record. No additional live request is authorized by this handoff.
+
+Next gates: owner review of frozen annotations, explicitly bounded holdout
+evaluation, independent review, then managed-container/persistent-storage
+hosting and deployment verification. The selected access/spend limits are
+implemented locally; they do not authorize hosting charges. No public host,
+repository visibility change, push or billing change occurred.
 
 Prepared October 26, 2026, Asia/Singapore. Updated October 27 after reviewing the kickoff notes and transcript.
 
@@ -118,10 +128,10 @@ and no new model call; see `evaluations/saved-quantity-runs-v1.md`. Readable
 plan/report UI, per-action evidence and saved-report reopening were verified
 locally in fixture mode on October 28. The saved Meta required-fields plan then
 completed all four actions and both assertions passed under a fresh
-chat-authorized approval, with no new model request. Next: select hosting and
-numerical access/spend limits, then verify a fresh live-proposal UI approval
-during the bounded hosted smoke.
-Deployment/public execution budgets remain undecided.
+chat-authorized approval, with no new model request. Those are historical v1
+results. The October 31 continuation above supersedes the earlier next-step
+status: hosting path and proposal limits are selected and
+locally enforced; actual managed deployment and hosted review remain open.
 
 Basic live API access is verified. The prior Billing check showed $150 free
 credits and no payment method; current card/balance state was not reinspected. Never paste keys in chat; configure
@@ -130,8 +140,10 @@ The submission requires a public GitHub repository and a three-minute narrated
 demo video. Keep the repository private during active work if desired, but make
 it public before submission and verify it logged out. The video is a major
 judging factor: explain the project, show the live product, and demonstrate its
-behavior. Review the submission form early. Hosting and live spending/rate
-limits still need owner decisions before any public deployment or live runs.
+behavior. Review the submission form early. The owner selected managed-container
+hosting with persistent storage and 3 proposals/code, 50 total, US$0.05/proposal and US$2.50 total. Hosting charges,
+provider-specific operations and a public deployment still require concrete
+review; the one authorized local canary is complete.
 The optional Most Viral bonus prize requires an X post and its URL in the
 submission; it is not a core product requirement.
 

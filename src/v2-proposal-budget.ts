@@ -353,6 +353,7 @@ export class BudgetedMockProposalService {
     await this.ledger.preflight(principal);
     return principal;
   }
+  async authenticate(header: string | undefined) { return this.registry.authenticate(header); }
   async propose(context: V2Context, principal: ReviewerPrincipal):
     Promise<{ proposal: ProposalResult; reservationId: string; provenance: readonly string[] }> {
     if (!this.registry.owns(principal)) throw accessUnavailable();

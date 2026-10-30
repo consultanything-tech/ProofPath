@@ -2,6 +2,49 @@
 
 Every later product claim should point to a commit or a preserved run artifact. This log records preparation separately from functional work.
 
+## Guarded V2 Responses and real local canary — October 31, 2026
+
+Implemented the authorized continuation from `d6b345b` after delegated planning
+and implementation, followed by primary-agent hardening. Counting and generation
+now share the exact immutable Meta Responses body for the restricted text-only
+`muse-spark-1.3` profile. A fresh signed live ledger reserves US$0.05 before
+generation, with 6,073 rendered input tokens, 4,096 output tokens and at most two
+attempts. The 3/code, 50/global and US$2.50 total limits have no refunds. Durable
+attempt/usage journals, exclusive ownership and failure latches prevent silent
+reset, mock-state migration and unaccounted retry. A private one-time operator
+bootstrap issues the local code; controlled mode disables v1 mutation/model
+routes and authenticates saved-workbench/report/download access.
+
+The one authorized non-holdout real proposal used 1,996 rendered input tokens;
+provider usage was 1,853 input and 2,758 output tokens in one attempt, estimated
+US$0.01403775. US$0.05 stays reserved. Its three generated cases found seeded
+r2's delivery regression (S$67.50 observed versus S$72.50 expected). Saved reuse
+on fixed r3 passed all three candidate cases without another model call; the
+suite correctly remains INCONCLUSIVE for missing fee and rounding rules.
+The exact saved proposal receipt was restored for fresh automated UI approvals
+after review of unchanged numeric entries. No human UI click or uninterrupted
+walkthrough is claimed. The earlier sandbox launch failure made no Meta request
+or reservation. The successful launch used escalation without weakening runner
+restrictions.
+
+Typecheck/build passed; focused tests 12/12, full unit 78/78, safety 10/10,
+v1 UI 1/1 and v2 browser 10/10 passed. A subsequent small inspection-error
+sanitization change passed the affected controlled UI/runtime recheck, 13/13.
+Seeded/fixed exported tests produced their expected exit codes (1/0).
+Both manifest sidecars, twelve assertion screenshots and all three downloaded
+artifact hashes verified. Desktop/mobile screenshots were visually reviewed.
+See the [canary record](evaluations/v2-live-canary.md),
+[machine evidence](evaluations/v2-live-canary.json) and
+[completed plan](superpowers/plans/2026-10-31-proofpath-meta-responses.md).
+
+The isolated preview uses port 3010 and leaves port 3000 untouched. Private
+operator material and raw runs stay ignored; no secret was printed. No new
+dependency, deployment, billing change, remote push or visibility change. This
+one-proposal live authorization is complete. Next: owner review of frozen
+annotations, separately bounded evaluation, independent review and managed-host
+verification. Token estimates are not billing reconciliation or a general
+reliability claim.
+
 ## V2 proposal budget and admission — October 30, 2026
 
 Implemented the approved next slice from `57ac7fe`: an authenticated,

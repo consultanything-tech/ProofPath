@@ -11,6 +11,9 @@ import { calculateCheckout } from "./v2-oracle.js";
 
 export const V2_META_MODEL = "muse-spark-1.3" as const;
 export const V2_META_ENDPOINT = "https://api.meta.ai/v1/chat/completions";
+/** The production v2 protocol is deliberately separate from the legacy mock API. */
+export const V2_META_RESPONSES_ENDPOINT = "https://api.meta.ai/v1/responses";
+export const V2_META_INPUT_TOKENS_ENDPOINT = "https://api.meta.ai/v1/responses/input_tokens";
 const MAX_RESPONSE_BYTES = 65_536;
 const PROVIDER_TIMEOUT_MS = 30_000;
 const INSPECTION_TIMEOUT_MS = 30_000;
@@ -178,6 +181,34 @@ export function buildMetaSuiteRequest(context: V2Context): object {
     ],
     response_format: { type: "json_schema", json_schema: { name: "proofpath_v2_suite", strict: true, schema: SUITE_PROPOSAL_SCHEMA } }
   };
+}
+
+function immutable<T>(value: T): T {
+  if (value && typeof value === "object") {
+    for (const child of Object.values(value as object)) immutable(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+/**
+ * Fixed, tool-free Responses request.  The exact JSON serialization of this
+ * object is counted before it is sent to the provider by the live service.
+ */
+export function buildMetaResponsesRequest(context: V2Context): Readonly<object> {
+  const legacy = buildMetaSuiteRequest(context) as { messages: readonly { role: string; content: string }[] };
+  return immutable({
+    model: V2_META_MODEL,
+    input: legacy.messages.map((message) => ({ role: message.role, content: [{ type: "input_text", text: message.content }] })),
+    text: { format: { type: "json_schema", name: "proofpath_v2_suite", strict: true, schema: SUITE_PROPOSAL_SCHEMA } },
+    reasoning: { effort: "low" },
+    max_output_tokens: 4096,
+    tools: [],
+    store: false,
+    stream: false,
+    background: false,
+    truncation: "disabled"
+  });
 }
 
 export function applyReviewedNumericRuleChanges(reference: CheckoutRules, changes: readonly NumericRuleChange[]): CheckoutRules {
@@ -386,6 +417,49 @@ function parseMetaSuiteResponse(value: unknown, context: V2Context): ProposalRes
   if (choice.finish_reason !== "stop" || !isRecord(choice.message) || choice.message.refusal || choice.message.tool_calls || typeof choice.message.content !== "string" || !choice.message.content.trim()) throw new V2PlannerError("Meta returned an incomplete response.");
   try { return validateSuiteProposal(JSON.parse(choice.message.content), context); }
   catch (error) { if (error instanceof V2PlannerError) throw error; throw new V2PlannerError("Meta returned an invalid proposal."); }
+}
+
+export type MetaResponseUsage = Readonly<{ inputTokens: number; outputTokens: number; totalTokens: number }>;
+function parseResponsesEnvelope(value: unknown): { proposalText: string; usage: MetaResponseUsage } {
+  if (!isRecord(value) || value.model !== V2_META_MODEL || value.status !== "completed" || !Array.isArray(value.output) || !isRecord(value.usage)) throw new V2PlannerError("Meta returned an unexpected response.");
+  const usage = value.usage;
+  if (typeof usage.input_tokens !== "number" || typeof usage.output_tokens !== "number" || typeof usage.total_tokens !== "number" || !Number.isSafeInteger(usage.input_tokens) || !Number.isSafeInteger(usage.output_tokens) || !Number.isSafeInteger(usage.total_tokens)
+    || usage.input_tokens < 0 || usage.output_tokens < 0 || usage.total_tokens !== usage.input_tokens + usage.output_tokens)
+    throw new V2PlannerError("Meta returned invalid usage.");
+  if (!value.output.every((item) => isRecord(item) && (item.type === "reasoning" || (item.type === "message" && item.role === "assistant")))) throw new V2PlannerError("Meta returned an incomplete response.");
+  const messages = value.output.filter((item): item is Record<string, unknown> => isRecord(item) && item.type === "message" && item.role === "assistant");
+  if (messages.length !== 1 || messages[0].status !== "completed") throw new V2PlannerError("Meta returned an incomplete response.");
+  const content = messages[0].content;
+  if (!Array.isArray(content) || content.length !== 1 || !isRecord(content[0]) || content[0].type !== "output_text" || typeof content[0].text !== "string" || !content[0].text.trim()) throw new V2PlannerError("Meta returned an incomplete response.");
+  return { proposalText: content[0].text, usage: { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens, totalTokens: usage.total_tokens } };
+}
+
+/** Live-only transport; callers must have counted and durably reserved this body. */
+export async function dispatchLiveV2MetaResponsesRequest(context: V2Context, fetcher: typeof fetch, request: Readonly<object>, beforeAttempt: (attempt: 1 | 2) => Promise<void>, onUsage: (usage: MetaResponseUsage) => Promise<void>): Promise<{ proposal: ProposalResult; usage: MetaResponseUsage }> {
+  if (!same(request, buildMetaResponsesRequest(context))) throw new V2PlannerError("Meta request profile is unavailable.");
+  const body = JSON.stringify(request);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+  try {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (controller.signal.aborted) throw new V2PlannerError("Meta planning timed out.");
+      await beforeAttempt((attempt + 1) as 1 | 2);
+      if (controller.signal.aborted) throw new V2PlannerError("Meta planning timed out.");
+      let response: Response;
+      try { response = await fetcher(V2_META_RESPONSES_ENDPOINT, { method: "POST", redirect: "error", headers: { "Content-Type": "application/json" }, body, signal: controller.signal }); }
+      catch (error) {
+        if (controller.signal.aborted || (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name))) throw new V2PlannerError("Meta planning timed out.");
+        if (attempt === 0) continue;
+        throw new V2PlannerError("Meta request failed without a fallback.");
+      }
+      if (!response.ok) { await response.body?.cancel().catch(() => {}); if (attempt === 0 && (response.status === 429 || response.status >= 500)) continue; throw new V2PlannerError("Meta request was unavailable."); }
+      const envelope = parseResponsesEnvelope(await boundedJson(response, controller.signal));
+      await onUsage(envelope.usage);
+      try { return { proposal: validateSuiteProposal(JSON.parse(envelope.proposalText), context), usage: envelope.usage }; }
+      catch (error) { if (error instanceof V2PlannerError) throw error; throw new V2PlannerError("Meta returned an invalid proposal."); }
+    }
+    throw new V2PlannerError("Meta request failed without a fallback.");
+  } finally { clearTimeout(timeout); controller.abort(); }
 }
 
 export async function dispatchMockedV2MetaRequest(context: V2Context, fetcher: typeof fetch, beforeAttempt: (attempt: 1 | 2) => Promise<void> = async () => {}, request: object = buildMetaSuiteRequest(context)): Promise<ProposalResult> {
