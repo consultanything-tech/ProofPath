@@ -119,9 +119,9 @@
     "public/workbench.js": "4268ed607ac4697e8171b8e5aa3fbdc2bda6124392b2611af4b5f62791c91714",
     "public/workbench.html": "832eb79779beafdd912ae2852d7fac3692003b61bf9c4601982415913332fa30",
     "tests/v2-live-proposal.test.ts": "10417ed413bd8846b283d62cc91fbb60908ff15e2d84e88ec1a384028e114455",
-    "tests/v2-live-boundary.test.ts": "c4f68b99d90f6c3ecc0c58614ff8fd2e6f5ea6e283f8b4530b9d7c74aa475ccb",
+    "tests/v2-live-boundary.test.ts": "9e7e6fa2f953e499c29e384d6a683c4ada40271bc97850fc6b6938bde1788204",
     "tests/v2-operator.test.ts": "592fc99705f1baa4757f491b2416ee4c1d323cf3dc1637e4e362d6db9fc1c474",
-    "tests/v2-controlled.integration.ts": "f41ad649c18735dd4f8f2abb4b57401f213f43847c11747c0572ada04c2db0e2",
+    "tests/v2-controlled.integration.ts": "e6d49f1a6829438ffc8387a1bd74415845427b167d9138654d3b8975f0351adb",
     "package.json": "a32e96ed25da13c5f9aa04b4f9589d1a348f7d16e27a514ec74636526561794a"
   },
   "validation": {

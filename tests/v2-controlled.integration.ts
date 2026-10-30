@@ -118,4 +118,3 @@ test("controlled workbench keeps codes private and reopens/downloads after propo
     await rm(root, { recursive: true, force: true });
   }
 });
-
