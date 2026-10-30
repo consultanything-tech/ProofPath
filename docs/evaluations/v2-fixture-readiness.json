@@ -1,0 +1,202 @@
+{
+  "sgtDate": "2026-10-30",
+  "status": "locally verified fixture candidate; v2 live disabled; not deployed",
+  "evidenceKind": "automated synthetic local browser and export checks; no human approval click claimed",
+  "priorCheckpoint": "bed9f78c50191f7a6e1f4bdee0865e412df644e0",
+  "fallbackCommit": "4ace907",
+  "checks": [
+    {
+      "name": "typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "seconds": 0.94
+    },
+    {
+      "name": "unit",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "exitCode": 0,
+      "seconds": 11.39
+    },
+    {
+      "name": "safety",
+      "command": [
+        "pnpm",
+        "test:safety"
+      ],
+      "exitCode": 0,
+      "seconds": 9.66
+    },
+    {
+      "name": "v1-ui",
+      "command": [
+        "pnpm",
+        "test:ui"
+      ],
+      "exitCode": 0,
+      "seconds": 3.88
+    },
+    {
+      "name": "v2-unit",
+      "command": [
+        "pnpm",
+        "test:v2"
+      ],
+      "exitCode": 0,
+      "seconds": 11.3
+    },
+    {
+      "name": "v2-browser",
+      "command": [
+        "pnpm",
+        "test:v2:browser"
+      ],
+      "exitCode": 0,
+      "seconds": 81.23
+    },
+    {
+      "name": "diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.02
+    }
+  ],
+  "subsequentAffectedRecheck": {
+    "command": "pnpm build && node --test dist/tests/v2-ui.integration.js",
+    "exitCode": 0,
+    "testsPassed": 6,
+    "reason": "Recorded release/source/digest shown explicitly when reopening a report; proposal controls are independent."
+  },
+  "flow": {
+    "mode": "fixture",
+    "seeded": {
+      "id": "11bd3499-355b-406b-9237-49a0b19cd5f1",
+      "approvalDigest": "sha256:89f288e56d9ac83b49fa89d600d270f2436f4dd97843ad3b19b18747cf0e67cc",
+      "verdict": "FAIL",
+      "candidateVerdict": "FAIL",
+      "coverage": [
+        "Uncovered criterion cart-2: Fixture actions and assertions do not exercise this source clause."
+      ],
+      "comparisons": [
+        {
+          "caseId": "cart-total",
+          "classification": "stable-observation"
+        },
+        {
+          "caseId": "coupon-error",
+          "classification": "stable-observation"
+        },
+        {
+          "caseId": "delivery-total",
+          "classification": "regression"
+        },
+        {
+          "caseId": "blank-contact",
+          "classification": "stable-observation"
+        }
+      ]
+    },
+    "fixed": {
+      "id": "1866804a-90de-4bb1-9c7f-d7c9f5bb320f",
+      "approvalDigest": "sha256:9cd7e18893095c8760d29bf154cf49f8e4bb2e567b19786877afeb25f2ac91a9",
+      "verdict": "INCONCLUSIVE",
+      "candidateVerdict": "PASS",
+      "coverage": [
+        "Uncovered criterion cart-2: Fixture actions and assertions do not exercise this source clause."
+      ],
+      "comparisons": [
+        {
+          "caseId": "cart-total",
+          "classification": "stable-observation"
+        },
+        {
+          "caseId": "coupon-error",
+          "classification": "stable-observation"
+        },
+        {
+          "caseId": "delivery-total",
+          "classification": "stable-observation"
+        },
+        {
+          "caseId": "blank-contact",
+          "classification": "stable-observation"
+        }
+      ]
+    },
+    "exportSha256": "sha256:53908116a184a56adcb1ebed2ec27fa1158608d43c99ec6958316395bd249758"
+  },
+  "frozenRequirementsSha256": "f64d78ff0fc83a4c3206c1b5bf18a4e079db5e5827fb606529970400b642c362",
+  "sourceSha256": {
+    "package.json": "542e59ed2c60899f3b9e8763d9413e4fe7cb773d8ee8db8521df226d5f1c790b",
+    "pnpm-lock.yaml": "42ca8f2fbadd2e1692b573f7f340367cbc258850c113bd83b26962ed5a421ac2",
+    "public/app.js": "bdd3b2a6c414430c64e8f16cba998c9638ce1f0daa3709c663a2c6d35a627899",
+    "public/index.html": "9d6fe16a76514483cd5c6b0d0be334b22f9dcb8522cdd435b0cc5d1c0b59821e",
+    "public/shop.html": "f3417f5726a9d6ee672396101f14fa8ee8106bc47c8e6ef833008e72090efd0a",
+    "public/shop.js": "6640cdccac2968de66328644bf1700d541cfb521ff86dce6c4990dd77fa538c0",
+    "public/styles.css": "8762576b99e66ee2f721b3b2611540118c4071a4c2fc31fbec7fd13d40613c12",
+    "public/v2-target/r1/index.html": "8307b346e2045156332113fc1d675ca5aa1bd26de27a91ae9e51665d16897ae7",
+    "public/v2-target/r1/shop.js": "7645ef5a493da6304930b22590dad9ecf272006af88a3110f6ae13e1b7670d9a",
+    "public/v2-target/r2/index.html": "a3ce71ef5fd9a07d96366d68b7826819a964eff7056a2fc2f372a4c7864f6ca6",
+    "public/v2-target/r2/shop.js": "58c85b6f8a3994b0f13d84c1fc1799f0a4e5d90661354d418cb25cb125819f93",
+    "public/v2-target/r3/index.html": "da478c48de1bdad4228d7c92353ae55c18e244b27ac1e3cc9ce6bd85ef4ece52",
+    "public/v2-target/r3/shop.js": "c4f253d4c63e7e4acc2df595abab610fb9242244e5b897dd381035001cffd38c",
+    "public/v2-target/runtime.js": "7b50f2f5a65f74ed5135b728f8b004d8007461c83fcf775fd88f37edf6e9bc9a",
+    "public/workbench.html": "06ac9b1199eb41fcca9f3e33cf4a8c0966b3a47c556cafb4af94d8d89e840954",
+    "public/workbench.js": "8e4aeb05f7d1e1f07dec1378ee396884dea0b29a4c959abf87f1eff5956987ed",
+    "scripts/v2-cost-assessment.mjs": "6e0be444f20606961f06e57f84ba0d69cda112bb0c2692969ab97fd29ab77a2b",
+    "src/contracts.ts": "b2b6c06ea2d47e2fa3eef5739315b1c0260ccf776a11b3af3b3d3ac060c60a85",
+    "src/evidence.ts": "22d3a7e6d758315dd975cb571455e5a68f0842c67c06238409e45903bf7ee620",
+    "src/meta-planner.ts": "c3ec33b30560eed9585a1b283135248fc9cf047e808edb27354feb333a450c06",
+    "src/plan-store.ts": "8b497d1a3cb41ba99f50ae93628dd1a99a47787f73a5188243173f509ef134b7",
+    "src/planner.ts": "2b22c2450981b9f60e7f2d79c8bd2eda94887b4dd1b32eaea0cdc3f5580a9901",
+    "src/runner.ts": "2378dc51f0ca00fe1ff792eb4cefbfadaddcd978aae00d6c5d6bbe5b692a96db",
+    "src/scenarios.ts": "291170726552364ec4a0fef2cedf7b4a1e6e21663669fc66e263a6d4237f2b8b",
+    "src/server.ts": "99f6709edb9957c1485c4c62964ff4f7aadc62867c4ad0eb370b9567851c202e",
+    "src/v2-artifacts.ts": "6d7fbfa4a0e2804017c0f346c13a9e9d7b27726ca97358c865ec4d7e631ff9a0",
+    "src/v2-checkout.ts": "534e35dbecb339f8cd41e3ae93f3bcf13cef0f2d2861d6263d4c8dcdf1ee82b5",
+    "src/v2-comparison.ts": "50d9b4e84d9c6bdecfb305e990f3a111feef76501d96c2192eb2c49a46f2603f",
+    "src/v2-contracts.ts": "9d40271598ea0eae7b424adea0c5d6c67dd34417e48cdedaadf9f7dd7cb3fdb7",
+    "src/v2-http.ts": "7d9d1c6f2256e9a9b42719370adb4a9953fc0f9c5e1cf036e06913dc51562cf5",
+    "src/v2-oracle.ts": "14a29097493601616d99f120e989fdb2a087f55888655551612803072661fd00",
+    "src/v2-planner.ts": "4a90eb05b2fa0eb112e68626598512f950481f7a058e65fc8f1fdfae246c191d",
+    "src/v2-runner.ts": "a87f7ff437877bb6516c77d4ebbb7da4080bbf65dd99321a7845b9119e037d29",
+    "src/v2-store.ts": "f23dd8728b0b618b6919cc35beb271bc0e2f77ef38f9e3cd82d9f92cc03ab276",
+    "src/verdict.ts": "d72a29160c27956b441a0890ebd82389633842f74b3965b62e409a82ae98ca9c",
+    "tests/contracts.test.ts": "4eb08d497655e30aa854c4158787c6721b0ddc83d8bf305aa2164b754fab21de",
+    "tests/evidence.test.ts": "335f818c2f7bf8a63ed92014179f55ab2fb9b4583b551845eaa5489ee5ee3877",
+    "tests/meta-planner.test.ts": "1e5f103ce8200a9c66003f4b5ec513f0a00d4ffe110fe896d7521414638344cf",
+    "tests/runner.test.ts": "7a309e488d8087f695064a07ef6d7116384c0805be7a49bd08becfe532c1f072",
+    "tests/safety.integration.ts": "741d569acf5673e986b1ec80b857bf4188c00ed1d275b2944ff8c259d412e6e0",
+    "tests/server-policy.test.ts": "78b29f834a23ddcd0020ac4df8b1cbb14529acad5e91d3d2d15517e61a6d83ce",
+    "tests/ui.integration.ts": "6912ff72cf6f4bfc0d41b3edc82e59720c41f23a32a98900618d990bf64065d0",
+    "tests/v2-artifacts.test.ts": "0afe363f84bfb682895c7736f63606da0535618bdaecf760342c838b7f9a186d",
+    "tests/v2-browser.integration.ts": "a0cbb69de8ea57ae2b80af044eb0567c5410b50dbe2b51cd813f7a6be282b3a7",
+    "tests/v2-core.test.ts": "7efd23c6404c6ce1fed09a9332380aea71eb1925a230e311c0a325bd97eeba05",
+    "tests/v2-planner.test.ts": "0abe43b184c5a7927d078cf28d3031a0b56c1c62458db3d520dd1f3a6d8e1f10",
+    "tests/v2-runtime.test.ts": "e068bcfcae6e233d120cb539483fd2e3d1a4c0586f4301f3edc5273c8c0abb8e",
+    "tests/v2-ui.integration.ts": "eff31d443a78a6513bd0e160d8cc7fcfbdba6a01b0b10a322ffb8b8fb7a832f7",
+    "tsconfig.json": "67c84e43b1ed3140f247b6692aee7ef9e5c92265981b6470551fe8c63508183a"
+  },
+  "screenshotSha256": {
+    "test-results/task4/workbench-desktop-report.png": "b91dfc16b5102da3e818f5e1630cc9981973de208584b0791fe64e1bfe962689",
+    "test-results/task4/workbench-mobile-readable.png": "fbd08528b8d90ade799fc63dc2c25b8aef7c9baa7911beb0c0b7419f0722f061"
+  },
+  "limitations": [
+    "Fixture proposals are canned and establish no v2 Meta interpretation reliability.",
+    "Fresh approvals were clicked by automated tests, not a human reviewer.",
+    "The fixed candidate passes executed checks; accepted coverage gap keeps the suite INCONCLUSIVE.",
+    "Runtime directories were temporary and cleaned after verifying persisted reopen/evidence; recorded IDs are provenance, not durable app report links.",
+    "Frozen holdout is agent drafted; owner annotation review pending.",
+    "No verified billable-input token bound or durable proposal-spend ledger; live v2 dispatch stays disabled.",
+    "No deployment, public visibility change, dependency addition, credential read or API spend."
+  ]
+}

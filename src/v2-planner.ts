@@ -109,7 +109,7 @@ const schemaText = { type: "string", minLength: 1, maxLength: 1_000 };
 const schemaId = { type: "string", pattern: "^[a-z0-9-]{1,64}$" };
 const schemaNull = { type: "null" };
 const semanticActionSchema = {
-  oneOf: [
+  anyOf: [
     schemaObject({ id: schemaId, kind: { const: "open-app" }, target: { const: "checkout" }, value: schemaNull }),
     schemaObject({ id: schemaId, kind: { enum: ["add-product", "remove-product"] }, target: { enum: ["desk-lamp", "notebook", "cable"] }, value: schemaNull }),
     schemaObject({ id: schemaId, kind: { const: "set-quantity" }, target: { enum: ["desk-lamp", "notebook", "cable"] }, value: { type: "integer", minimum: 1, maximum: 5 } }),
@@ -143,11 +143,7 @@ const SUITE_PROPOSAL_SCHEMA = {
     gaps: { type: "array", maxItems: 12, items: { type: "string", minLength: 1, maxLength: 500 } }
   },
   required: ["kind", "requirement", "cases", "gaps"],
-  additionalProperties: false,
-  oneOf: [
-    { properties: { kind: { const: "proposal" }, cases: { minItems: 1 } }, required: ["kind", "cases"] },
-    { properties: { kind: { const: "clarification" }, cases: { maxItems: 0 }, gaps: { minItems: 1 } }, required: ["kind", "cases", "gaps"] }
-  ]
+  additionalProperties: false
 } as const;
 
 export function buildMetaSuiteRequest(context: V2Context): object {

@@ -1,9 +1,9 @@
 # ProofPath v2: checkout and order QA workbench
 
-Date: October 28, 2026, Asia/Singapore. Status: design approved as development
-input by the user's request to begin development. The [implementation plan](../plans/2026-10-28-proofpath-checkout-qa-implementation.md)
-is ready for its written review before code changes. This document does not
-claim that v2 is implemented, evaluated or deployed.
+Date: October 28, 2026, Asia/Singapore. Status: the approved design now has a
+local fixture implementation from the [implementation plan](../plans/2026-10-28-proofpath-checkout-qa-implementation.md).
+This document does not claim v2 eligible-model evaluation, hosted reviewer
+access, or deployment.
 
 ## Purpose and success
 

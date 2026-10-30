@@ -2,6 +2,88 @@
 
 Every later product claim should point to a commit or a preserved run artifact. This log records preparation separately from functional work.
 
+## V2 local fixture readiness — October 30, 2026
+
+Continued the approved checkout QA workbench from checkpoint `bed9f78`, preserving
+the existing UI/test edits and v1 fallback `4ace907`. Planner investigation,
+delegated implementation and primary-agent validation completed the local
+fixture slice. All six capabilities now have local checks: inspected registered
+releases, reviewed source/rules/cases/gaps, immutable one-use approval, paired
+execution/comparison, saved regression reuse, and bug-packet/Playwright exports.
+
+This pass finished duplicate-request guards, tested 101 intermediate polling
+responses, and verified stale-response rejection using defensive programmatic
+invalidation of deliberately disabled fields. Those synthetic events do not
+represent normal user editing while controls are disabled. Reopened reports now
+identify their recorded baseline, candidate, original source and approval digest
+separately from the controls used to prepare another suite.
+
+The Meta request schema no longer uses unsupported `oneOf`/`allOf`; nested action
+`anyOf` retains the bounded combinations. Recursive strict-shape checks and local
+proposal/clarification and action validation passed. This is offline schema
+compatibility evidence, not verified provider acceptance. V2 live dispatch
+remains disabled; the earlier v1 live results remain v1 evidence.
+
+Required validation passed:
+
+| Check | Result |
+| --- | --- |
+| `pnpm typecheck` | PASS |
+| `pnpm test` | 54/54 |
+| `pnpm test:safety` | 10/10 |
+| `pnpm test:ui` | 1/1 |
+| `pnpm test:v2` | 29/29; this subset overlaps `pnpm test` |
+| `pnpm test:v2:browser` | 9/9, with browser files serialized |
+| Affected v2 UI rerun after recorded-snapshot display change | 6/6 |
+| `git diff --check` | PASS |
+
+Chromium needed execution outside the restricted shell sandbox; runner policies
+were not relaxed. The initial sandbox launch failed before any browser test
+could execute. Two unfinished UI tests also failed during investigation: an
+elapsed-time poll-count assumption and a fill against a disabled field. Both
+were corrected before the passing checks above. No unrelated passing checks
+were repeated after the final frontend-only change.
+
+The integrated fixture flow inspected r1/r2, proposed/reviewed/approved the
+suite, observed the delivery regression, saved the immutable definition, prepared
+r1/r3 with no additional planner call, freshly approved it and reopened the
+persisted report. The exact HTTP-downloaded test failed on r2 and passed on r3.
+The fixed candidate passes its executed cases; an explicitly accepted uncovered
+`cart-2` criterion keeps the overall suite **INCONCLUSIVE**. This is not a
+complete-coverage PASS. Approval clicks were automated test actions, not human
+reviewer actions. Desktop failure and reopened mobile fixed-report screenshots
+were visually inspected, including the recorded release identity and wrapped
+digest. Mobile overflow checks passed.
+
+The [machine-readable fixture record](evaluations/v2-fixture-readiness.json)
+preserves run IDs/digests, comparisons, coverage, export hash, source hashes and
+screenshot hashes. Test runtime directories were temporary and cleaned after
+reopening/evidence checks; their run IDs are provenance rather than durable app
+report URLs. Ignored local screenshots and logs remain in `test-results/task4`
+and `test-results/readiness`.
+
+Added v2 test commands and an
+[agent-drafted frozen holdout](evaluations/v2-frozen-requirements.json). Owner
+annotation review remains pending. It has not been sent to the actual v2 Meta
+planner; no claim is made that development models have not seen it. Grading
+annotations are excluded from model inputs, and preflight safety rejections
+must be recorded separately from model success.
+
+Refreshed public Meta pricing, strict-output and accounting documentation.
+The [offline cost assessment](evaluations/v2-cost-readiness.md) and
+[reproducible sizing record](evaluations/v2-cost-assessment.json) leave the live
+gate blocked: there is no verified billable-input bound or durable proposal
+reservation ledger. At the existing 4,096 completion cap, reserving two attempts
+leaves 6,073 equal billable input tokens per attempt within US$0.05. Measured
+HTTP bytes are not a token/billing bound. Selected limits were not raised.
+
+**Next:** implement defensible input admission and durable proposal accounting,
+review the holdout annotations, then pursue separately bounded v2 live
+evaluation and managed-container reviewer hosting. No model request, API spend,
+credential read, billing operation, new dependency, deployment or repository
+visibility change occurred during this pass. The app is not deployed and v2
+eligible-model behaviour remains unverified.
+
 | SGT date | Commit | Change | Meta model/API evidence | Validation | Limitations |
 | --- | --- | --- | --- | --- | --- |
 | 2026-10-26 | Not created | Documentation-only project base: scope, journeys, boundaries, and acceptance checks. | None. | Manual review of the written plan. | No functional code, model call, credentials, dependency, deployment, or public repository exists yet. |

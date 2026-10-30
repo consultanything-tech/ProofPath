@@ -112,7 +112,7 @@ a visible gap if requested. Contact data uses non-deliverable synthetic values.
 `validateCase(value: unknown, context: V2Context): CaseDefinition`;
 `digestV2(value: unknown): string`.
 
-- [ ] Write failing strict-shape/action/bounds tests and the following independent truth table. `inputFor` and `rulesFor` are test fixtures built from the shared records, not production constructors.
+- [x] Write failing strict-shape/action/bounds tests and the following independent truth table. `inputFor` and `rulesFor` are test fixtures built from the shared records, not production constructors.
 
 ```ts
 assert.equal(calculateCheckout(inputFor([["desk-lamp", 2]], "SAVE10"), rulesFor(), catalog).totalMinor, 7700);
@@ -122,11 +122,11 @@ assert.equal(calculateCheckout(inputFor([["notebook", 2], ["cable", 1]], "SAVE10
 assert.equal(calculateCheckout(inputFor([["desk-lamp", 2]], "SAVE10"), rulesFor({deliveryThresholdMinor: 7000}), catalog).totalMinor, 7200);
 ```
 
-- [ ] Verify the tests fail because the interfaces are absent; do not accept an unrelated syntax/environment failure as red.
-- [ ] Implement typed rules and integer arithmetic, exact target validation and action-state derivation. Reject unknown SKUs, duplicate IDs, code/URLs/selectors, excessive actions and quantity `0`/`6`; invalid coupon is an allowed bounded test input with explicit expected error behaviour.
-- [ ] Implement neutral release bundles: r1 correct, r2 before-discount delivery defect, r3 fixed. Their HTML/resources have stable distinct fingerprints. No query flag changes a release's implementation; no release imports expected-value code.
-- [ ] Test actual DOM totals: two lamps/SAVE10 gives r1/r3 `7700`, r2 `7200`; verify synthetic validation/confirmation and context-local reset. Test rule changes alter oracle expectations without changing oracle code.
-- [ ] Run `pnpm build && node --test dist/tests/v2-core.test.js`, then the targeted v2 browser checks with Chromium permissions. Require all green; review diff and commit only this task's files.
+- [x] Verify the tests fail because the interfaces are absent; do not accept an unrelated syntax/environment failure as red.
+- [x] Implement typed rules and integer arithmetic, exact target validation and action-state derivation. Reject unknown SKUs, duplicate IDs, code/URLs/selectors, excessive actions and quantity `0`/`6`; invalid coupon is an allowed bounded test input with explicit expected error behaviour.
+- [x] Implement neutral release bundles: r1 correct, r2 before-discount delivery defect, r3 fixed. Their HTML/resources have stable distinct fingerprints. No query flag changes a release's implementation; no release imports expected-value code.
+- [x] Test actual DOM totals: two lamps/SAVE10 gives r1/r3 `7700`, r2 `7200`; verify synthetic validation/confirmation and context-local reset. Test rule changes alter oracle expectations without changing oracle code.
+- [x] Run `pnpm build && node --test dist/tests/v2-core.test.js`, then the targeted v2 browser checks with Chromium permissions. Require all green; review diff and commit only this task's files.
 
 **Deliverable:** A real richer target and rule-driven expected-result engine, independent of Meta and the target's calculation code.
 
@@ -141,13 +141,13 @@ assert.equal(calculateCheckout(inputFor([["desk-lamp", 2]], "SAVE10"), rulesFor(
 `compileReviewedSuite(proposal: ProposalResult, review: ReviewDecision, context: V2Context): SuiteDefinition`;
 `createV2Planner(env: NodeJS.ProcessEnv, fetcher?: typeof fetch): {propose(context: V2Context): Promise<ProposalResult>}`.
 
-- [ ] Write failing request/validation/review tests. Assert unreviewed exact-quote proposals cannot compile; contradictory adopted policies block; accepted gaps remain visible and prevent complete coverage.
-- [ ] Test input/action agreement through `deriveCaseInput`. A proposal claiming a SAVE10 case whose actions never apply a coupon cannot be labelled as covering coupon interaction. Expected values must come only from `calculateCheckout`.
-- [ ] Implement explicit readonly inspection with exact registered GET resources and no interactions/storage/hidden-value extraction. Known owned scripts may render the UI under the same egress policy; do not claim JS-disabled inspection works for every app. Label later-state controls declared-but-not-observed, and validate them when execution reaches that state.
-- [ ] Implement fixture transport and strict native-fetch Meta request/parser. Fixture mode remains explicit. No fallback or automatic follow-up call; invalid/truncated output produces no executable suite.
-- [ ] Test that non-source payload metadata has neutral releases and no recipe, expected totals or defect annotation. Do not censor words such as “candidate” from the user's original criteria.
-- [ ] Preserve the 4096 completion limit, thirty-second provider deadline, response-size bound and at most one transient retry. Production v2 live dispatch remains disabled until the new cost gate is verified; injected mocks are used in tests.
-- [ ] Run `pnpm build && node --test dist/tests/v2-planner.test.js` and affected v2 inspection checks. Require all green; review and commit the task.
+- [x] Write failing request/validation/review tests. Assert unreviewed exact-quote proposals cannot compile; contradictory adopted policies block; accepted gaps remain visible and prevent complete coverage.
+- [x] Test input/action agreement through `deriveCaseInput`. A proposal claiming a SAVE10 case whose actions never apply a coupon cannot be labelled as covering coupon interaction. Expected values must come only from `calculateCheckout`.
+- [x] Implement explicit readonly inspection with exact registered GET resources and no interactions/storage/hidden-value extraction. Known owned scripts may render the UI under the same egress policy; do not claim JS-disabled inspection works for every app. Label later-state controls declared-but-not-observed, and validate them when execution reaches that state.
+- [x] Implement fixture transport and strict native-fetch Meta request/parser. Fixture mode remains explicit. No fallback or automatic follow-up call; invalid/truncated output produces no executable suite.
+- [x] Test that non-source payload metadata has neutral releases and no recipe, expected totals or defect annotation. Do not censor words such as “candidate” from the user's original criteria.
+- [x] Preserve the 4096 completion limit, thirty-second provider deadline, response-size bound and at most one transient retry. Production v2 live dispatch remains disabled until the new cost gate is verified; injected mocks are used in tests.
+- [x] Run `pnpm build && node --test dist/tests/v2-planner.test.js` and affected v2 inspection checks. Require all green; review and commit the task.
 
 **Deliverable:** Meaningful, reviewable case/rule proposals from criteria and capabilities, with no scenario selector and no browser test execution yet.
 
@@ -186,15 +186,15 @@ case/release outcomes and reviewed `unchanged | new-or-changed` scope.
 `handleV2Request(req, res, context): Promise<boolean>` returns whether it handled
 the route; existing v1 Host/Origin validation remains authoritative.
 
-- [ ] Write failing approval tests for every bound field, tampering, expiry at ten minutes, consumption twice, changed fingerprint/reference and accepted partial coverage.
-- [ ] Write admission/recovery tests: lock synchronously before awaiting storage; reject overlap with `409` before consuming another approval or creating another job. Persist job/admission before browser launch; disk/state failure fails closed. Execution count survives restart and blocks job 51 in that data set.
-- [ ] Implement one asynchronous in-process slot and return `202/runId` promptly. Use `/api/v2/groundings`, `/proposals`, `/proposals/:id/review`, `/suites/:id/approve`, `/approvals/:id/runs` and `GET /runs/:id`. Review returns a frozen unapproved suite; approval alone grants its one use. Strict methods/JSON/body/ID/path and exact local Host/Origin rules apply; no queue or automatic resume.
-- [ ] Run identical approved cases sequentially against both exact releases, fresh context/state each time, respecting 30-second case and 180-second suite bounds. Retain action results, observations, URL/time, screenshot hashes and final manifest sidecar using existing evidence conventions.
-- [ ] Persist progress atomically under trusted runtime data (`runs/v2` locally unless server-configured DATA_DIR). On startup, accepted/running jobs become interrupted, preserve known FAIL and completed observations, pad remaining work not-run/inconclusive. Never recreate consumed approvals or reset accounting from missing/corrupt prior state.
-- [ ] Implement/test unchanged-scope PASS→FAIL regression, FAIL→PASS resolved failure, FAIL→FAIL persistent failure and PASS→PASS stable observation. New/changed scope uses expectation-met/not-met labels; incompatible inputs/reference/builds are non-comparable. Missing observations are inconclusive; candidate verdict and coverage are separate.
-- [ ] Exercise timing with trusted internal test limits/clock control rather than mandatory multi-minute sleeps. Production server always uses the specified bounds; HTTP/model input cannot choose or increase them.
-- [ ] Verify missing/tampered evidence blocks complete PASS; all-passing executed cases plus an accepted gap remains partial/inconclusive. Verify fingerprints before browser launch and avoid trusting candidate behaviour as the oracle.
-- [ ] Run `pnpm build && node --test dist/tests/v2-runtime.test.js` and completed v2 browser checks. Because server routing changed, run affected v1 unit/server and Chromium safety suites. Require all green; review and commit.
+- [x] Write failing approval tests for every bound field, tampering, expiry at ten minutes, consumption twice, changed fingerprint/reference and accepted partial coverage.
+- [x] Write admission/recovery tests: lock synchronously before awaiting storage; reject overlap with `409` before consuming another approval or creating another job. Persist job/admission before browser launch; disk/state failure fails closed. Execution count survives restart and blocks job 51 in that data set.
+- [x] Implement one asynchronous in-process slot and return `202/runId` promptly. Use `/api/v2/groundings`, `/proposals`, `/proposals/:id/review`, `/suites/:id/approve`, `/approvals/:id/runs` and `GET /runs/:id`. Review returns a frozen unapproved suite; approval alone grants its one use. Strict methods/JSON/body/ID/path and exact local Host/Origin rules apply; no queue or automatic resume.
+- [x] Run identical approved cases sequentially against both exact releases, fresh context/state each time, respecting 30-second case and 180-second suite bounds. Retain action results, observations, URL/time, screenshot hashes and final manifest sidecar using existing evidence conventions.
+- [x] Persist progress atomically under trusted runtime data (`runs/v2` locally unless server-configured DATA_DIR). On startup, accepted/running jobs become interrupted, preserve known FAIL and completed observations, pad remaining work not-run/inconclusive. Never recreate consumed approvals or reset accounting from missing/corrupt prior state.
+- [x] Implement/test unchanged-scope PASS→FAIL regression, FAIL→PASS resolved failure, FAIL→FAIL persistent failure and PASS→PASS stable observation. New/changed scope uses expectation-met/not-met labels; incompatible inputs/reference/builds are non-comparable. Missing observations are inconclusive; candidate verdict and coverage are separate.
+- [x] Exercise timing with trusted internal test limits/clock control rather than mandatory multi-minute sleeps. Production server always uses the specified bounds; HTTP/model input cannot choose or increase them.
+- [x] Verify missing/tampered evidence blocks complete PASS; all-passing executed cases plus an accepted gap remains partial/inconclusive. Verify fingerprints before browser launch and avoid trusting candidate behaviour as the oracle.
+- [x] Run `pnpm build && node --test dist/tests/v2-runtime.test.js` and completed v2 browser checks. Because server routing changed, run affected v1 unit/server and Chromium safety suites. Require all green; review and commit.
 
 **Deliverable:** The complete reviewed interpretation → paired execution → comparison/evidence spine.
 
@@ -210,12 +210,12 @@ Use Task 3's save/prepare operations. Expose saved-definition listing/read,
 save-regression, prepare, bug-packet and `.test.mjs` download routes beneath
 `/api/v2`; all IDs are server-generated/validated and paths server-owned.
 
-- [ ] Write failing artifact/reuse tests: save immutable reviewed cases, prepare a compatible new release pair without Meta, require fresh approval and reject changed/corrupt adapter/reference data.
-- [ ] Test deterministic packet/export ordering and literal escaping (quotes, newline, Unicode, `</script>`). Include source/rule/case/build/digest, observed results, screenshots/hashes and gaps. Exclude keys, sessions and unverified root-cause claims.
-- [ ] Generate export only with reviewed adapter-owned templates, `node:test`, `node:assert/strict` and installed Playwright. Retain target/resource and synthetic-order restrictions. Execute exports against r2/r3: the buggy case must actually fail on r2 and pass on r3; syntax success alone is insufficient.
-- [ ] Implement the single workbench flow: app/releases, inspect, criteria, rule/case/gap review, one-use approval, bounded progress, candidate/coverage/comparison report, saved-suite selection and artifact downloads. Retain `/` as v1; give v2 an explicit fixture/live-disabled label until live verification.
-- [ ] Test keyboard flow, readable/raw agreement, partial coverage, duplicate starts, delayed responses, malformed IDs and desktop/mobile overflow. Changing inputs/releases invalidates proposals; loading/saving/exporting/reusing makes zero planner calls. Escape all source/model text and constrain image/link paths.
-- [ ] Run `pnpm build && node --test dist/tests/v2-artifacts.test.js`, v2 UI checks and affected v1 UI regression. Require all green, visually inspect the complete workflow, then review and commit.
+- [x] Write failing artifact/reuse tests: save immutable reviewed cases, prepare a compatible new release pair without Meta, require fresh approval and reject changed/corrupt adapter/reference data.
+- [x] Test deterministic packet/export ordering and literal escaping (quotes, newline, Unicode, `</script>`). Include source/rule/case/build/digest, observed results, screenshots/hashes and gaps. Exclude keys, sessions and unverified root-cause claims.
+- [x] Generate export only with reviewed adapter-owned templates, `node:test`, `node:assert/strict` and installed Playwright. Retain target/resource and synthetic-order restrictions. Execute exports against r2/r3: the buggy case must actually fail on r2 and pass on r3; syntax success alone is insufficient.
+- [x] Implement the single workbench flow: app/releases, inspect, criteria, rule/case/gap review, one-use approval, bounded progress, candidate/coverage/comparison report, saved-suite selection and artifact downloads. Retain `/` as v1; give v2 an explicit fixture/live-disabled label until live verification.
+- [x] Test keyboard flow, readable/raw agreement, partial coverage, duplicate starts, delayed responses, malformed IDs and desktop/mobile overflow. Changing inputs/releases invalidates proposals; loading/saving/exporting/reusing makes zero planner calls. Escape all source/model text and constrain image/link paths.
+- [x] Run `pnpm build && node --test dist/tests/v2-artifacts.test.js`, v2 UI checks and affected v1 UI regression. Require all green, visually inspect the complete workflow, then review and commit.
 
 **Deliverable:** All six accepted product capabilities work locally in explicit fixture mode.
 
@@ -224,15 +224,25 @@ save-regression, prepare, bug-packet and `.test.mjs` download routes beneath
 **Files:** `package.json`, `.env.example`, `docs/evaluations/v2-frozen-requirements.json`,
 README and existing PRD/plan/kit/handoff/build-log status notes.
 
-- [ ] Add `test:v2` for `pnpm build && node --test dist/tests/v2-*.test.js` and `test:v2:browser` for the two v2 `.integration.js` files. No new dependency or provider abstraction.
+- [x] Add `test:v2` for `pnpm build && node --test dist/tests/v2-*.test.js` and `test:v2:browser` for the two v2 `.integration.js` files. No new dependency or provider abstraction.
 - [ ] Freeze human-annotated unseen requirement packs before live evaluation: include changed thresholds, coupon/delivery interaction, ambiguous/contradictory wording and unsupported criteria. Define critical coverage obligations, not a model-visible answer recipe.
-- [ ] Verify the full fixture demonstration: inspect r1/r2; propose/review/approve; discover the delivery mismatch; save; prepare r1/r3 without Meta; freshly approve and rerun; reopen comparison; download and execute the exported test. Preserve exact labels for fixture versus eligible-model evidence.
-- [ ] Run `pnpm typecheck`, `pnpm test`, `pnpm test:safety`, `pnpm test:ui`, `pnpm test:v2`, `pnpm test:v2:browser`, and `git diff --check` once the integrated changes are ready. Re-run passing suites only if subsequent changes affect them or a failure/new concern warrants it.
-- [ ] Record deployed status as not deployed and v2 Meta status as unverified. Record hashes, tested builds, suite/case outcomes, coverage and skipped checks; preserve existing reports and fallback commit.
+- [x] Verify the full fixture demonstration: inspect r1/r2; propose/review/approve; discover the delivery mismatch; save; prepare r1/r3 without Meta; freshly approve and rerun; reopen comparison; download and execute the exported test. Preserve exact labels for fixture versus eligible-model evidence.
+- [x] Run `pnpm typecheck`, `pnpm test`, `pnpm test:safety`, `pnpm test:ui`, `pnpm test:v2`, `pnpm test:v2:browser`, and `git diff --check` once the integrated changes are ready. Re-run passing suites only if subsequent changes affect them or a failure/new concern warrants it.
+- [x] Record deployed status as not deployed and v2 Meta status as unverified. Record hashes, tested builds, suite/case outcomes, coverage and skipped checks; preserve existing reports and fallback commit.
 - [ ] Build and inspect the full v2 request/cost maximum offline against refreshed official rates and verified accounting. Do not dispatch a live request merely because MODEL_API_KEY exists or v1 calls succeeded. If it cannot fit selected targets, present measured options instead of raising the cap or weakening the oracle.
-- [ ] Review and commit verification/docs. Only then pursue separately authorised live evaluation and rebased managed-container/reviewer-access deployment.
+- [x] Review and commit verification/docs. Only then pursue separately authorised live evaluation and rebased managed-container/reviewer-access deployment.
 
 **Deliverable:** A locally verified v2 candidate, not a submission-ready claim until eligible live-model, hosted reviewer and submission gates also pass.
+
+**October 30 verification:** Task 4 and the offline fixture checks passed; see
+[BUILD_LOG](../../BUILD_LOG.md#v2-local-fixture-readiness--october-30-2026) and
+[the fixture record](../../evaluations/v2-fixture-readiness.json). The frozen
+pack is agent-drafted and awaits owner annotation review, so the human-annotated
+item remains open. Public rates and request sizes were refreshed in the
+[cost assessment](../../evaluations/v2-cost-readiness.md); a verified billable
+input bound and durable proposal-spend accounting remain open. The two unchecked
+items are live-readiness gates, not unreported fixture completion. V2 live
+dispatch remains disabled and the app is not deployed.
 
 ## Delivery and Review Handoff
 

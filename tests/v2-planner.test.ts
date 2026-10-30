@@ -84,7 +84,24 @@ test("suite request carries source and bounded capabilities without a release ve
   const schema = request.response_format.json_schema.schema;
   assert.deepEqual(schema.required, ["kind", "requirement", "cases", "gaps"]);
   assert.equal(schema.additionalProperties, false);
-  assert.ok(Array.isArray(schema.oneOf));
+  const assertStrictSchema = (value: unknown, root = true): void => {
+    if (!value || typeof value !== "object") return;
+    const object = value as Record<string, unknown>;
+    assert.equal("oneOf" in object, false);
+    assert.equal("allOf" in object, false);
+    if (object.type === "object") {
+      assert.equal(object.additionalProperties, false);
+      assert.ok(Array.isArray(object.required));
+      assert.ok(object.properties && typeof object.properties === "object");
+      assert.deepEqual([...object.required as string[]].sort(), Object.keys(object.properties as Record<string, unknown>).sort());
+      if (root) for (const forbidden of ["anyOf", "enum", "not"]) assert.equal(forbidden in object, false);
+    }
+    for (const child of Object.values(object)) {
+      if (Array.isArray(child)) child.forEach((item) => assertStrictSchema(item, false));
+      else assertStrictSchema(child, false);
+    }
+  };
+  assertStrictSchema(schema);
 });
 
 test("proposal validation derives action inputs and review requires every criterion", () => {
@@ -94,6 +111,10 @@ test("proposal validation derives action inputs and review requires every criter
   assert.throws(() => compileReviewedSuite(proposal, { decisions: [] }, context), /every criterion/i);
   assert.throws(() => validateSuiteProposal({ ...validProposal(context), cases: [{ ...validProposal(context).cases[0], actions: validProposal(context).cases[0].actions.slice(0, -1) }], gaps: [] }, context), /coupon.*applied/i);
   assert.throws(() => validateSuiteProposal({ ...validProposal(context), expectedTotalMinor: 7700 }, context), /invalid shape/i);
+  assert.throws(() => validateSuiteProposal({ ...validProposal(context), cases: [{ ...validProposal(context).cases[0], actions: [{ id: "bad", kind: "open-app", target: "desk-lamp", value: null }] }], gaps: [] }, context), /action/i);
+  assert.throws(() => validateSuiteProposal({ ...validProposal(context), cases: [{ ...validProposal(context).cases[0], actions: [{ id: "bad", kind: "set-quantity", target: "desk-lamp", value: null }] }], gaps: [] }, context), /quantity|action/i);
+  assert.throws(() => validateSuiteProposal({ ...validProposal(context), kind: "proposal", cases: [], gaps: [] }, context), /proposal/i);
+  assert.throws(() => validateSuiteProposal({ ...validProposal(context), kind: "clarification", cases: [], gaps: [] }, context), /clarification/i);
 });
 
 test("review cannot adopt contradictory policy and retains accepted coverage gaps", () => {

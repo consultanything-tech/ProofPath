@@ -2,9 +2,19 @@
 
 **Current direction, October 28:** the user selected the checkout/order QA
 workbench expansion. The [v2 design](superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
-is approved as development input; the [implementation plan](superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
-awaits review before code changes. The handoff below records
-v1 decisions and verification; preserve checkpoint `4ace907` as the fallback.
+and [implementation plan](superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
+now have a local fixture implementation. This handoff records v1 decisions and
+verification separately; preserve checkpoint `4ace907` as the fallback. V2 live
+model, hosted reviewer access, and deployment are still unverified.
+
+**October 30 continuation:** all six v2 capabilities have local fixture tests.
+The next development gate is defensible input admission and durable proposal
+spend accounting, followed by bounded live evaluation and reviewer hosting.
+The selected managed-container/persistent-storage path and limits (3 proposals
+per code, 50 total, US$0.05 reserved per proposal, US$2.50 total) remain planning
+targets. The 50-browser-job limit does not enforce them. See the
+[cost assessment](evaluations/v2-cost-readiness.md) and
+[fixture readiness record](evaluations/v2-fixture-readiness.json).
 
 Prepared October 26, 2026, Asia/Singapore. Updated October 27 after reviewing the kickoff notes and transcript.
 

@@ -1,0 +1,53 @@
+{
+  "status": "BLOCKED: no verified billable-input token bound or durable proposal budget accounting",
+  "model": "muse-spark-1.3",
+  "plannerSourceSha256": "4a90eb05b2fa0eb112e68626598512f950481f7a058e65fc8f1fdfae246c191d",
+  "pricesCheckedSgtDate": "2026-10-30",
+  "pricingSource": "https://dev.meta.ai/docs/pricing-rate-limits",
+  "tokenAccountingSource": "https://dev.meta.ai/docs/token-counting",
+  "rate": {
+    "inputUsdPerMillion": 1.25,
+    "outputUsdPerMillion": 4.25
+  },
+  "selectedTargets": {
+    "reserveUsd": 0.05,
+    "globalProposals": 50,
+    "totalUsd": 2.5,
+    "perCodeProposals": 3
+  },
+  "completionTokenCapPerAttempt": 4096,
+  "maximumAttempts": 2,
+  "outputOnlyUsd": {
+    "oneAttempt": 0.017408,
+    "twoAttempts": 0.034816
+  },
+  "largestEqualBillablePromptTokensPerAttemptWithinReserve": {
+    "oneAttempt": 26073,
+    "twoAttempts": 6073
+  },
+  "requestSizes": {
+    "ordinaryExample": {
+      "httpJsonBytes": 7332,
+      "messageContentUtf8Bytes": 2167,
+      "schemaJsonBytes": 4630
+    },
+    "acceptedEscapedBoundary": {
+      "httpJsonBytes": 75472,
+      "messageContentUtf8Bytes": 60573,
+      "schemaJsonBytes": 4630
+    },
+    "independentFieldUpperEnvelope": {
+      "httpJsonBytes": 77240,
+      "messageContentUtf8Bytes": 62051,
+      "schemaJsonBytes": 4630
+    }
+  },
+  "notes": [
+    "Bytes are measured offline; bytes/4 or bytes/token is not a verified Meta tokenizer or billing bound.",
+    "The upper envelope concerns current registered HTTP request construction only; remeasure after any schema/registry change.",
+    "No cache discount assumed. Reasoning tokens are a subset of completion tokens, not an extra output allowance.",
+    "Two attempts conservatively reserve for both full calls, including an ambiguous network failure.",
+    "The provider count endpoint measures rendered Responses context; it is not Chat Completions billable usage.",
+    "No provider request, key read, billing inspection, or live-mode activation performed."
+  ]
+}
