@@ -9,11 +9,14 @@ import { createV2Context, withSourceRequirement } from "../dist/src/v2-checkout.
 const bytes = (value) => Buffer.byteLength(JSON.stringify(value));
 const base = createV2Context();
 const clause = "cart coupon delivery email " + "\u0000".repeat(971) + ".";
-const boundarySource = Array(4).fill(clause).join(" ");
+const plainClause = "cart coupon delivery email " + "x".repeat(971) + ".";
+const boundarySource = [clause, plainClause, plainClause, plainClause].join(" ");
 assert.equal(clause.length, 999);
 assert.equal(boundarySource.length, 3999);
 const boundary = withSourceRequirement(base, boundarySource);
 assert.equal(boundary.requirement.criteria.length, 6);
+const boundaryHttpBodyBytes = bytes({ requirement: boundarySource, releases: ["r1", "r2"] });
+assert.ok(boundaryHttpBodyBytes <= 10_000);
 const example = withSourceRequirement(base, "SAVE10 discounts the cart subtotal by 10%. Delivery is free at discounted subtotal S$75.00 or more.");
 
 // This independently maximizes serialized source fields. It deliberately
@@ -48,7 +51,7 @@ const size = (context) => {
 };
 const sourceHash = createHash("sha256").update(await readFile(new URL("../src/v2-planner.ts", import.meta.url))).digest("hex");
 console.log(JSON.stringify({
-  status: "BLOCKED: no verified billable-input token bound or durable proposal budget accounting",
+  status: "BLOCKED: no verified billable-input token bound; production v2 live dispatch disabled",
   model: request.model,
   plannerSourceSha256: sourceHash,
   pricesCheckedSgtDate: "2026-10-30",
@@ -60,13 +63,14 @@ console.log(JSON.stringify({
   maximumAttempts: 2,
   outputOnlyUsd: { oneAttempt: outputUsd, twoAttempts: 2 * outputUsd },
   largestEqualBillablePromptTokensPerAttemptWithinReserve: { oneAttempt: maxPromptTokens(1), twoAttempts: maxPromptTokens(2) },
-  requestSizes: { ordinaryExample: size(example), acceptedEscapedBoundary: size(boundary), independentFieldUpperEnvelope: size(upperEnvelope) },
+  requestSizes: { ordinaryExample: size(example), acceptedEscapedBoundary: { ...size(boundary), incomingHttpBodyBytes: boundaryHttpBodyBytes }, independentFieldUpperEnvelope: size(upperEnvelope) },
   notes: [
     "Bytes are measured offline; bytes/4 or bytes/token is not a verified Meta tokenizer or billing bound.",
     "The upper envelope concerns current registered HTTP request construction only; remeasure after any schema/registry change.",
     "No cache discount assumed. Reasoning tokens are a subset of completion tokens, not an extra output allowance.",
     "Two attempts conservatively reserve for both full calls, including an ambiguous network failure.",
     "The provider count endpoint measures rendered Responses context; it is not Chat Completions billable usage.",
+    "This sizing script does not validate the separate mocked proposal ledger or enable production reviewer access.",
     "No provider request, key read, billing inspection, or live-mode activation performed."
   ]
 }, null, 2));

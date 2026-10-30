@@ -2,6 +2,80 @@
 
 Every later product claim should point to a commit or a preserved run artifact. This log records preparation separately from functional work.
 
+## V2 proposal budget and admission — October 30, 2026
+
+Implemented the approved next slice from `57ac7fe`: an authenticated,
+mock-only proposal service integrated at the v2 HTTP boundary. The ledger
+reserves **50,000 micro-USD (US$0.05)** before transport, admits at most three
+proposals per allowlisted reviewer code and fifty globally, and retains all
+reservations after success, clarification, invalid output, timeout, uncertain
+failure or restart. It journals each of at most two attempts durably before
+fetch. The existing fifty-browser-job limit is independent.
+
+Reviewer authentication uses a trusted HMAC digest allowlist and immutable
+registry-owned principals. The public body still permits only requirement and
+release inputs; callers cannot select identities, quotas or cost estimates.
+HTTP authorization and available-quota checks precede inspection; an atomic
+reservation rechecks quota after the server-injected test certificate matches
+the exact immutable request. No fixture fallback occurs on the protected path.
+Unknown codes, exhausted quotas and unavailable admission produce sanitized
+401, 429 and 503 responses respectively.
+
+Authenticated state validates the policy/rate snapshot, every reservation,
+unique IDs, integer amounts, timestamps, attempt/status consistency and derived
+limits. Explicit initialization refuses prior budget artifacts. Normal open
+requires the anchor and intact signed state; missing/corrupt state never resets
+capacity. One process owns the directory through an exclusive lock. File sync,
+atomic rename and directory sync precede permission to transmit. Disk failure
+blocks subsequent admission. Restart marks active records interrupted without
+refund, and completed/interrupted reservations cannot resume. A crash-left lock
+requires explicit operator recovery; there is no automatic stale-lock removal.
+
+Delegated investigation/planning and initial implementation were followed by
+primary-agent hardening and validation after the implementation lane exhausted
+workspace credits. Review corrected incomplete state validation and shallow
+request freezing before accepting the implementation. No independent production
+security audit is claimed.
+
+Validation passed:
+
+| Check | Result |
+| --- | --- |
+| `pnpm typecheck` and `pnpm build` | PASS |
+| Focused budget tests | 11/11, none skipped |
+| Focused planner/runtime tests | 20/20 |
+| `pnpm test` | 66/66; includes the focused tests |
+| `pnpm test:v2:browser` | 9/9 |
+| `git diff --check` | PASS |
+
+The budget checks exercise concurrent three-per-code admission, all fifty
+global reservations, interrupted recovery, signed malformed/over-limit state,
+stale/missing accounting, two-process ownership and a crash-left lock, exact
+request digests, both retry journals, mutable caller inputs and certificate
+rejection. Real temporary filesystem permission failures are injected before
+dispatch and after a provider response; no permission-fault test was skipped.
+HTTP tests prove authentication-before-inspection, stored budgeted-mock
+provenance, strict request bodies, exhaustion and failure without fallback.
+Default fixture browser flows, saved reuse, mobile reports and exact downloaded
+seeded/fixed exports still pass. Chromium export/browser checks needed the
+existing shell-sandbox escalation; runner boundaries were unchanged.
+
+The [budget verification record](evaluations/v2-proposal-budget-readiness.json)
+preserves the tested policy, commands and source hashes. Logs are ignored under
+`test-results/proposal-budget`; test ledgers and synthetic keys are temporary.
+The [sizing script](../scripts/v2-cost-assessment.mjs) now also checks the actual
+10,000-byte incoming HTTP body limit; the mixed escaped/plain boundary uses
+8,895 incoming bytes and produces 46,342 outbound bytes. This corrects the prior
+source-constructor-only boundary and still provides no billable-token proof.
+
+**Remaining gate:** establish a real billable-input bound, then configure
+production code issuance, ledger/key lifecycle and protected managed-host
+wiring before a separately bounded v2 live evaluation. V1 model routes are
+outside this ledger and must be disabled or separately guarded before public
+reviewer hosting. V2 Meta dispatch remains disabled; the app is not deployed.
+No actual provider call/spend, user credential read, new dependency, billing
+operation, public code issuance or repository visibility change occurred.
+
 ## V2 local fixture readiness — October 30, 2026
 
 Continued the approved checkout QA workbench from checkpoint `bed9f78`, preserving

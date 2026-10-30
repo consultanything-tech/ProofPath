@@ -11,6 +11,12 @@ evidence: `V2_PLANNER_MODE=meta` remains fail-closed pending the recorded
 [cost readiness assessment](docs/evaluations/v2-cost-readiness.md), a separately
 authorised request, and evaluation of the frozen holdout.
 
+The test-only budgeted mock path enforces 3 proposals per allowlisted reviewer
+code, 50 globally, and US$0.05 reserved per proposal (US$2.50 total). It records
+reservations and retry attempts on disk and retains them after failures or
+restart. It is not a live-cost meter or a deployed reviewer access system;
+V2 Meta dispatch remains disabled.
+
 ## Hackathon scope
 
 ### V1 baseline evidence

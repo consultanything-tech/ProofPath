@@ -388,12 +388,15 @@ function parseMetaSuiteResponse(value: unknown, context: V2Context): ProposalRes
   catch (error) { if (error instanceof V2PlannerError) throw error; throw new V2PlannerError("Meta returned an invalid proposal."); }
 }
 
-async function requestMockedMeta(context: V2Context, fetcher: typeof fetch): Promise<ProposalResult> {
-  const body = JSON.stringify(buildMetaSuiteRequest(context));
+export async function dispatchMockedV2MetaRequest(context: V2Context, fetcher: typeof fetch, beforeAttempt: (attempt: 1 | 2) => Promise<void> = async () => {}, request: object = buildMetaSuiteRequest(context)): Promise<ProposalResult> {
+  const body = JSON.stringify(request);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
   try {
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (controller.signal.aborted) throw new V2PlannerError("Meta planning timed out.");
+      await beforeAttempt((attempt + 1) as 1 | 2);
+      if (controller.signal.aborted) throw new V2PlannerError("Meta planning timed out.");
       let response: Response;
       try { response = await fetcher(V2_META_ENDPOINT, { method: "POST", redirect: "error", headers: { "Content-Type": "application/json" }, body, signal: controller.signal }); }
       catch (error) {
@@ -416,7 +419,7 @@ export function createV2Planner(env: NodeJS.ProcessEnv, fetcher?: typeof fetch):
   if (env.V2_PLANNER_MODE === "fixture") return { async propose(context) { return fixtureProposal(context); } };
   if (env.V2_PLANNER_MODE === "mock") {
     if (!fetcher) throw new V2PlannerError("Mock V2 planning requires an injected fetcher.");
-    return { async propose(context) { return requestMockedMeta(context, fetcher); } };
+    return { async propose(context) { return dispatchMockedV2MetaRequest(context, fetcher); } };
   }
   if (env.V2_PLANNER_MODE === "meta") throw new V2PlannerError("Live V2 Meta dispatch is disabled pending the cost gate.");
   throw new V2PlannerError("Set V2_PLANNER_MODE explicitly to fixture; mock transport is test-only.");

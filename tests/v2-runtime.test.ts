@@ -11,6 +11,7 @@ import { V2Store } from "../src/v2-store.js";
 import { classifyComparison, createV2Runtime } from "../src/v2-runner.js";
 import { createPlanner } from "../src/planner.js";
 import { createProofPathServer } from "../src/server.js";
+import { BudgetedMockProposalService, ProposalBudgetLedger, ReviewerCodeRegistry, TestOnlyInputAdmission } from "../src/v2-proposal-budget.js";
 
 const proposalFor = (context = createV2Context()) => ({
   kind: "proposal" as const,
@@ -356,6 +357,101 @@ test("v2 HTTP routes use exact local JSON requests and never create an approval 
     instance.server.closeAllConnections();
     await new Promise<void>((resolve) => instance.server.close(() => resolve()));
     previous === undefined ? delete process.env.DATA_DIR : process.env.DATA_DIR = previous;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("budgeted HTTP admission authenticates, reserves and exhausts quota without fixture fallback", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofpath-v2-budget-http-"));
+  const prior = process.env.DATA_DIR; process.env.DATA_DIR = root;
+  const key = Buffer.alloc(32, 7); const pepper = Buffer.alloc(32, 8);
+  const codes = ["B".repeat(32), "C".repeat(32)];
+  const registry = new ReviewerCodeRegistry(pepper, codes.map((code) => ReviewerCodeRegistry.digest(pepper, code)));
+  const ledger = await ProposalBudgetLedger.initialize({ dataDir: join(root, "budget"), ledgerKey: key });
+  const probe = createServer();
+  await new Promise<void>((resolve) => probe.listen(0, "127.0.0.1", resolve));
+  const address = probe.address(); assert.ok(address && typeof address !== "string");
+  await new Promise<void>((resolve) => probe.close(() => resolve()));
+  let inspections = 0; let fetches = 0;
+  let meterMode: "valid" | "oversize" | "throw" = "valid";
+  let providerMode: "proposal" | "clarification" | "invalid" = "proposal";
+  const source = "Cart quantity stays between one and five. SAVE10 coupon is applied once. Delivery is free at the reviewed threshold. Contact email and postal code are required.";
+  const service = new BudgetedMockProposalService(ledger, registry, {
+    async assess(value) {
+      if (meterMode === "throw") throw new Error("private-meter-secret");
+      return new TestOnlyInputAdmission(meterMode === "oversize" ? 6074 : 6073).assess(value);
+    }
+  }, async (_url, options) => {
+    fetches += 1;
+    const saved = await ledger.snapshot();
+    const reservation = saved.reservations.at(-1)!;
+    assert.equal(reservation.status, "dispatching");
+    assert.equal(reservation.attempts.length, 1);
+    assert.equal(reservation.requestDigest, "sha256:" + createHash("sha256").update(options!.body as string).digest("hex"));
+    if (providerMode === "invalid") return new Response("private-provider-secret");
+    const context = withSourceRequirement(createV2Context(), source);
+    const proposal = providerMode === "clarification"
+      ? { ...proposalFor(context), kind: "clarification", cases: [], gaps: ["Clarify checkout coverage."] }
+      : proposalFor(context);
+    return new Response(JSON.stringify({ model: "muse-spark-1.3", choices: [
+      { finish_reason: "stop", message: { content: JSON.stringify(proposal) } }
+    ] }), { status: 200 });
+  });
+  assert.throws(() => createProofPathServer(address.port, createPlanner({ PLANNER_MODE: "fixture" }),
+    { proposalService: service, propose: async () => { throw new Error("must not run"); } }), /configuration/);
+  const instance = createProofPathServer(address.port, createPlanner({ PLANNER_MODE: "fixture" }), {
+    proposalService: service, inspect: async (value) => { inspections += 1; return value.grounding; }
+  });
+  await new Promise<void>((resolve) => instance.server.listen(address.port, "127.0.0.1", resolve));
+  const body = { requirement: source, releases: ["r1", "r2"] };
+  const send = (authorization?: string, payload: unknown = body, path = "/api/v2/proposals") =>
+    new Promise<{ status: number; body: any }>((resolve, reject) => {
+      const req = request({ hostname: "127.0.0.1", port: address.port, path, method: "POST",
+        headers: { Host: new URL(instance.origin).host, Origin: instance.origin, "Content-Type": "application/json",
+          ...(authorization ? { Authorization: authorization } : {}) } }, (res) => {
+        let received = ""; res.setEncoding("utf8"); res.on("data", (part) => received += part);
+        res.on("end", () => resolve({ status: res.statusCode!, body: JSON.parse(received) }));
+      });
+      req.on("error", reject); req.end(JSON.stringify(payload));
+    });
+  try {
+    for (const auth of [undefined, "Bearer invalid", "Bearer " + "D".repeat(32)]) assert.equal((await send(auth)).status, 401);
+    assert.equal((await send(undefined, { ...body, requirement: "Unrelated unsupported text." })).status, 401);
+    assert.equal(inspections, 0); assert.equal(fetches, 0); assert.equal((await ledger.snapshot()).counts.used, 0);
+    for (const extra of [{ reviewerId: "invented" }, { cost: 0 }, { tokens: 0 }, { reservationId: "invented" }])
+      assert.equal((await send("Bearer " + codes[0], { ...body, ...extra })).status, 400);
+    const first = await send("Bearer " + codes[0]);
+    assert.equal(first.status, 201); assert.equal(inspections, 1); assert.equal(fetches, 1);
+    const reviewed = await send("Bearer " + codes[0],
+      { review: reviewFor(withSourceRequirement(createV2Context(instance.origin), source)) },
+      "/api/v2/proposals/" + first.body.id + "/review");
+    assert.equal(reviewed.status, 201);
+    const durable = JSON.parse(await readFile(join(root, "runs", "v2", "state.json"), "utf8"));
+    const savedSuite = Object.values(durable.suites)[0] as { provenance: string[] };
+    assert.ok(savedSuite.provenance.includes("budgeted-test-only-v2"));
+    assert.ok(savedSuite.provenance.includes("reservation:" + (await ledger.snapshot()).reservations[0].id));
+    providerMode = "clarification";
+    assert.equal((await send("Bearer " + codes[0])).body.kind, "clarification");
+    providerMode = "invalid";
+    const failed = await send("Bearer " + codes[0]);
+    assert.equal(failed.status, 503); assert.equal(failed.body.id, undefined);
+    assert.doesNotMatch(JSON.stringify(failed), /private-provider-secret/);
+    assert.equal((await send("Bearer " + codes[0])).status, 429);
+    assert.equal(inspections, 3); assert.equal(fetches, 3);
+    assert.deepEqual((await ledger.snapshot()).counts, { used: 3, money: 150_000 });
+    assert.equal((await send("Bearer " + "D".repeat(32))).status, 401);
+    assert.equal(inspections, 3);
+    meterMode = "oversize";
+    assert.equal((await send("Bearer " + codes[1])).status, 503);
+    meterMode = "throw";
+    const unavailable = await send("Bearer " + codes[1]);
+    assert.equal(unavailable.status, 503); assert.doesNotMatch(JSON.stringify(unavailable), /private-meter-secret/);
+    assert.equal(fetches, 3); assert.equal((await ledger.snapshot()).counts.used, 3);
+  } finally {
+    instance.server.closeAllConnections();
+    await new Promise<void>((resolve) => instance.server.close(() => resolve()));
+    await ledger.close();
+    prior === undefined ? delete process.env.DATA_DIR : process.env.DATA_DIR = prior;
     await rm(root, { recursive: true, force: true });
   }
 });

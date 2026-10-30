@@ -1,7 +1,7 @@
 {
-  "status": "BLOCKED: no verified billable-input token bound or durable proposal budget accounting",
+  "status": "BLOCKED: no verified billable-input token bound; production v2 live dispatch disabled",
   "model": "muse-spark-1.3",
-  "plannerSourceSha256": "4a90eb05b2fa0eb112e68626598512f950481f7a058e65fc8f1fdfae246c191d",
+  "plannerSourceSha256": "b10aaea11e329ea40a8525c3ec8221d8a46a69740acf0acdce805bae71513b06",
   "pricesCheckedSgtDate": "2026-10-30",
   "pricingSource": "https://dev.meta.ai/docs/pricing-rate-limits",
   "tokenAccountingSource": "https://dev.meta.ai/docs/token-counting",
@@ -32,9 +32,10 @@
       "schemaJsonBytes": 4630
     },
     "acceptedEscapedBoundary": {
-      "httpJsonBytes": 75472,
-      "messageContentUtf8Bytes": 60573,
-      "schemaJsonBytes": 4630
+      "httpJsonBytes": 46342,
+      "messageContentUtf8Bytes": 36298,
+      "schemaJsonBytes": 4630,
+      "incomingHttpBodyBytes": 8895
     },
     "independentFieldUpperEnvelope": {
       "httpJsonBytes": 77240,
@@ -48,6 +49,7 @@
     "No cache discount assumed. Reasoning tokens are a subset of completion tokens, not an extra output allowance.",
     "Two attempts conservatively reserve for both full calls, including an ambiguous network failure.",
     "The provider count endpoint measures rendered Responses context; it is not Chat Completions billable usage.",
+    "This sizing script does not validate the separate mocked proposal ledger or enable production reviewer access.",
     "No provider request, key read, billing inspection, or live-mode activation performed."
   ]
 }

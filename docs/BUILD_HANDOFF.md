@@ -8,13 +8,21 @@ verification separately; preserve checkpoint `4ace907` as the fallback. V2 live
 model, hosted reviewer access, and deployment are still unverified.
 
 **October 30 continuation:** all six v2 capabilities have local fixture tests.
-The next development gate is defensible input admission and durable proposal
-spend accounting, followed by bounded live evaluation and reviewer hosting.
+The next development gate is defensible real-input admission and production
+wiring of the mock-verified proposal ledger, followed by bounded live evaluation
+and reviewer hosting.
 The selected managed-container/persistent-storage path and limits (3 proposals
 per code, 50 total, US$0.05 reserved per proposal, US$2.50 total) remain planning
-targets. The 50-browser-job limit does not enforce them. See the
+targets for the production path. The local mock-only service now enforces them;
+the separate 50-browser-job limit does not. See the
 [cost assessment](evaluations/v2-cost-readiness.md) and
 [fixture readiness record](evaluations/v2-fixture-readiness.json).
+
+The local mock-only proposal ledger now durably reserves the whole US$0.05
+before each mocked dispatch and retains it on failure or restart. It requires
+an allowlisted code digest and a test-only accounting certificate. Real input
+accounting, code issuance, managed-host wiring, recovery of stale locks and
+protection of the separate V1 model route remain open.
 
 Prepared October 26, 2026, Asia/Singapore. Updated October 27 after reviewing the kickoff notes and transcript.
 

@@ -57,7 +57,8 @@ async function serveFile(res: ServerResponse, path: string) {
   try { send(res, 200, await readFile(file), mime[extname(file)] ?? "application/octet-stream"); } catch { send(res, 404, { error: "Not found." }); }
 }
 
-export function createProofPathServer(port: number, planner: Planner = createPlanner(process.env), v2Services: Pick<V2HttpContext, "inspect" | "propose"> = {}) {
+export function createProofPathServer(port: number, planner: Planner = createPlanner(process.env), v2Services: Pick<V2HttpContext, "inspect" | "propose" | "proposalService"> = {}) {
+  if (v2Services.propose && v2Services.proposalService) throw new Error("V2 proposal service configuration is unavailable.");
   const origin = `http://${host}:${port}`;
   const store = new PlanStore();
   const gate = new RunGate();

@@ -1,0 +1,112 @@
+{
+  "sgtDate": "2026-10-30",
+  "baseCheckpoint": "57ac7fe3d6ed34952a276ecab5c7f1e6c886e3c8",
+  "scope": "locally verified mock-only proposal reservation and request admission; not a production token meter or reviewer host",
+  "policy": {
+    "version": "1",
+    "reviewerLimit": 3,
+    "globalLimit": 50,
+    "reservationMicrousd": 50000,
+    "globalMicrousd": 2500000,
+    "maxAttempts": 2,
+    "maxInputTokens": 6073,
+    "maxCompletionTokens": 4096,
+    "inputNanousdPerToken": 1250,
+    "outputNanousdPerToken": 4250,
+    "model": "muse-spark-1.3"
+  },
+  "checks": [
+    {
+      "name": "typecheck",
+      "command": [
+        "pnpm",
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "seconds": 1.75
+    },
+    {
+      "name": "build",
+      "command": [
+        "pnpm",
+        "build"
+      ],
+      "exitCode": 0,
+      "seconds": 1.73
+    },
+    {
+      "name": "budget-focused",
+      "command": [
+        "node",
+        "--test",
+        "dist/tests/v2-proposal-budget.test.js"
+      ],
+      "exitCode": 0,
+      "seconds": 3.89
+    },
+    {
+      "name": "planner-runtime",
+      "command": [
+        "node",
+        "--test",
+        "dist/tests/v2-planner.test.js",
+        "dist/tests/v2-runtime.test.js"
+      ],
+      "exitCode": 0,
+      "seconds": 0.76
+    },
+    {
+      "name": "all-unit",
+      "command": [
+        "pnpm",
+        "test"
+      ],
+      "exitCode": 0,
+      "seconds": 19.98
+    },
+    {
+      "name": "v2-browser",
+      "command": [
+        "pnpm",
+        "test:v2:browser"
+      ],
+      "exitCode": 0,
+      "seconds": 92.96
+    },
+    {
+      "name": "diff-check",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "seconds": 0.02
+    }
+  ],
+  "sourceSha256": {
+    "src/v2-proposal-budget.ts": "54a3948802f5828dd902f4226dc34d50d7943f8a56091633d7b7d524dfd7f7d1",
+    "src/v2-planner.ts": "b10aaea11e329ea40a8525c3ec8221d8a46a69740acf0acdce805bae71513b06",
+    "src/v2-http.ts": "cec991a6560b889d4bda01b3a1b9e0ce16b1bce7561be2e95e0ae398e0f5c883",
+    "src/server.ts": "2aa54d5d7d1679f2c4803b4e7ee33f0d5f2e0024bbc8370d836bb1334978f9a5",
+    "tests/v2-proposal-budget.test.ts": "128d133abab2323bd8daa0510e2c66dfcb67b83e26175513d71f396065f62e5e",
+    "tests/v2-runtime.test.ts": "1cde22fd46a4068e3d9675b500380a2fe8b5af04ddc0808edcd3785e18cec857",
+    "scripts/v2-cost-assessment.mjs": "896cf50c9f782808518a7c81a15155fe96ba85c2c7101b7bd2c5a0444c30c975",
+    "package.json": "542e59ed2c60899f3b9e8763d9413e4fe7cb773d8ee8db8521df226d5f1c790b",
+    "pnpm-lock.yaml": "42ca8f2fbadd2e1692b573f7f340367cbc258850c113bd83b26962ed5a421ac2"
+  },
+  "evidence": [
+    "11 focused tests include 50 global reservations, concurrent three-per-code admission, immutable principals and exact requests, authenticated state validation, restart interruption, cross-process/crash-left locks and real filesystem write failures.",
+    "20 focused planner/runtime tests include HTTP authorization before inspection, reservation before mock transport, quota exhaustion, strict body validation, sanitized admission/provider failure and stored provenance.",
+    "Full unit suite passes66; v2 browser suite passes9 including default fixture flow and exact downloaded export execution. Focused counts overlap full suite."
+  ],
+  "limitations": [
+    "Only server-injected test certificates and mock provider transports are connected to the ledger.",
+    "No production code issuance, ledger/key bootstrap, persistent-volume wiring or public ingress is configured.",
+    "A real billable Chat Completions input bound is still unverified; v2 Meta dispatch remains disabled.",
+    "V1 live model endpoints are outside this ledger and must be disabled or separately guarded before reviewer hosting.",
+    "Stale lock recovery is explicit/operator-controlled; deleting or rolling back ledger data is not supported capacity recovery.",
+    "Tests use temporary ledger data and synthetic keys, cleaned after validation; no live reservation/spend is claimed.",
+    "No user credential read, new dependency, billing change, deployment or repository visibility change."
+  ]
+}
