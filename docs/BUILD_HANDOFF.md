@@ -6,6 +6,15 @@ fallback and `d6b345b` as the mock-budget checkpoint. The [v2 design](superpower
 and [implementation plan](superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
 remain the product contract.
 
+**Baseten offline continuation, October 31:** the coordinated plan is accepted
+for its offline qualification slice. A provisional V2 request/parser, local
+schema enforcement and signed single-attempt synthetic ledger/harness are
+implemented and validated. There is no Baseten transport or product wiring;
+model access, grant terms and a live spending authorization remain open. The
+other chat's V1 scaffold is preserved separately. See the
+[offline readiness record](evaluations/v2-baseten-offline-readiness.md) and
+[Baseten plan](superpowers/plans/2026-10-31-proofpath-baseten-integration.md).
+
 **Completed continuation:** the user-authorized restricted Responses admission,
 private local operator bootstrap and one live canary are verified. The exact
 counted/generated body uses `muse-spark-1.3`, at most 6,073 rendered input tokens,

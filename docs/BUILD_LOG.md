@@ -2,6 +2,44 @@
 
 Every later product claim should point to a commit or a preserved run artifact. This log records preparation separately from functional work.
 
+## Baseten V2 offline qualification — October 31, 2026
+
+Pankaj accepted the coordinated plan and authorized its offline qualification
+slice. Delegated planning and initial implementation were followed by parent
+hardening and validation. Preserved the other chat's eight V1 scaffold files
+byte-for-byte; no Baseten transport, product mode or HTTP route was added.
+
+Implemented a deeply immutable provisional Responses request for the awarded
+`meta-models/muse-spark-open-1026` identifier, bounded envelope/usage parsing,
+local JSON-schema enforcement followed by the existing V2 semantic validator,
+and finite scripted mock outcomes. Shared prompt extraction preserves the exact
+existing Meta request bodies for the recorded context. The signed mock-only
+ledger reserves its full synthetic allowance, journals a single attempt before
+script consumption and valid usage before content/model rejection, retains
+reservations, blocks interrupted/uncertain work and preserves ownership on
+unpersistable failure. Accounting values are explicitly synthetic, not verified
+provider rates/input counts or approved money. Prepared proposals preserve the
+source snapshot and still require separate review and one-use approval.
+
+Typecheck/build passed; focused Baseten checks passed 15/15, the full unit suite
+95/95 and safety/V1/V2 browser regressions 21/21. Initial unit launch failed its
+embedded exported-browser tests under the shell sandbox; all passed with the
+established Chromium escalation, without weakening runner controls. The 95-test
+result includes two unchanged V1 scaffold tests from the other conversation;
+those inputs are identified in the record and are not staged with this slice.
+A read-only planning-agent review found no material offline-scope defect.
+
+See [offline readiness](evaluations/v2-baseten-offline-readiness.md) and its
+[machine record](evaluations/v2-baseten-offline-readiness.json). Tests cover
+mutation, schema/semantic rejection, usage bounds and ordering, concurrency,
+restart, signed malformed/tampered/missing state, actual disk failures and exact
+approval provenance. Browser regressions are existing-workflow evidence, not
+Baseten UI/live integration. No key was retrieved or read, no Baseten call or
+credit spend occurred, and no billing, dependency, deployment or visibility
+change occurred. The proposed US$5 is still not a live authorization. Next:
+resolve grant-specific profile/accounting and prepare safe secret setup before
+requesting approval for one concretely bounded non-holdout qualification call.
+
 ## Guarded V2 Responses and real local canary — October 31, 2026
 
 Implemented the authorized continuation from `d6b345b` after delegated planning

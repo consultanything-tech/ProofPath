@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "dateSgt": "2026-10-31",
+  "scope": "Offline Baseten operator qualification only",
+  "model": "meta-models/muse-spark-open-1026",
+  "protocol": "Responses provisional; grant compatibility unverified",
+  "transport": "One snapshotted scripted mock outcome; no callable transport",
+  "liveBasetenCalls": 0,
+  "keyRetrievalPerformed": false,
+  "realPricingOrInputBoundVerified": false,
+  "liveSpendingAuthorized": false,
+  "productHttpWiringAdded": false,
+  "frozenHoldoutUsed": false,
+  "syntheticPolicy": {
+    "version": "baseten-offline-1",
+    "scope": "operator-mock-only",
+    "syntheticOnly": true,
+    "model": "meta-models/muse-spark-open-1026",
+    "protocol": "responses-provisional",
+    "maxAttempts": 1,
+    "maxReservations": 1,
+    "maxInputTokens": 16000,
+    "maxOutputTokens": 4096,
+    "syntheticInputNanousdPerToken": 1130,
+    "syntheticOutputNanousdPerToken": 4170,
+    "reservationMicrousd": 35161,
+    "totalMicrousd": 35161
+  },
+  "verification": {
+    "typecheck": "PASS",
+    "build": "PASS",
+    "focusedBaseten": {
+      "tests": 15,
+      "pass": 15,
+      "fail": 0
+    },
+    "fullUnit": {
+      "tests": 95,
+      "pass": 95,
+      "fail": 0,
+      "skipped": 0
+    },
+    "browserRegressions": {
+      "tests": 21,
+      "pass": 21,
+      "fail": 0,
+      "skipped": 0
+    },
+    "productionGate": {
+      "basetenProductFactoryRejected": true,
+      "networkCalls": 0
+    },
+    "metaRequestEquivalence": {
+      "passed": true,
+      "contextSha256": "3fbb04798e658a3158732221b42a34592529b112812c0123dfc6bf67916ef238",
+      "chatRequestSha256": "c12ef6dbf69d956c361c23512d1dc2075d08ec236c7501f9f3ae76a588740672",
+      "responsesRequestSha256": "3ae1c882eee5735a52aa6b10a1303f50ea94e973e89d6d0f5f981a41f29e1035"
+    },
+    "readOnlyAgentReview": "No material offline-scope defect found; no production audit claimed"
+  },
+  "sourceHashes": {
+    "src/v2-planner.ts": "5249688bc9b31d8980eec93b6867a53e774ebc5b06c8509b556f76156642e85e",
+    "src/v2-baseten-planner.ts": "caac2e87b306c08ab9f1e479effadcaf2c4edcc49f1a6790f9c32ab8c279f14f",
+    "src/v2-baseten-qualification.ts": "557311c009f16dddcadde0d5e7ff1a44c44a5a30192802b8b53a62013af243c9",
+    "tests/v2-baseten-qualification.test.ts": "ed387176bf4e464b537b0fde70ece08256763053a0e5ec0db0d91c22161a95f6",
+    "tests/v2-baseten-boundary.test.ts": "e40aebd66300251e5182637a3844d72a0cc526fd413585e6838291543b715e2e"
+  },
+  "preservedOtherChatFiles": {
+    ".env.example": "cbc8b1652713c22a9d356596f0cde07596648afe7bc9bee2caa34508be92094f",
+    "README.md": "7342379a08939b293dc6d88f749e8637e0465bc1d7e25300755c341831d39763",
+    "public/app.js": "0c545b761594d2a26ceede239a73df6655dd8afff222e1594f50baea2c063cfc",
+    "src/meta-planner.ts": "4750a6cda2b734224e39d69eec4454770812c97a6fe442d30f6f1181cb6115d2",
+    "src/plan-store.ts": "b93b480ba104b7b2656c68af9dc8291e49db00ea70f0d1a2adff67cfd40d35d3",
+    "src/planner.ts": "ddd3f8b9a74fb86627b69f87db6f54574d58906a33e1a89676218c2a2a65cbb1",
+    "src/baseten-planner.ts": "67c4e12f03853c18d9db70fa18f0349b44dda7cb0a342de8cb28661f4fa556c3",
+    "tests/baseten-planner.test.ts": "01c7acf12f9127d60f3cee4d0fabe01a3651a7b64ff14b1a7037aa8e69b988a2"
+  },
+  "logHashes": {
+    "test-results/baseten-offline/unit.log": "09371c083b100d232769ae18d328f15282baf34ce13ae5fd0baa8ba92ca162da",
+    "test-results/baseten-offline/browser.log": "674c78cfd503ce63882bbd9903203e2d2fed94fee999dd42ef1d04f4c7977f92",
+    "test-results/baseten-offline/typecheck.log": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92"
+  },
+  "limitations": [
+    "Only scripted mock responses and synthetic cost/usage admission, not real provider access, invoice reconciliation or approved spending.",
+    "Full 95-test unit result includes two unchanged uncommitted V1 scaffold tests from the other conversation; those files are not part of this checkpoint.",
+    "Existing 21 Chromium checks cover unchanged local V1/V2 behavior, not Baseten HTTP authentication, live model behavior, or deployment.",
+    "Initial full unit launch failed embedded Chromium export tests inside the shell sandbox; all 95 passed on the permitted escalated rerun.",
+    "Unknown/malformed usage or output and uncertain attempts retain capacity; inability to persist a latch retains the owner lock for investigation.",
+    "Special-grant model/protocol/rates/input bound/expiry/overage and explicit one-time retrieval/live-call approval remain future gates."
+  ]
+}
