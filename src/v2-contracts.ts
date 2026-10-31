@@ -122,8 +122,8 @@ export interface CaseComparison { readonly caseId: string; readonly classificati
 export interface SuiteRunArtifactSnapshot { readonly definition: SuiteDefinition; readonly expectations: readonly ExpectedCase[]; readonly provenance: readonly string[]; }
 export interface SuiteRun { readonly id: string; readonly approvalDigest: string; readonly artifact: SuiteRunArtifactSnapshot; readonly status: "accepted" | "running" | "completed" | "interrupted"; readonly records: readonly CaseReleaseRecord[]; readonly comparisons: readonly CaseComparison[]; readonly coverage: readonly string[]; readonly verdict: "PASS" | "FAIL" | "INCONCLUSIVE"; readonly candidateVerdict: "PASS" | "FAIL" | "INCONCLUSIVE"; readonly startedAt: string; readonly endedAt: string | null; }
 export interface SavedRegression { readonly id: string; readonly definition: SuiteDefinition; readonly provenance: readonly string[]; }
-export interface PreparedProposal { readonly id: string; readonly proposal: ProposalResult; readonly context: V2Context; }
-export interface PreparedSuite { readonly id: string; readonly definition: SuiteDefinition; readonly expectations: readonly ExpectedCase[]; readonly digest: string; }
+export interface PreparedProposal { readonly provenance?: readonly string[]; readonly id: string; readonly proposal: ProposalResult; readonly context: V2Context; }
+export interface PreparedSuite { readonly provenance?: readonly string[]; readonly id: string; readonly definition: SuiteDefinition; readonly expectations: readonly ExpectedCase[]; readonly digest: string; }
 export interface ApprovalReceipt { readonly id: string; readonly digest: string; readonly expiresAt: string; }
 
 export interface V2Context {

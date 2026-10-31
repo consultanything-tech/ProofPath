@@ -31,7 +31,7 @@ export class V2Store {
     if (proposal.kind !== "proposal") throw new Error("Clarification does not create a prepared suite or approval.");
     this.clearPending();
     if (this.proposals.size >= 16) throw new Error("Too many pending V2 proposals; review or let one expire first.");
-    const prepared: PreparedProposal = { id: randomUUID(), proposal: clone(proposal), context: clone(context) };
+    const prepared: PreparedProposal = { provenance: [...provenance], id: randomUUID(), proposal: clone(proposal), context: clone(context) };
     this.proposals.set(prepared.id, { prepared, provenance: [...provenance], expiresAt: this.clock() + 600_000 });
     return clone(prepared);
   }
@@ -50,13 +50,13 @@ export class V2Store {
     if (duplicate) {
       if (digestV2(duplicate[1]) !== digestV2(record)) throw new Error("Durable suite digest collision.");
       this.proposals.delete(proposalId);
-      return { id: duplicate[0], definition: clone(duplicate[1].definition), expectations: clone(duplicate[1].expectations), digest: duplicate[1].digest };
+      return { provenance: clone(duplicate[1].provenance), id: duplicate[0], definition: clone(duplicate[1].definition), expectations: clone(duplicate[1].expectations), digest: duplicate[1].digest };
     }
     const id = randomUUID();
     state.suites[id] = record;
     await this.persist();
     this.proposals.delete(proposalId);
-    return { id, definition: clone(record.definition), expectations: clone(record.expectations), digest: record.digest };
+    return { provenance: clone(record.provenance), id, definition: clone(record.definition), expectations: clone(record.expectations), digest: record.digest };
   }
 
   async approveSuite(suiteId: string): Promise<ApprovalReceipt> {
@@ -200,12 +200,12 @@ export class V2Store {
     const duplicate = Object.entries(state.suites).find(([, candidate]) => candidate.digest === record.digest);
     if (duplicate) {
       if (digestV2(duplicate[1]) !== digestV2(record)) throw new Error("Durable suite digest collision.");
-      return { id: duplicate[0], definition: clone(duplicate[1].definition), expectations: clone(duplicate[1].expectations), digest: duplicate[1].digest };
+      return { provenance: clone(duplicate[1].provenance), id: duplicate[0], definition: clone(duplicate[1].definition), expectations: clone(duplicate[1].expectations), digest: duplicate[1].digest };
     }
     const id = randomUUID();
     state.suites[id] = record;
     await this.persist();
-    return { id, definition: clone(definition), expectations: clone(expectations), digest: record.digest };
+    return { provenance: clone(record.provenance), id, definition: clone(definition), expectations: clone(expectations), digest: record.digest };
   }
 
   async writeManifest(run: SuiteRun): Promise<void> {

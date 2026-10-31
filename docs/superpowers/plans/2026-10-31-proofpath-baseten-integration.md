@@ -1,6 +1,17 @@
 # Baseten integration coordination plan — October 31, 2026 (SGT)
 
-Status: accepted for the **offline step-2 qualification harness** on October 31
+Current status, October 31: Pankaj subsequently confirmed account/credit readiness
+and requested completion of integration. V2 transport, controlled UI and signed
+shared-v3 accounting are implemented and tested with mocks. Local credential
+configuration, actual metadata/count compatibility and a live generation remain
+open. No actual migration or Baseten call has occurred. The existing
+US$0.05/proposal and US$2.50 aggregate limits govern this continuation; the US$5
+independent-canary proposal below was never approved and is superseded. The
+reviewer integration was prepared before live qualification so it is concrete
+and reviewable, but is not enabled on the real operator state. See the
+[current readiness record](../../evaluations/v2-baseten-integration-readiness.md).
+
+Historical plan acceptance: accepted for the **offline step-2 qualification harness** on October 31
 when Pankaj said “let's proceed” after the reviewed plan. That continuation
 covers mocked request/parser/admission work and validation. It does not authorize
 live spending, key redemption, billing changes, deployment or reviewer wiring.

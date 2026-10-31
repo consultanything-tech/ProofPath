@@ -57,8 +57,9 @@ async function serveFile(res: ServerResponse, path: string) {
   try { send(res, 200, await readFile(file), mime[extname(file)] ?? "application/octet-stream"); } catch { send(res, 404, { error: "Not found." }); }
 }
 
-export function createProofPathServer(port: number, planner: Planner = createPlanner(process.env), v2Services: Pick<V2HttpContext, "inspect" | "propose" | "proposalService"> & { readonly controlledMeta?: boolean } = {}) {
+export function createProofPathServer(port: number, planner: Planner = createPlanner(process.env), v2Services: Pick<V2HttpContext, "inspect" | "propose" | "proposalService"> & { readonly controlledMeta?: boolean; readonly controlledLive?: boolean } = {}) {
   if (v2Services.propose && v2Services.proposalService) throw new Error("V2 proposal service configuration is unavailable.");
+  const controlledLive = Boolean(v2Services.controlledLive || v2Services.controlledMeta || v2Services.proposalService?.requiresAuthentication);
   const origin = `http://${host}:${port}`;
   const store = new PlanStore();
   const gate = new RunGate();
@@ -72,9 +73,9 @@ export function createProofPathServer(port: number, planner: Planner = createPla
       const url = new URL(req.url ?? "/", origin);
       if (url.origin !== origin) throw new Error("Local request URL required.");
       if (await handleV2Request(req, res, { origin, store: v2Store, runtime: v2Runtime, v2: v2Context, ...v2Services })) return;
-      if (req.method === "GET" && url.pathname === "/api/config") return send(res, 200, { planner: planner.provenance, plannerLabel: plannerLabel(planner.provenance), controlledMeta: Boolean(v2Services.controlledMeta) });
+      if (req.method === "GET" && url.pathname === "/api/config") return send(res, 200, { planner: planner.provenance, plannerLabel: plannerLabel(planner.provenance), controlledMeta: controlledLive, controlledLive });
       if (req.method === "POST" && url.pathname === "/api/plans") {
-        if (v2Services.controlledMeta) return send(res, 403, { error: "V1 model planning is disabled in controlled Meta mode." });
+        if (controlledLive) return send(res, 403, { error: "V1 model planning is disabled in controlled live mode." });
         mutation(req, origin);
         const input = await readJson(req);
         if (!isRecord(input) || typeof input.requirement !== "string" || input.requirement.trim().length === 0 || input.requirement.length > 2000) throw new Error("A requirement of up to 2,000 characters is required.");
@@ -86,14 +87,14 @@ export function createProofPathServer(port: number, planner: Planner = createPla
       }
       const approve = url.pathname.match(/^\/api\/plans\/([a-f0-9-]+)\/approve$/);
       if (req.method === "POST" && approve) {
-        if (v2Services.controlledMeta) return send(res, 403, { error: "V1 model planning is disabled in controlled Meta mode." });
+        if (controlledLive) return send(res, 403, { error: "V1 model planning is disabled in controlled live mode." });
         mutation(req, origin);
         emptyBody(await readJson(req));
         return send(res, 200, store.approve(approve[1]));
       }
       const run = url.pathname.match(/^\/api\/plans\/([a-f0-9-]+)\/run$/);
       if (req.method === "POST" && run) {
-        if (v2Services.controlledMeta) return send(res, 403, { error: "V1 model planning is disabled in controlled Meta mode." });
+        if (controlledLive) return send(res, 403, { error: "V1 model planning is disabled in controlled live mode." });
         mutation(req, origin);
         emptyBody(await readJson(req));
         if (!gate.acquire()) throw new Error("Another approved run is already in progress.");
@@ -143,21 +144,17 @@ export function createProofPathServer(port: number, planner: Planner = createPla
 const port = Number(process.env.PORT ?? 3000);
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const boot = async () => {
-    if (process.env.V2_PLANNER_MODE === "meta") {
-      const key = process.env.MODEL_API_KEY;
-      if (!key) throw new Error("Controlled Meta mode is unavailable.");
-      const { openLiveOperator } = await import("./v2-operator.js");
-      const { LiveMetaProposalService } = await import("./v2-live-proposal.js");
-      const operator = await openLiveOperator();
+    if (process.env.V2_PLANNER_MODE === "meta" || process.env.V2_PLANNER_MODE === "baseten") {
+      const { createControlledLiveServices } = await import("./v2-live-bootstrap.js");
+      const live = await createControlledLiveServices(process.env);
       let instance: ReturnType<typeof createProofPathServer>;
       try {
-        const service = new LiveMetaProposalService(operator.ledger, operator.registry, key);
-        instance = createProofPathServer(port, createPlanner({ ...process.env, PLANNER_MODE: "fixture" }), { proposalService: service, controlledMeta: true });
-      } catch (error) { await operator.close().catch(() => {}); throw error; }
-      const close = () => { instance.server.close(() => { void operator.close(); }); };
+        instance = createProofPathServer(port, createPlanner({ ...process.env, PLANNER_MODE: "fixture" }), { proposalService: live.service, controlledLive: true });
+      } catch (error) { await live.close().catch(() => {}); throw error; }
+      const close = () => { instance.server.close(() => { void live.close().catch(() => {}); }); };
       process.once("SIGINT", close); process.once("SIGTERM", close);
-      instance.server.once("error", () => { void operator.close(); });
-      instance.server.listen(port, host, () => console.log(`ProofPath controlled Meta mode at ${instance.origin}`));
+      instance.server.once("error", () => { void live.close().catch(() => {}); });
+      instance.server.listen(port, host, () => console.log(`ProofPath controlled ${process.env.V2_PLANNER_MODE} mode at ${instance.origin}`));
       return;
     }
     const { server, origin } = createProofPathServer(port);

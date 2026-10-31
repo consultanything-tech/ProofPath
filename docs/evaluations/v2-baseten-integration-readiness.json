@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "dateSgt": "2026-10-31",
+  "scope": "V2 controlled Baseten integration; local mocked verification only",
+  "model": "meta-models/muse-spark-open-1026",
+  "protocol": "responses; grant compatibility unverified",
+  "liveBasetenNetworkRequests": 0,
+  "liveBasetenGenerationRequests": 0,
+  "actualOperatorMigrationPerformed": false,
+  "keyRetrievalPerformed": false,
+  "accountAndCreditReadiness": "User confirmed; not reinspected",
+  "preflight": {
+    "ready": false,
+    "reason": "missing-BASETEN_API_KEY",
+    "generationRequests": 0
+  },
+  "policy": {
+    "reviewerLimit": 3,
+    "globalLimit": 50,
+    "reservationMicrousd": 50000,
+    "globalMicrousd": 2500000,
+    "basetenAttempts": 1,
+    "maxOutputTokens": 4096,
+    "maxInputTokens": 26073,
+    "inputNanousdPerToken": 1250,
+    "outputNanousdPerToken": 4250,
+    "countEndpointVerified": false
+  },
+  "verification": {
+    "build": "PASS",
+    "typecheck": "PASS",
+    "focusedBoundaries": {
+      "pass": 26,
+      "fail": 0
+    },
+    "fullUnit": {
+      "pass": 121,
+      "fail": 0,
+      "skipped": 0
+    },
+    "finalV2Browser": {
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0
+    },
+    "earlierSafetyV1V2Browser": {
+      "pass": 22,
+      "fail": 0,
+      "skipped": 0
+    },
+    "metaRequestEquivalence": {
+      "passed": true,
+      "contextSha256": "3fbb04798e658a3158732221b42a34592529b112812c0123dfc6bf67916ef238",
+      "chatRequestSha256": "c12ef6dbf69d956c361c23512d1dc2075d08ec236c7501f9f3ae76a588740672",
+      "responsesRequestSha256": "3ae1c882eee5735a52aa6b10a1303f50ea94e973e89d6d0f5f981a41f29e1035"
+    },
+    "readOnlyReview": "No code blocker; stale setup documentation reconciled; not a production security audit",
+    "cleanSelectedSliceTypecheck": "PASS with six sibling code/test files excluded and no secret copied",
+    "commonCredentialPatternScan": {
+      "files": 28,
+      "matchedFiles": 0,
+      "scope": "Limited common-pattern scan; not a publication clearance"
+    }
+  },
+  "sourceHashes": {
+    ".env.example": "34c492c9725613199b763fe4d2f3d3e757b9758a84c0297d8fb4c0d6ad5c7098",
+    "README.md": "e10ea36870d83d575a4742b7ab9e28fe64647e53f0077d4fca94d95db586e46e",
+    "package.json": "75b9dfff57c05745e52644b62de02ce1cae2ded8a3ff9551f29c2d595ae755cb",
+    "public/workbench.html": "b13794b86b97c2695ec8089f31103c121a347f124c7f189ba88578dc4482588c",
+    "public/workbench.js": "d710dbe3e24cb316163b82cd0aedad59f72d6e2b4d11c6e154f8164590606118",
+    "src/server.ts": "fffc93eb3b2cf6507890d8fe3f2e4b29b758100936c11b266548807fa8e7a7f8",
+    "src/v2-contracts.ts": "c02a33d5f1de4336061dcab899bd3a5ece722ed2ff661beacb77696f5e1c8ade",
+    "src/v2-http.ts": "48e02c65dee87d88149eba93d58e7cff34e22946cb129da2d077fee26cac4178",
+    "src/v2-live-proposal.ts": "e8e71e287ce6350e0904cb000efb677084fca4482afbd81dd81711c105534c81",
+    "src/v2-operator.ts": "2d208d4851ecc5beb93046d5ba71c02a5219412116cc209a29fb5955af65ca9c",
+    "src/v2-store.ts": "bbc14499da3c94e80a06c8d91e51163467136f624607fa5badf67bb71d463fc2",
+    "src/v2-baseten-live.ts": "a6054e384403b2a91cc6aad5e1ab046587fb4994576503fc740191a770f88103",
+    "src/v2-baseten-preflight.ts": "0b9f4a1d0ec5ce4403ec5af826a266886fd9c5e622f65704db5f5705881141d4",
+    "src/v2-live-bootstrap.ts": "d28fd1542a6d4c8f960e81f8fe7265724dead713cc550ea840862b96f7b54923",
+    "src/v2-live-ledger-v3.ts": "9bbc871c30f5566d555a92f66196ec1ef50db12b3dfa9648e3d8d2136b052e19",
+    "src/v2-operator-v3.ts": "2e8ec2e5b610fc1f76567e459995ac33de1b1a15aaf47e482036275329ed2372",
+    "tests/v2-baseten-controlled.integration.ts": "c8a80b50f7332bb7e87b121d8e367f1d156fcd5b91525a4eeca3baf7c4459822",
+    "tests/v2-baseten-live.test.ts": "fcca5f02428e5adbe560fba24cd381546d4dadb0e96eaec85f056d007c1911a6",
+    "tests/v2-baseten-preflight.test.ts": "badd540bd68477d033363c63cfa49d147cabab904a9bcb22d4707db92d4783e0",
+    "tests/v2-live-integration-boundary.test.ts": "d6724f46fefc8828cbb4c165f5666c7c317573c9145553eebeee54a5579e984b",
+    "tests/v2-live-ledger-boundary.test.ts": "7a1a2a099f3100e7d68801552ac9e21543afca67ffc7c9563ec2e2b54d0deb51",
+    "tests/v2-live-ledger-v3.test.ts": "4ff6bcf447b45252d55293329df9e66cffb78e27ef2a1c44885bd7cda4f25692",
+    "tests/v2-live-migration.test.ts": "ffd9482f08a562ead8c077dc4afa91b2f29fcb2825b2c6c7567454fe7b256eac"
+  },
+  "logHashes": {
+    "test-results/baseten-live/unit.log": "a3069e61102741b798f469e1a9d6bcb3a7baaa3feb10b9b1044b58bf3e004599",
+    "test-results/baseten-live/browser-final.log": "0e293c4048ea3f32ac3af825d02df7dc7153e5d39fd94855684579edd9b5a7da",
+    "test-results/baseten-live/typecheck-final.log": "8366207267355d3e3d5bf3bf6e8c94c5f93f6078c34f08973fa2b38cdda6cc92",
+    "test-results/baseten-live/preflight.json": "434fda8a97d8d4c53db47a575602b8b57bececc403eeb60edfe6bc0ee6e2c6d5",
+    "test-results/baseten-live/meta-request-equivalence.json": "7f0e12e771878b7edbc5488936b6082c9fc27df262b201dd0fa2323052013549"
+  },
+  "preservedOtherChatCodeFiles": {
+    "public/app.js": "0c545b761594d2a26ceede239a73df6655dd8afff222e1594f50baea2c063cfc",
+    "src/meta-planner.ts": "4750a6cda2b734224e39d69eec4454770812c97a6fe442d30f6f1181cb6115d2",
+    "src/plan-store.ts": "b93b480ba104b7b2656c68af9dc8291e49db00ea70f0d1a2adff67cfd40d35d3",
+    "src/planner.ts": "ddd3f8b9a74fb86627b69f87db6f54574d58906a33e1a89676218c2a2a65cbb1",
+    "src/baseten-planner.ts": "67c4e12f03853c18d9db70fa18f0349b44dda7cb0a342de8cb28661f4fa556c3",
+    "tests/baseten-planner.test.ts": "01c7acf12f9127d60f3cee4d0fabe01a3651a7b64ff14b1a7037aa8e69b988a2"
+  },
+  "intentionallyReconciledOtherChatDocs": [
+    "README.md",
+    ".env.example"
+  ],
+  "limitations": [
+    "No live Baseten generation, grant-specific metadata/count compatibility, actual migration or deployment verified.",
+    "Public Responses documentation does not establish candidate input-count endpoint; unsupported counting blocks generation.",
+    "121-test unit result includes two unchanged uncommitted sibling V1 scaffold tests.",
+    "Migration fault injection is logical; physical power loss not simulated.",
+    "Grant expiry and overage behavior remain unverified.",
+    "Frozen holdout unused pending owner annotation review; proposed US$5 never approved.",
+    "Expected migration quota from last known Meta canary is one consumed, two reviewer and forty-nine global remaining; not re-audited on actual state."
+  ]
+}

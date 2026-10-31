@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { mkdir, open, readdir } from "node:fs/promises";
+import { lstat, mkdir, open, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { LiveProposalBudgetLedger } from "./v2-live-proposal.js";
 import { ReviewerCodeRegistry } from "./v2-proposal-budget.js";
+import { V2_LIVE_RETIREMENT_MARKER } from "./v2-live-ledger-v3.js";
 
 const unavailable = () => new Error("Live operator configuration is unavailable.");
 const names = { ledger: "ledger.key", pepper: "reviewer.pepper", allowlist: "reviewer.allowlist.json", marker: "operator-v2.json", code: "reviewer-code.txt" } as const;
@@ -16,7 +17,7 @@ export type LiveOperator = { readonly ledger: LiveProposalBudgetLedger; readonly
 /** Explicit one-time local setup. The returned code is intentionally not persisted in a report or URL. */
 export async function initializeLiveOperator(dataDir = resolve(process.env.V2_OPERATOR_DIR ?? "runs/v2-live/operator")) {
   await mkdir(dataDir, { recursive: true, mode: 0o700 }); await existingPrivateDir(dataDir);
-  if ((await readdir(dataDir)).length !== 0) throw unavailable();
+  if ((await readdir(dataDir)).length !== 0 || Boolean(await lstat(join(dataDir, V2_LIVE_RETIREMENT_MARKER)).catch(() => null)) || Boolean(await lstat(join(dataDir, "v3")).catch(() => null))) throw unavailable();
   const ledgerKey = randomBytes(32); const pepper = randomBytes(32); const reviewerCode = code();
   await privateFile(join(dataDir, names.ledger), ledgerKey);
   await privateFile(join(dataDir, names.pepper), pepper);
@@ -31,6 +32,7 @@ export async function initializeLiveOperator(dataDir = resolve(process.env.V2_OP
 export async function openLiveOperator(dataDir = resolve(process.env.V2_OPERATOR_DIR ?? "runs/v2-live/operator")): Promise<LiveOperator> {
   try {
     await existingPrivateDir(dataDir);
+    if (Boolean(await lstat(join(dataDir, V2_LIVE_RETIREMENT_MARKER)).catch(() => null)) || Boolean(await lstat(join(dataDir, "v3")).catch(() => null))) throw unavailable();
     const marker = JSON.parse((await secret(join(dataDir, names.marker))).toString("utf8"));
     const allowlist = JSON.parse((await secret(join(dataDir, names.allowlist))).toString("utf8"));
     if (!marker || typeof marker !== "object" || Object.keys(marker).length !== 2 || marker.version !== "2" || marker.profile !== "responses-v1" || !allowlist || typeof allowlist !== "object" || Object.keys(allowlist).length !== 2 || allowlist.version !== "2" || !Array.isArray(allowlist.digests)) throw unavailable();

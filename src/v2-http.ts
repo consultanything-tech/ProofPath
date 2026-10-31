@@ -6,7 +6,13 @@ import type { GroundingBundle, ReviewDecision, SuiteRun, V2Context } from "./v2-
 import { V2Store } from "./v2-store.js";
 import { ProposalBudgetError, type ReviewerPrincipal } from "./v2-proposal-budget.js";
 
-export type V2ProposalService = { readonly requiresAuthentication?: boolean; authenticate(header: string | undefined): Promise<ReviewerPrincipal>; authorize(header: string | undefined): Promise<ReviewerPrincipal>; propose(context: V2Context, principal: ReviewerPrincipal): Promise<{ proposal: import("./v2-contracts.js").ProposalResult; reservationId: string; provenance: readonly string[] }> };
+export type V2LiveMetadata = Readonly<{
+  provider: "meta-model-api" | "baseten";
+  model: string;
+  protocol: "responses";
+  schemaEnforcement: "provider-and-local" | "local";
+}>;
+export type V2ProposalService = { readonly publicMetadata?: V2LiveMetadata; readonly requiresAuthentication?: boolean; authenticate(header: string | undefined): Promise<ReviewerPrincipal>; authorize(header: string | undefined): Promise<ReviewerPrincipal>; propose(context: V2Context, principal: ReviewerPrincipal): Promise<{ proposal: import("./v2-contracts.js").ProposalResult; reservationId: string; provenance: readonly string[] }> };
 export type V2HttpContext = { readonly origin: string; readonly store: V2Store; readonly runtime: { start(approvalId: string): Promise<{ runId: string }>; read(runId: string): Promise<SuiteRun> }; readonly v2: V2Context; readonly inspect?: (context: V2Context) => Promise<GroundingBundle>; readonly propose?: (context: V2Context) => Promise<import("./v2-contracts.js").ProposalResult>; readonly proposalService?: V2ProposalService; readonly proposalProvenance?: readonly string[] };
 class HttpError extends Error { constructor(readonly status: number, message: string) { super(message); } }
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -20,7 +26,14 @@ export async function handleV2Request(req: IncomingMessage, res: ServerResponse,
     if (req.headers.host !== new URL(context.origin).host) throw new HttpError(400, "Exact local Host header required.");
     if (url.origin !== context.origin) throw new HttpError(400, "Local request URL required.");
     if (context.proposalService?.requiresAuthentication && url.pathname !== "/api/v2/config") await context.proposalService.authenticate(req.headers.authorization);
-    if (req.method === "GET" && url.pathname === "/api/v2/config") return reply(res, 200, { mode: context.proposalService?.requiresAuthentication ? "controlled-meta" : "fixture", proposalLimit: context.proposalService?.requiresAuthentication ? { perCode: 3, total: 50, reservationUsd: "0.05" } : null });
+    if (req.method === "GET" && url.pathname === "/api/v2/config") {
+      const protectedAccess = Boolean(context.proposalService?.requiresAuthentication);
+      const planner = protectedAccess ? context.proposalService?.publicMetadata ?? {
+        provider: "meta-model-api", model: "muse-spark-1.3", protocol: "responses", schemaEnforcement: "provider-and-local"
+      } : null;
+      return reply(res, 200, { mode: protectedAccess ? "controlled-live" : "fixture", authenticationRequired: protectedAccess,
+        planner, proposalLimit: protectedAccess ? { perCode: 3, total: 50, reservationUsd: "0.05", totalUsd: "2.50" } : null });
+    }
     if (req.method === "GET" && url.pathname === "/api/v2/groundings") return reply(res, 200, (await grounded(context, context.v2)).grounding);
     if (req.method === "POST" && url.pathname === "/api/v2/proposals") {
       const body = await mutation(req, context.origin);

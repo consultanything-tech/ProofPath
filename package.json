@@ -11,8 +11,11 @@
     "test:safety": "pnpm build && node --test dist/tests/safety.integration.js",
     "test:ui": "pnpm build && node --test dist/tests/ui.integration.js",
     "test:v2": "pnpm build && node --test dist/tests/v2-*.test.js",
-    "test:v2:browser": "pnpm build && node --test --test-concurrency=1 dist/tests/v2-browser.integration.js dist/tests/v2-ui.integration.js dist/tests/v2-controlled.integration.js",
-    "typecheck": "tsc --noEmit"
+    "test:v2:browser": "pnpm build && node --test --test-concurrency=1 dist/tests/v2-browser.integration.js dist/tests/v2-ui.integration.js dist/tests/v2-controlled.integration.js dist/tests/v2-baseten-controlled.integration.js",
+    "typecheck": "tsc --noEmit",
+    "operator:v2:init-shared": "pnpm build && node dist/src/v2-operator-v3.js init",
+    "operator:v2:migrate-shared": "pnpm build && node dist/src/v2-operator-v3.js migrate",
+    "baseten:preflight": "pnpm build && node --env-file-if-exists=.env dist/src/v2-baseten-preflight.js"
   },
   "dependencies": {
     "playwright": "^1.57.0"

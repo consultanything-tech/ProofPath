@@ -12,7 +12,7 @@ rerun on October 31. See the [canary record](docs/evaluations/v2-live-canary.md)
 and [admission basis](docs/evaluations/v2-responses-admission-basis.md).
 The frozen holdout, independent review and managed-host deployment remain open.
 
-Controlled Meta mode enforces 3 proposals per allowlisted reviewer code,
+Controlled live mode enforces 3 proposals per allowlisted reviewer code,
 50 globally, and US$0.05 reserved per proposal including retries (US$2.50 total).
 Signed durable state retains reservations after failure and restart. This is a
 local admission control, not account-wide billing reconciliation or proof of a
@@ -87,6 +87,20 @@ no approvable plan, and provider errors never substitute a fixture.
 The v1 direct adapter has no proposal-budget ledger; use the controlled v2
 bootstrap below for budgeted Meta work. It disables v1 mutation/model routes.
 
+The legacy `PLANNER_MODE=baseten` V1 scaffold remains disabled before transport.
+The implemented V2 Baseten backend uses the awarded
+`meta-models/muse-spark-open-1026` Responses profile with one generation attempt,
+4,096 output tokens and mandatory local schema/semantic validation. Baseten's
+Muse model accepts schema guidance without enforcing it. V2 Meta and Baseten
+share one signed aggregate budget after explicit migration; switching providers
+cannot replenish quotas. The earlier US$5 independent-canary proposal was never
+approved and is superseded by the existing US$0.05/proposal policy.
+
+Baseten product wiring and mocked browser tests are complete locally. Actual
+grant-key metadata, exact input counting and model generation remain unverified;
+no real Baseten request or operator migration has occurred. See the
+[integration readiness record](docs/evaluations/v2-baseten-integration-readiness.md).
+
 ### Controlled local v2 Meta mode
 
 Configure `MODEL_API_KEY` only in ignored `.env`. Explicit initialization creates
@@ -117,14 +131,73 @@ reset. This loopback-only bootstrap does not authorize public hosting or more
 live requests. The canary used one proposal; 2 remain for that code and 49
 globally, with US$0.05 permanently reserved.
 
+### Controlled local v2 Baseten readiness
+
+Preserve the existing `.env`; do not copy the example over it. Open it locally
+with `open -e .env`, add `BASETEN_API_KEY=your_key`, retain `MODEL_API_KEY`, and
+restrict its permissions with `chmod 600 .env`. Never put keys in chat, commands,
+screenshots or Git. `.env` is ignored. This integration does not retrieve a
+one-time credential link, configure billing or change account budgets.
+
+Run the non-generating compatibility check:
+
+```sh
+pnpm baseten:preflight
+```
+
+It reads metadata for the exact model and probes input counting for one fixed
+synthetic requirement. It never generates, opens/migrates an operator ledger,
+or consumes a proposal reservation. `ready: true` establishes metadata/count
+compatibility only; the result explicitly reports `modelGenerationVerified:
+false`. The candidate `/v1/responses/input_tokens` endpoint is not established
+by the public Responses documentation and may be unsupported. Failure stops
+this integration before generation. Do not substitute a byte estimate or
+silently expand the reservation.
+
+Only after successful preflight and review of the retained operator state,
+cleanly stop the existing controlled server and verify that no job/owner is
+active. Never delete a crash-left lock. The explicit migration command is:
+
+```sh
+V2_OPERATOR_DIR=runs/v2-live/operator pnpm operator:v2:migrate-shared
+```
+
+It preserves the original reviewer code, signed Meta source and consumed quota,
+then publishes a verified shared v3 state and retires the legacy writer. Verify
+one imported reservation, US$0.05 retained, 2 proposals left for the original
+code and 49 globally before any new request. New private reviewer material is
+under `runs/v2-live/operator/v3/`; do not print it. Migration recovery validates
+published state rather than reimporting or resetting. Partial unpublished
+staging directories are retained for operator investigation. A failed/blocked
+source cannot be migrated to clear its latch. Never run either initialization
+command on this existing setup or choose a fresh directory to obtain more quota.
+
+Once readiness, migration and the concrete live-call authorization are settled:
+
+```sh
+V2_PLANNER_MODE=baseten PLANNER_MODE=fixture \
+  DATA_DIR=runs/v2-live/data V2_OPERATOR_DIR=runs/v2-live/operator \
+  PORT=3010 pnpm dev
+```
+
+Startup reads model metadata but never generates. Each authenticated proposal
+counts the exact immutable body before reserving US$0.05 and making one request.
+The UI identifies Baseten-hosted Meta, retains the explicit review/approval
+boundary, and protects historical report/download access after proposal
+exhaustion. Selecting `V2_PLANNER_MODE=meta` later uses the same v3 aggregate;
+there is no client provider selector or fallback to another provider. Baseten
+has one attempt and no retry; the existing Meta profile still permits two attempts.
+Successful local setup is not proof of a live model response or deployment.
+
 ## V1 implementation and evidence
 
 The stack is Node.js, TypeScript, pnpm, Playwright and a thin local server. Fixture mode creates canned plans and explicitly says it does not interpret text or call Meta. Meta mode uses a direct Model API adapter with strict schema validation and no fallback; live-generated add-to-cart and saved quantity plans have controlled local browser evidence. UI labels and immutable approval/report provenance identify the selected mode.
 
-The v2 workbench retains explicit fixture and controlled Meta modes; v1 evidence
-is separate. Its agent-drafted [frozen holdout](docs/evaluations/v2-frozen-requirements.json)
+The v2 workbench has fixture and controlled Meta/Baseten backends. Baseten is
+mock-verified locally; its live model compatibility remains unverified. V1
+evidence is separate. Its agent-drafted [frozen holdout](docs/evaluations/v2-frozen-requirements.json)
 awaits owner annotation review; annotations stay outside product planner
-requests. Strict structured output was accepted by the provider in the one
+requests. Strict structured output was accepted by direct Meta in the one
 recorded v2 live canary. No frozen-holdout reliability claim is made.
 
 The server hashes the requirement, scenario revision, target registry, planner provenance and validated plan into a one-use ten-minute approval. A fresh browser context permits only the synthetic shop and its two assets. Runs are serialized, bounded and reported as completed, blocked, timed-out or failed. The seeded quantity revision observes 3900 cents for quantity 2 and fails; the fixed revision observes 7800 and passes. Blank checkout requires both visible errors and an active checkout state. Reports retain approval snapshots, replay, URL/time, screenshots and hashes. Missing evidence cannot produce PASS, and a known failure survives interrupted execution.

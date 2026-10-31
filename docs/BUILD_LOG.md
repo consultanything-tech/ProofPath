@@ -2,6 +2,35 @@
 
 Every later product claim should point to a commit or a preserved run artifact. This log records preparation separately from functional work.
 
+## Baseten V2 controlled integration — October 31, 2026
+
+After Pankaj confirmed the account/credits and requested completion, implemented
+the startup-selected Responses adapter, safe metadata/count preflight, mandatory
+local schema/semantic validation, provider provenance in review and saved reports,
+and a signed v3 aggregate budget shared with Meta. Baseten permits one attempt,
+4,096 output tokens and US$0.05 retained per proposal. Existing 3/code,
+50-global and US$2.50 limits are unchanged. Migration preserves consumed Meta
+quota and publishes a verified staged state/receipt before retiring the old
+writer. Tests exercise all seven migration fault phases and real disk failures;
+they do not simulate actual power loss.
+
+Delegated implementation and parent hardening were followed by read-only review.
+The review found stale operator documentation, now reconciled in README and
+`.env.example`; the six other-chat V1 code/test files remain byte-identical.
+Direct Meta request serialization matches both recorded reference hashes.
+Build/typecheck passed, focused boundaries 26/26, full unit 121/121, and final V2
+mocked browser regressions 11/11. Earlier safety/V1/V2 checks passed 22/22;
+the final V2 rerun includes the Baseten protected UI. No dependency was added.
+
+The presence-only key check and local preflight report missing `BASETEN_API_KEY`.
+No real Baseten network call, generation, spend, ledger migration or existing
+server shutdown occurred. The candidate count endpoint is not documented by
+the reviewed public Responses reference and may be unavailable. Successful
+metadata/count preflight would still not prove generation. Frozen annotations,
+grant expiry/overage details, live compatibility and deployment remain open.
+See the [readiness record](evaluations/v2-baseten-integration-readiness.md) and
+[machine evidence](evaluations/v2-baseten-integration-readiness.json).
+
 ## Baseten V2 offline qualification — October 31, 2026
 
 Pankaj accepted the coordinated plan and authorized its offline qualification

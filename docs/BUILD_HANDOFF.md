@@ -6,16 +6,21 @@ fallback and `d6b345b` as the mock-budget checkpoint. The [v2 design](superpower
 and [implementation plan](superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
 remain the product contract.
 
-**Baseten offline continuation, October 31:** the coordinated plan is accepted
-for its offline qualification slice. A provisional V2 request/parser, local
-schema enforcement and signed single-attempt synthetic ledger/harness are
-implemented and validated. There is no Baseten transport or product wiring;
-model access, grant terms and a live spending authorization remain open. The
-other chat's V1 scaffold is preserved separately. See the
-[offline readiness record](evaluations/v2-baseten-offline-readiness.md) and
-[Baseten plan](superpowers/plans/2026-10-31-proofpath-baseten-integration.md).
+**Baseten integration continuation, October 31:** the user confirmed account and
+credit readiness and requested completion. V2 transport, local schema/semantic
+enforcement, provider-aware workbench and signed shared-v3 accounting are now
+implemented. Unit checks passed 121/121 and the final V2 browser regression
+passed 11/11 with mocked providers. The local key is still absent, so actual
+metadata/count compatibility and generation remain unverified. No real operator
+migration or Baseten call occurred. Run the non-generating `pnpm baseten:preflight`
+after local key setup; unsupported exact counting stops before generation.
+Preserve the original Meta reservation and owner lock. The shared migration is
+explicit, preserves quotas, and must follow clean shutdown and readiness review.
+No US$5 budget was approved. See the [current readiness record](evaluations/v2-baseten-integration-readiness.md)
+and [Baseten plan](superpowers/plans/2026-10-31-proofpath-baseten-integration.md).
+The [offline record](evaluations/v2-baseten-offline-readiness.md) remains historical.
 
-**Completed continuation:** the user-authorized restricted Responses admission,
+**Completed direct-Meta continuation:** the user-authorized restricted Responses admission,
 private local operator bootstrap and one live canary are verified. The exact
 counted/generated body uses `muse-spark-1.3`, at most 6,073 rendered input tokens,
 4,096 output tokens and two generation attempts. A fresh signed version-2 ledger
@@ -142,7 +147,7 @@ results. The October 31 continuation above supersedes the earlier next-step
 status: hosting path and proposal limits are selected and
 locally enforced; actual managed deployment and hosted review remain open.
 
-Basic live API access is verified. The prior Billing check showed $150 free
+Basic direct-Meta live API access is verified. The prior Meta Billing check showed $150 free
 credits and no payment method; current card/balance state was not reinspected. Never paste keys in chat; configure
 locally in an ignored environment file. No billing changes are authorized here.
 The submission requires a public GitHub repository and a three-minute narrated
@@ -152,7 +157,7 @@ judging factor: explain the project, show the live product, and demonstrate its
 behavior. Review the submission form early. The owner selected managed-container
 hosting with persistent storage and 3 proposals/code, 50 total, US$0.05/proposal and US$2.50 total. Hosting charges,
 provider-specific operations and a public deployment still require concrete
-review; the one authorized local canary is complete.
+review; the one authorized direct-Meta local canary is complete.
 The optional Most Viral bonus prize requires an X post and its URL in the
 submission; it is not a core product requirement.
 
