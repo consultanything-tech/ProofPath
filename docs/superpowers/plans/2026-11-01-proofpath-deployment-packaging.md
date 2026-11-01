@@ -1,5 +1,11 @@
 # Deployment packaging and hardening — November 1, 2026
 
+Completed November 2: source/local checks passed and the [private Linux CI](https://github.com/consultanything-tech/ProofPath/actions/runs/41362173488)
+passed build, non-root startup, real Chromium checkout interaction, isolation
+and restart state preservation for code commit `755ec1e`. See the
+[deployment runbook](../../DEPLOYMENT.md) and [machine record](../../evaluations/deployment-packaging-2026-11-02.json).
+No paid host or actual live-model deployment was created.
+
 The user approved the next deployment-packaging step after the readiness review.
 This implements a portable container and guarded hosted topology for the
 existing direct-Meta V2 product. It does not authorize paid hosting provisioning,

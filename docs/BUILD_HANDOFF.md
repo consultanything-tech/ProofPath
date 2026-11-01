@@ -8,7 +8,10 @@ The container pins Node 26/pnpm 11.8.0 and installs Chromium through locked
 Playwright 1.64.1, running as UID 1000. The local suite passed 133 unit checks,
 an additional state-failure check, the existing 22 safety/UI browser checks,
 and two hosted-browser journeys including authenticated execution and restart.
-Container image verification is the next CI gate; no local Docker exists.
+The [private Linux CI job](https://github.com/consultanything-tech/ProofPath/actions/runs/41362173488)
+passed for code commit `755ec1e`: image build, non-root fixture startup, actual
+Chromium inspection/checkout, listener isolation and state hash/health after
+restart. No local Docker was required. See [machine evidence](evaluations/deployment-packaging-2026-11-02.json).
 No paid host, live model call, new operator, quota reset or public visibility
 change occurred in this slice. See the [runbook](DEPLOYMENT.md) and
 [bounded plan](superpowers/plans/2026-11-01-proofpath-deployment-packaging.md).

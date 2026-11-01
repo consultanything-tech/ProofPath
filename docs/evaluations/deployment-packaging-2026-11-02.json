@@ -35,17 +35,68 @@
       "Corrupt JSON assertion now checks SyntaxError rather than brittle message text."
     ],
     "browserLogQualification": "The initial combined 23-test browser log has one hosted-test cancellation, with its underlying price assertion subsequently fixed. Current hosted passes are in the focused logs; existing 22 checks were not repeated.",
-    "primaryReview": "Reviewed topology, CSP, shutdown timers, persistent data profiles and exact origin handling; not an independent production security audit."
+    "primaryReview": "Reviewed topology, CSP, shutdown timers, persistent data profiles and exact origin handling; not an independent production security audit.",
+    "metaRequestEquivalence": {
+      "passed": true,
+      "contextSha256": "3fbb04798e658a3158732221b42a34592529b112812c0123dfc6bf67916ef238",
+      "chatRequestSha256": "c12ef6dbf69d956c361c23512d1dc2075d08ec236c7501f9f3ae76a588740672",
+      "responsesRequestSha256": "3ae1c882eee5735a52aa6b10a1303f50ea94e973e89d6d0f5f981a41f29e1035"
+    }
   },
   "containerVerification": {
-    "status": "pending-private-validation-branch",
+    "status": "PASS",
     "localDockerAvailable": false,
     "plannedArchitecture": "Linux amd64",
     "nodeMajor": 26,
     "pnpm": "11.8.0",
     "lockedPlaywright": "1.64.1",
     "runtimeUid": 1000,
-    "ci": "Isolated fixture mode, disposable bind mount, network none, no provider keys, no image publishing/deployment"
+    "ci": "Isolated fixture mode, disposable bind mount, network none, no provider keys, no image publishing/deployment",
+    "codeCommit": "755ec1eb957f6c65c24c23c7d78f2e6f87ffe5c1",
+    "runUrl": "https://github.com/consultanything-tech/ProofPath/actions/runs/41362173488",
+    "runId": 41362173488,
+    "steps": [
+      {
+        "name": "Set up job",
+        "conclusion": "success"
+      },
+      {
+        "name": "Run actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+        "conclusion": "success"
+      },
+      {
+        "name": "Build Linux image",
+        "conclusion": "success"
+      },
+      {
+        "name": "Start isolated fixture service",
+        "conclusion": "success"
+      },
+      {
+        "name": "Inspect browser and listener isolation",
+        "conclusion": "success"
+      },
+      {
+        "name": "Verify state survives restart",
+        "conclusion": "success"
+      },
+      {
+        "name": "Show logs and remove fixture container",
+        "conclusion": "success"
+      },
+      {
+        "name": "Post Run actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+        "conclusion": "success"
+      },
+      {
+        "name": "Complete job",
+        "conclusion": "success"
+      }
+    ],
+    "observedBaseImageDigest": "sha256:bc0a2afd3b74ce12222fc8bab99271e66257f021078f5f4a5d687a77d280c1d9",
+    "observedImageId": "sha256:07707fb5b3da096fb82997f591e8e0d821b2723250caa7ac57de8486b042ab58",
+    "imagePublished": false,
+    "limitation": "Ephemeral CI image; managed host, public TLS and transferred live state remain unverified. Base tag can change on later rebuild; verify that actual deployed image separately."
   },
   "applicationRuntimeChanged": true,
   "newProductionNpmDependencies": 0,
@@ -81,7 +132,10 @@
     "test-results/deployment-packaging/hosted-browser.log": "f30a37c7f928a1d0c6411591441c83be470efdc0bca3592f7cb5d614041e8542",
     "test-results/deployment-packaging/protected-hosted-browser.log": "21d1e1ca684f786fc4944430693674c9df44b44e81bb019ffc58c8e861f90e35",
     "test-results/deployment-packaging/state-failure.log": "dd42867dfaa748a5fdc2cb476e755e3f31b3f0726462b88f1ac783c6f0dc854c",
-    "test-results/deployment-packaging/credential-audit.json": "60e6bb3907eb63dbdaeedc15ed753acb612d250fa93b1dae1de81a2e650781d1"
+    "test-results/deployment-packaging/credential-audit.json": "60e6bb3907eb63dbdaeedc15ed753acb612d250fa93b1dae1de81a2e650781d1",
+    "test-results/deployment-packaging/meta-request-equivalence.json": "7f0e12e771878b7edbc5488936b6082c9fc27df262b201dd0fa2323052013549",
+    "test-results/deployment-packaging/container-ci.json": "f4e0b70c2f031ec078a8e957899a3b6f319f7716892dd947bd15bba84a2ffca8",
+    "test-results/deployment-packaging/container-ci.log": "e91eb658d181e16522496a69e9d149dde8dc8675dfe42b473969a953496d420e"
   },
   "preservedSiblingFiles": [
     "public/app.js",
@@ -96,5 +150,7 @@
     "Secure transfer of existing app/operator state without lock deletion or budget reset.",
     "Managed-host HTTPS/health/restart verification and independently authorized hosted live UI smoke.",
     "Final evaluation, independent reviewer walkthrough, public repository/video/submission assets."
-  ]
+  ],
+  "privateValidationBranch": "codex/deployment-validation-2026-11-02",
+  "mainBranchChanged": false
 }

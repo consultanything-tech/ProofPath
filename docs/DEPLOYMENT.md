@@ -88,6 +88,13 @@ are durable.
 
 ## Container validation
 
+Verified November 2: [private Linux CI](https://github.com/consultanything-tech/ProofPath/actions/runs/41362173488)
+passed image build, Chromium interaction, listener isolation and persistent
+state/health after restart for code commit `755ec1e`. This is container evidence,
+separate from public HTTPS or actual managed-host state transfer. Detailed
+[machine evidence](evaluations/deployment-packaging-2026-11-02.json) records the
+observed image/base identifiers; the ephemeral image was not published.
+
 The Dockerfile uses Node 26, pnpm 11.8.0 and the lockfile's Playwright/Chromium
 1.64.1. Linux browser dependencies are installed inside the image; local macOS
 dependencies and browser caches are excluded. The build context is allowlisted

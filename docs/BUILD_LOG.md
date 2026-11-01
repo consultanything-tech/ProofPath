@@ -38,7 +38,18 @@ the selected files or 226 unpublished-history blobs. This is not comprehensive
 publication clearance. No real model call, actual operator migration, billing
 change, public repository visibility or paid hosting action occurred. The
 [deployment runbook](DEPLOYMENT.md) records persistent-state cutover and the
-remaining managed-host gates. CI image verification is pending this checkpoint.
+remaining managed-host gates.
+
+The reviewed source was pushed to a dedicated private validation branch without
+changing main or visibility. [Linux CI run 41362173488](https://github.com/consultanything-tech/ProofPath/actions/runs/41362173488)
+passed for commit `755ec1eb957f6c65c24c23c7d78f2e6f87ffe5c1`: image build,
+non-root startup with a disposable bind mount and no network, production
+Chromium inspection and actual checkout interaction, listener isolation, and
+identical durable-state hash/health after restart. The image was not published
+and no service was deployed. Direct-Meta request hashes also match the recorded
+reference bytes. See [machine evidence](evaluations/deployment-packaging-2026-11-02.json)
+for source/log hashes, image identifiers, initial-test qualifications and remaining
+hosted gates.
 
 ## Baseten email Chat Completions smoke — November 1, 2026
 
