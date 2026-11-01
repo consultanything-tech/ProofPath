@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "dateSgt": "2026-11-01",
+  "scope": "Non-generating hackathon-key readiness checks",
+  "credential": {
+    "configured": true,
+    "gitIgnored": true,
+    "fileMode": "600",
+    "source": "User confirmed hackathon-issued; key never printed or retrieved"
+  },
+  "model": "meta-models/muse-spark-open-1026",
+  "observations": {
+    "managementModelMetadata": {
+      "endpoint": "https://api.baseten.co/v1/model_apis/meta-models%2Fmuse-spark-open-1026",
+      "status": 403,
+      "permissionRejection": true,
+      "invalidCredentialNotEstablished": true
+    },
+    "inferenceCatalog": {
+      "endpoint": "https://inference.baseten.co/v1/models",
+      "status": 200,
+      "exactModelListed": true,
+      "contextLength": 1048576,
+      "pricingUsdPerToken": {
+        "prompt": "0.00000125",
+        "completion": "0.00000425",
+        "inputCacheRead": "0.00000015",
+        "request": "0"
+      }
+    },
+    "candidateResponsesInputCount": {
+      "endpoint": "https://inference.baseten.co/v1/responses/input_tokens",
+      "status": 404,
+      "countVerified": false
+    }
+  },
+  "generationRequests": 0,
+  "actualOperatorMigrationPerformed": false,
+  "reviewerLimitsChanged": false,
+  "liveReady": false,
+  "blocker": "No supported exact input count established for the rendered grant-model request under the approved US$0.05 proposal reservation.",
+  "grantEmailEvidence": {
+    "source": "User supplied award email in this chat on November 1",
+    "apiBase": "https://inference.baseten.co/v1",
+    "exampleProtocol": "chat-completions",
+    "exactModelRequired": true,
+    "advertisedCreditsUsd": 100,
+    "advertisedTokensPerMinute": 2000000,
+    "oneTimeCredentialLinkNotOpened": true
+  },
+  "publicDocumentation": {
+    "responsesSpecPaths": [
+      "/v1/responses"
+    ],
+    "sources": [
+      "https://docs.baseten.co/reference/management-api/model-apis/gets-a-model-api-by-name.md",
+      "https://docs.baseten.co/inference/model-apis/overview.md",
+      "https://docs.baseten.co/reference/inference-api/responses-openapi-spec.json",
+      "https://docs.baseten.co/reference/inference-api/chat-completions.md",
+      "https://docs.baseten.co/inference/model-apis/reasoning.md"
+    ]
+  },
+  "limitations": [
+    "Catalog access confirms metadata access, not generation permission or successful model output.",
+    "Catalog context length is not proof of the exact enforced endpoint ceiling; docs warn limits may differ.",
+    "Public schema/Responses compatibility does not establish hackathon Responses support.",
+    "No truncation, byte heuristic, unverified tokenizer, higher budget, billing change, fallback model, new key or repeated credential redemption used."
+  ],
+  "updatedCatalogOnlyPreflight": {
+    "ready": false,
+    "reason": "exact-input-count-unavailable",
+    "catalogProfileVerified": true,
+    "exactInputAdmissionVerified": false,
+    "model": "meta-models/muse-spark-open-1026",
+    "candidateProtocol": "chat-completions",
+    "catalogDigest": "sha256:5afe5628efddcc7643b1158a64324bad6931768385bd7c453f4884d580c079ed",
+    "contextLength": 1048576,
+    "promptNanousdPerToken": 1250,
+    "completionNanousdPerToken": 4250,
+    "cacheReadNanousdPerToken": 150,
+    "requestNanousd": 0,
+    "generationRequests": 0,
+    "modelGenerationVerified": false
+  },
+  "verification": {
+    "typecheck": "PASS",
+    "build": "PASS",
+    "focusedTests": {
+      "pass": 12,
+      "fail": 0
+    },
+    "primaryReview": "Catalog/preflight source inspected; configured-key GET-only CLI verified non-ready, no generation authority",
+    "broaderSuites": "Not repeated: product runtime/ledger/browser unchanged",
+    "expectedCliExitCode": 2
+  },
+  "sourceHashes": {
+    "src/v2-baseten-catalog.ts": "b548a5a17981ba4ae18f07ec76304f43c60a22f1aa555f925e494eaaea0e1a19",
+    "src/v2-baseten-preflight.ts": "332555a5b5b4b3d4f7ea516a467eab29260b88bace7a58925e430255b7cfe52d",
+    "tests/v2-baseten-preflight.test.ts": "5021fcd0c122ab36d757c2e8b6a1aecfd8e5b56744ea073ad00c995a10ac955c"
+  },
+  "logHashes": {
+    "test-results/baseten-live/grant-preflight-2026-11-01.json": "ec3ea8df01777ea5e56c4dad674e60265477690d6038cde4b23115cef9bee2fe"
+  }
+}

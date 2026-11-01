@@ -98,7 +98,11 @@ approved and is superseded by the existing US$0.05/proposal policy.
 
 Baseten product wiring and mocked browser tests are complete locally. Actual
 grant-key metadata, exact input counting and model generation remain unverified;
-no real Baseten request or operator migration has occurred. See the
+no real Baseten request or operator migration had occurred at the October 31
+checkpoint. On November 1 the configured hackathon key successfully read the
+inference catalog, but management metadata returned 403 and the candidate
+Responses input-count endpoint returned 404. No model generation or migration
+has occurred. Live enablement remains blocked on a documented input bound. See the
 [integration readiness record](docs/evaluations/v2-baseten-integration-readiness.md).
 
 ### Controlled local v2 Meta mode
@@ -145,16 +149,22 @@ Run the non-generating compatibility check:
 pnpm baseten:preflight
 ```
 
-It reads metadata for the exact model and probes input counting for one fixed
-synthetic requirement. It never generates, opens/migrates an operator ledger,
-or consumes a proposal reservation. `ready: true` establishes metadata/count
-compatibility only; the result explicitly reports `modelGenerationVerified:
-false`. The candidate `/v1/responses/input_tokens` endpoint is not established
-by the public Responses documentation and may be unsupported. Failure stops
-this integration before generation. Do not substitute a byte estimate or
-silently expand the reservation.
+It now makes one documented inference-catalog GET, validating the exact suffixed
+model, context and prices. It never generates, probes a counter, opens/migrates
+an operator ledger or consumes a proposal reservation. A valid catalog produces
+`catalogProfileVerified: true` but keeps `ready: false`,
+`exactInputAdmissionVerified: false` and `modelGenerationVerified: false`, with
+reason `exact-input-count-unavailable` and exit status 2. This is partial
+readiness, not a verified generation admission. November 1 diagnostics found
+management metadata forbidden (403) and the provisional Responses counter
+absent (404); see the [dated evidence](docs/evaluations/v2-baseten-grant-preflight-2026-11-01.json).
+Do not substitute a byte estimate, silently truncate the reviewed prompt or
+expand the reservation. The [coordination plan](docs/superpowers/plans/2026-10-31-proofpath-baseten-integration.md)
+contains the precise provider clarification needed.
 
-Only after successful preflight and review of the retained operator state,
+The operational steps below remain deferred until a documented input-admission
+mechanism is implemented and verified. Only after that readiness gate and
+review of the retained operator state,
 cleanly stop the existing controlled server and verify that no job/owner is
 active. Never delete a crash-left lock. The explicit migration command is:
 

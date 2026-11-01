@@ -1,5 +1,19 @@
 # Baseten V2 integration readiness — October 31, 2026 (SGT)
 
+November 1 follow-up: the hackathon key is now configured. Inference catalog
+access succeeded and listed the exact model/pricing; management metadata was
+rejected (403), and the candidate Responses count endpoint was absent (404).
+The updated diagnostic CLI makes one inference-catalog GET and remains
+non-ready; it does not produce generation authority. No generation or actual
+migration occurred. The snapshot below describes
+October 31; use the [dated follow-up](v2-baseten-grant-preflight-2026-11-01.json)
+for current credential/readiness evidence.
+
+The diagnostic follow-up passed build/typecheck and 12/12 focused checks. Its
+real GET-only run verified catalog model/prices and exited 2 with
+`exact-input-count-unavailable`; it created no generation admission. Existing
+product/bootstrap/ledger/browser code was unchanged.
+
 The V2 backend and controlled workbench are implemented and verified with
 mocked providers. **Live Baseten compatibility remains unverified.** Pankaj
 confirmed account/credit readiness; ProofPath's ignored `.env` still has no

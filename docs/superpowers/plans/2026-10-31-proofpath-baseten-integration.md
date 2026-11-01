@@ -1,5 +1,29 @@
 # Baseten integration coordination plan — October 31, 2026 (SGT)
 
+November 1 update: the hackathon-issued key is configured. The inference catalog
+returns the exact model and expected token prices (HTTP 200); management
+metadata is forbidden (403), and the candidate Responses count route is absent
+(404). No generation or actual migration occurred. The next step is a
+source-backed grant-compatible admission design, starting from the award's
+Chat Completions example. Replacing management metadata with the inference
+catalog alone does not solve the missing input bound. Current reviewer limits
+remain unchanged. See [dated evidence](../../evaluations/v2-baseten-grant-preflight-2026-11-01.json).
+
+The immediate implementation is a GET-only inference-catalog diagnostic,
+strictly separate from generation admission. It must report partial readiness
+and exit non-ready, with no counter POST, ledger access or model generation.
+The existing provisional Responses product path remains unqualified; this
+diagnostic is not a Chat Completions adapter or a migration authorization.
+
+Provider clarification to request if no documented alternative is established:
+“For the hackathon key restricted to `meta-models/muse-spark-open-1026`, is
+there a supported endpoint or exact tokenizer/chat-template revision that
+counts the complete rendered Chat Completions prompt before generation?
+Alternatively, is there an endpoint-enforced input-token limit that rejects
+oversized input without truncating it, and what billing/output limits apply?”
+No message has been sent. `truncate_prompt_tokens` alters the reviewed source
+and does not satisfy the current exact-input policy.
+
 Current status, October 31: Pankaj subsequently confirmed account/credit readiness
 and requested completion of integration. V2 transport, controlled UI and signed
 shared-v3 accounting are implemented and tested with mocks. Local credential

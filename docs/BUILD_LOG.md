@@ -2,6 +2,36 @@
 
 Every later product claim should point to a commit or a preserved run artifact. This log records preparation separately from functional work.
 
+## Baseten hackathon-key preflight — November 1, 2026
+
+Pankaj configured the ignored local key and confirmed it came from the hackathon
+email. Presence was checked without printing it; `.env` remains mode 600.
+The existing non-generating preflight stopped at model-metadata-unverified.
+Sanitized diagnostics narrowed this to management metadata HTTP 403 rather
+than establishing an invalid key. The documented inference-side `/v1/models`
+catalog succeeded with HTTP 200, listing the exact
+`meta-models/muse-spark-open-1026` alias, context length 1,048,576, and rates of
+US$1.25/M input and US$4.25/M output. The candidate
+`/v1/responses/input_tokens` returned HTTP 404. Catalog context alone is not a
+verified endpoint-enforced bound; the official overview warns they can differ.
+
+The user-supplied award email documents Chat Completions and the exact model
+restriction. Its one-time credential link was not opened. No model generation,
+actual migration, new reservation, billing/dependency/application-code change
+or public deployment occurred. Existing Meta ownership and quotas are untouched.
+The remaining compatibility/cost-bound issue requires a source-backed adaptation,
+not a new workspace key or silent budget expansion. See the
+[sanitized dated evidence](evaluations/v2-baseten-grant-preflight-2026-11-01.json).
+The follow-up diagnostic slice adds a bounded, sanitized inference-catalog
+reader and changes `baseten:preflight` to one documented GET only. It requires
+exact alias selection and safe per-token pricing but cannot construct live
+admission authority. The real configured-key run verified the catalog and
+returned `ready: false`, `exact-input-count-unavailable`, exit 2 and zero
+generation requests. Delegated typecheck/build and focused catalog/preflight/
+adapter checks passed 12/12; primary review checked the code and real GET-only
+CLI result. Product bootstrap, generation adapter, ledger and browser code were
+unchanged, so their previously passing broad suites were not repeated.
+
 ## Baseten V2 controlled integration — October 31, 2026
 
 After Pankaj confirmed the account/credits and requested completion, implemented

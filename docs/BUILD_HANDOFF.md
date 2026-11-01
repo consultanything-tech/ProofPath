@@ -6,12 +6,26 @@ fallback and `d6b345b` as the mock-budget checkpoint. The [v2 design](superpower
 and [implementation plan](superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
 remain the product contract.
 
+**Baseten credential check, November 1:** the hackathon-issued key is configured,
+ignored and restricted to mode 600. Inference catalog access succeeded (HTTP
+200) and listed the exact hackathon model and expected prices. The management
+metadata endpoint returned 403; the candidate Responses input-count endpoint
+returned 404. The current preflight therefore cannot qualify the adapter's
+US$0.05 admission. No generation or actual accounting migration occurred.
+The diagnostic CLI now uses the inference catalog only and explicitly reports
+partial readiness with exit 2; it does not produce a generation admission.
+The award email documents Chat Completions with the exact suffixed model;
+it does not establish grant-specific Responses compatibility. Resolve a
+documented input bound before enabling live Baseten. See the
+[dated evidence](evaluations/v2-baseten-grant-preflight-2026-11-01.json).
+
 **Baseten integration continuation, October 31:** the user confirmed account and
 credit readiness and requested completion. V2 transport, local schema/semantic
 enforcement, provider-aware workbench and signed shared-v3 accounting are now
 implemented. Unit checks passed 121/121 and the final V2 browser regression
-passed 11/11 with mocked providers. The local key is still absent, so actual
-metadata/count compatibility and generation remain unverified. No real operator
+passed 11/11 with mocked providers. The local key was absent, so actual
+metadata/count compatibility and generation remained unverified at that
+checkpoint. No real operator
 migration or Baseten call occurred. Run the non-generating `pnpm baseten:preflight`
 after local key setup; unsupported exact counting stops before generation.
 Preserve the original Meta reservation and owner lock. The shared migration is
