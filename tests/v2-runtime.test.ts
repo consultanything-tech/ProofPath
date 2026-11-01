@@ -180,7 +180,10 @@ test("runtime admits exactly one durable job before asynchronous execution and k
     assert.equal((await store.readJob(started.runId)).status, "running");
     await assert.rejects(runtime.start(second.id), /already in progress/i);
     assert.equal((await store.consumeApproval(second.id)).digest, suite.digest);
+    assert.equal(await runtime.drain(1), false);
     release?.();
+    assert.equal(await runtime.drain(1_000), true);
+    await assert.rejects(runtime.start(second.id), /shutting down/i);
 
     const limited = new V2Store(join(root, "limit"));
     await limited.testOnlySetExecutionCount(50);

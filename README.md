@@ -66,6 +66,11 @@ TestForgeAI is prior experience, not this project’s implementation. This base 
 
 ## Run locally
 
+Container deployment uses separate public and loopback-fixture listeners, strict
+origin checks and existing persistent reviewer state. See the
+[deployment runbook](docs/DEPLOYMENT.md) for configuration, validation and cutover
+requirements. Paid provisioning and public HTTPS verification remain separate.
+
 Use Node 26 and pnpm:
 
 ```sh

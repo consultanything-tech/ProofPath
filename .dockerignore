@@ -1,0 +1,30 @@
+# Deny all by default: the Dockerfile explicitly permits only its build inputs.
+*
+!package.json
+!pnpm-lock.yaml
+!tsconfig.json
+!src/
+!src/**
+!tests/
+!tests/**
+!public/
+!public/**
+!scripts/
+!scripts/container-healthcheck.mjs
+!Dockerfile
+
+# Defense in depth if a permitted path ever contains a local secret.
+.env
+.env.*
+**/.env
+**/.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+id_*
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+**/id_*

@@ -1,5 +1,18 @@
 # ProofPath build handoff
 
+**Deployment packaging, November 2:** the direct-Meta V2 workbench now has an
+opt-in hosted topology: exact HTTPS ingress configuration, a separate
+loopback-only target listener, existing-state startup validation, isolated
+fixture-validation data, serialized inspection/proposal work and orderly drain.
+The container pins Node 26/pnpm 11.8.0 and installs Chromium through locked
+Playwright 1.64.1, running as UID 1000. The local suite passed 133 unit checks,
+an additional state-failure check, the existing 22 safety/UI browser checks,
+and two hosted-browser journeys including authenticated execution and restart.
+Container image verification is the next CI gate; no local Docker exists.
+No paid host, live model call, new operator, quota reset or public visibility
+change occurred in this slice. See the [runbook](DEPLOYMENT.md) and
+[bounded plan](superpowers/plans/2026-11-01-proofpath-deployment-packaging.md).
+
 **Email-route access smoke, November 1 at approximately 13:52 SGT:** Pankaj
 explicitly requested trying the email example. One actual Chat Completions
 request returned the exact `meta-models/muse-spark-open-1026` identifier and

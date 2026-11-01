@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { constants } from "node:fs";
+import { access, lstat, mkdir, open, readFile, readdir, realpath, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { isAbsolute, join, relative } from "node:path";
 import { calculateCheckout } from "./v2-oracle.js";
 import { deriveCaseInput, digestV2, validateCase } from "./v2-checkout.js";
 import { applyReviewedNumericRuleChanges, compileReviewedSuite } from "./v2-planner.js";
@@ -16,6 +17,8 @@ const clone = <T>(value: T): T => structuredClone(value);
 const approvalDigest = (suite: Omit<DurableSuite, "digest"> | DurableSuite) => digestV2({ definition: suite.definition, expectations: suite.expectations, grounding: suite.grounding, context: suite.context, provenance: suite.provenance });
 const nowIso = (now: () => number) => new Date(now()).toISOString();
 const initial = (): DurableState => ({ version: "2", executionCount: 0, suites: {}, runs: {}, regressions: {} });
+const fixtureMarker = ".proofpath-hosted-fixture";
+const fixtureMarkerValue = "proofpath-hosted-fixture-v1\n";
 
 export class V2Store {
   private readonly proposals = new Map<string, PendingProposal>();
@@ -26,6 +29,79 @@ export class V2Store {
   private writes: Promise<void> = Promise.resolve();
 
   constructor(private readonly dataDir: string, private readonly clock: () => number = Date.now) {}
+
+  /**
+   * Hosted mode may only open an existing, writable V2 data set. Fresh runtime
+   * state is an explicit local/operator action, never an implicit deployment
+   * side effect.
+   */
+  static async openHosted(dataDir: string, options: { readonly fixtureValidation?: boolean } = {}): Promise<V2Store> {
+    if (!isAbsolute(dataDir)) throw new Error("Hosted V2 state requires an absolute DATA_DIR.");
+    let markedFixture = false;
+    try {
+      const marker = join(dataDir, fixtureMarker);
+      const info = await lstat(marker);
+      if (!info.isFile() || info.size !== Buffer.byteLength(fixtureMarkerValue) || await readFile(marker, "utf8") !== fixtureMarkerValue) throw new Error("Invalid validation marker.");
+      markedFixture = true;
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new Error("Hosted data profile is unavailable."); }
+    if (markedFixture !== Boolean(options.fixtureValidation)) throw new Error("Hosted fixture validation and live data profiles must remain separate.");
+    const root = join(dataDir, "runs", "v2");
+    const file = join(root, "state.json");
+    try {
+      const [rootStat, stateStat] = await Promise.all([lstat(root), lstat(file)]);
+      if (!rootStat.isDirectory() || !stateStat.isFile()) throw new Error("Hosted V2 state is unavailable.");
+      const [actualData, actualRoot] = await Promise.all([realpath(dataDir), realpath(root)]);
+      const within = relative(actualData, actualRoot);
+      if (within.startsWith("..") || isAbsolute(within)) throw new Error("Hosted V2 state escapes its volume.");
+      await Promise.all([access(dataDir, constants.R_OK | constants.W_OK), access(root, constants.R_OK | constants.W_OK), access(file, constants.R_OK | constants.W_OK)]);
+    } catch { throw new Error("Hosted V2 state must already exist and be writable."); }
+    await V2Store.writeProbe(dataDir);
+    const store = new V2Store(dataDir);
+    await store.ready();
+    return store;
+  }
+
+  /** Fixture-only hosted startup is explicit and never opens an operator ledger. */
+  static async initializeHostedFixture(dataDir: string): Promise<V2Store> {
+    if (!isAbsolute(dataDir)) throw new Error("Hosted V2 state requires an absolute DATA_DIR.");
+    await mkdir(dataDir, { recursive: true });
+    await access(dataDir, constants.R_OK | constants.W_OK);
+    if ((await readdir(dataDir)).length !== 0) throw new Error("Hosted fixture validation requires an empty disposable DATA_DIR.");
+    const root = join(dataDir, "runs", "v2");
+    try { await lstat(root); throw new Error("Hosted fixture state already exists; open the existing state instead."); }
+    catch (error) { if (error instanceof Error && error.message.includes("already exists")) throw error; if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new Error("Hosted fixture state is unavailable."); }
+    const marker = await open(join(dataDir, fixtureMarker), "wx", 0o600);
+    try { await marker.writeFile(fixtureMarkerValue); await marker.sync(); } finally { await marker.close(); }
+    const directory = await open(dataDir, "r");
+    try { await directory.sync(); } finally { await directory.close(); }
+    const store = new V2Store(dataDir);
+    await store.ready();
+    return store;
+  }
+
+  /** A fixture deployment can reopen durable state after a normal restart. */
+  static async openOrInitializeHostedFixture(dataDir: string): Promise<V2Store> {
+    const root = join(dataDir, "runs", "v2");
+    try { await lstat(root); return await V2Store.openHosted(dataDir, { fixtureValidation: true }); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      return await V2Store.initializeHostedFixture(dataDir);
+    }
+  }
+
+  private static async writeProbe(dataDir: string): Promise<void> {
+    const file = join(dataDir, `.proofpath-write-probe-${randomUUID()}`);
+    let handle: Awaited<ReturnType<typeof open>> | undefined;
+    try {
+      handle = await open(file, "wx", 0o600);
+      await handle.writeFile("proofpath");
+      await handle.sync();
+    } catch { throw new Error("Hosted V2 state volume is not writable."); }
+    finally {
+      await handle?.close().catch(() => {});
+      await unlink(file).catch(() => {});
+    }
+  }
 
   async createProposal(proposal: ProposalResult, context: V2Context, provenance: readonly string[] = ["fixture-v2"]): Promise<PreparedProposal> {
     if (proposal.kind !== "proposal") throw new Error("Clarification does not create a prepared suite or approval.");

@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "dateSgt": "2026-11-02",
+  "scope": "Hosted topology hardening and portable Linux container packaging",
+  "provider": "Existing direct Meta V2; no new live calls",
+  "policy": {
+    "perCode": 3,
+    "global": 50,
+    "reservationMicrousd": 50000,
+    "totalMicrousd": 2500000
+  },
+  "localVerification": {
+    "build": "PASS",
+    "cleanSelectedSliceTypecheck": "PASS without six sibling code/test files",
+    "fullUnit": {
+      "pass": 133,
+      "fail": 0
+    },
+    "additionalStateFailureTest": {
+      "pass": 1,
+      "fail": 0
+    },
+    "existingSafetyAndUi": {
+      "pass": 22,
+      "fail": 0
+    },
+    "hostedBrowserJourneys": {
+      "pass": 2,
+      "fail": 0,
+      "scope": "Fixture script execution/cart/coupon plus protected mocked-model review/approval/seeded FAIL/restart/quota/report persistence"
+    },
+    "resolvedTestFailures": [
+      "Old V1 price assertion updated to actual V2 catalog (4000 minor).",
+      "Reference-policy title was correctly clarified; positive hosted proposal test now uses actual workbench requirement.",
+      "Corrupt JSON assertion now checks SyntaxError rather than brittle message text."
+    ],
+    "browserLogQualification": "The initial combined 23-test browser log has one hosted-test cancellation, with its underlying price assertion subsequently fixed. Current hosted passes are in the focused logs; existing 22 checks were not repeated.",
+    "primaryReview": "Reviewed topology, CSP, shutdown timers, persistent data profiles and exact origin handling; not an independent production security audit."
+  },
+  "containerVerification": {
+    "status": "pending-private-validation-branch",
+    "localDockerAvailable": false,
+    "plannedArchitecture": "Linux amd64",
+    "nodeMajor": 26,
+    "pnpm": "11.8.0",
+    "lockedPlaywright": "1.64.1",
+    "runtimeUid": 1000,
+    "ci": "Isolated fixture mode, disposable bind mount, network none, no provider keys, no image publishing/deployment"
+  },
+  "applicationRuntimeChanged": true,
+  "newProductionNpmDependencies": 0,
+  "liveModelRequests": 0,
+  "realOperatorMigrationPerformed": false,
+  "realOperatorInitializationPerformed": false,
+  "billingChanged": false,
+  "publicVisibilityChanged": false,
+  "paidHostProvisioned": false,
+  "sourceHashes": {
+    ".env.example": "4903f8b5d46c8221004c5423bab90d550b6b75aeb34a27987a6cb174aef7d0b0",
+    "package.json": "a15aa20472e395212da8e32dea5ceed6c2fef8bb77515df21432f63af4f73b8b",
+    ".dockerignore": "f53d3ec458a0877a49adda514a484c172639568f2ae04e7e27d170edeb56222e",
+    "Dockerfile": "a9db300c5f090d0f2c7af286c8f334ba63eb642ac42c0eb86bc6ba0a94cbd72a",
+    ".github/workflows/container-validation.yml": "923d11e3c7d52aedb458dd770b14f5a42eac498a2354493f9b02d3f93a4905fc",
+    "scripts/container-healthcheck.mjs": "04f637b42b663c3d21ba227dfdddd0b72313f452cad919475e250c3c965b65da",
+    "scripts/container-ci-smoke.mjs": "fcea8eb1777fe09e624a2cf14cc4211fabda64c2c8135036a6884984b477b614",
+    "src/server.ts": "2d134b42f09434855a851a70adae36e2fd3747e2b8f0e8e64e20edc514030918",
+    "src/v2-http.ts": "2afb4d59ff260020f67bbe2bc35400355a03031bb8c268697e0cd08c42ba3f0e",
+    "src/v2-runner.ts": "0f557591ec234ce79236d0d240e9a1ee6327ca1c2cfc5ee8e0d086b4769bc70f",
+    "src/v2-store.ts": "66bc9efb06a4e54363bb79d0e4ec7f3976e9f1c040d972e1eb657c22dcac5000",
+    "src/runtime-config.ts": "7a5ae5aafc085fd39c1a7d0bca0a80194f2da0c2b568e461e52cd993c27e9e54",
+    "src/fixture-server.ts": "d344dd81726fa09e2ae33913b4efa87ddf9d5b9ef87bd54fe37685da8f450de4",
+    "tests/container-packaging.test.ts": "2c821017e209880545e7517d28f7fa9e4c69c1fba0775a9e7d12e01fc23b1eb4",
+    "tests/hosted-runtime.test.ts": "412e54943335ca5db7a56c29e15973e8eff8f86c6e01656d09a7c338b71bdd12",
+    "tests/hosted-browser.integration.ts": "8646d865062af5a50720ddc8a37d0b44bbe95527a27dd35a46777798dfeabf4a",
+    "tests/v2-runtime.test.ts": "f116b8947cfead7996e2ee6760ccd314b735f6e96013b27fdd38559bc0a085db"
+  },
+  "logHashes": {
+    "test-results/deployment-packaging/build.log": "5ac71a99decf5b92dbfe798066cbe8ea317395f8f764f5a8879fd3511ca99454",
+    "test-results/deployment-packaging/unit.log": "ab08586df7c2556b978ca2e0e1719c4f4eedaa3b98315055a97c35a9573f12d0",
+    "test-results/deployment-packaging/browser.log": "a173b185e24a007e057d0c93cd7ae32f5367e89d4444a4d18981b2fdc431906d",
+    "test-results/deployment-packaging/hosted-browser.log": "f30a37c7f928a1d0c6411591441c83be470efdc0bca3592f7cb5d614041e8542",
+    "test-results/deployment-packaging/protected-hosted-browser.log": "21d1e1ca684f786fc4944430693674c9df44b44e81bb019ffc58c8e861f90e35",
+    "test-results/deployment-packaging/state-failure.log": "dd42867dfaa748a5fdc2cb476e755e3f31b3f0726462b88f1ac783c6f0dc854c",
+    "test-results/deployment-packaging/credential-audit.json": "60e6bb3907eb63dbdaeedc15ed753acb612d250fa93b1dae1de81a2e650781d1"
+  },
+  "preservedSiblingFiles": [
+    "public/app.js",
+    "src/meta-planner.ts",
+    "src/plan-store.ts",
+    "src/planner.ts",
+    "src/baseten-planner.ts",
+    "tests/baseten-planner.test.ts"
+  ],
+  "remainingHostedGates": [
+    "Actual account/vendor/tier quote approval and persistent disk provisioning.",
+    "Secure transfer of existing app/operator state without lock deletion or budget reset.",
+    "Managed-host HTTPS/health/restart verification and independently authorized hosted live UI smoke.",
+    "Final evaluation, independent reviewer walkthrough, public repository/video/submission assets."
+  ]
+}

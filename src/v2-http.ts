@@ -13,7 +13,7 @@ export type V2LiveMetadata = Readonly<{
   schemaEnforcement: "provider-and-local" | "local";
 }>;
 export type V2ProposalService = { readonly publicMetadata?: V2LiveMetadata; readonly requiresAuthentication?: boolean; authenticate(header: string | undefined): Promise<ReviewerPrincipal>; authorize(header: string | undefined): Promise<ReviewerPrincipal>; propose(context: V2Context, principal: ReviewerPrincipal): Promise<{ proposal: import("./v2-contracts.js").ProposalResult; reservationId: string; provenance: readonly string[] }> };
-export type V2HttpContext = { readonly origin: string; readonly store: V2Store; readonly runtime: { start(approvalId: string): Promise<{ runId: string }>; read(runId: string): Promise<SuiteRun> }; readonly v2: V2Context; readonly inspect?: (context: V2Context) => Promise<GroundingBundle>; readonly propose?: (context: V2Context) => Promise<import("./v2-contracts.js").ProposalResult>; readonly proposalService?: V2ProposalService; readonly proposalProvenance?: readonly string[] };
+export type V2HttpContext = { readonly origin: string; readonly fixtureOrigin?: string; readonly store: V2Store; readonly runtime: { start(approvalId: string): Promise<{ runId: string }>; read(runId: string): Promise<SuiteRun> }; readonly v2: V2Context; readonly inspect?: (context: V2Context) => Promise<GroundingBundle>; readonly propose?: (context: V2Context) => Promise<import("./v2-contracts.js").ProposalResult>; readonly proposalService?: V2ProposalService; readonly proposalProvenance?: readonly string[]; readonly inspectionGate?: { acquire(): boolean; release(): void } };
 class HttpError extends Error { constructor(readonly status: number, message: string) { super(message); } }
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const exact = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).length === keys.length && keys.every((key) => key in value);
@@ -23,8 +23,8 @@ export async function handleV2Request(req: IncomingMessage, res: ServerResponse,
   if (!url.pathname.startsWith("/api/v2/")) return false;
   try {
     if (context.proposalService && context.propose) throw new HttpError(500, "V2 proposal service configuration is unavailable.");
-    if (req.headers.host !== new URL(context.origin).host) throw new HttpError(400, "Exact local Host header required.");
-    if (url.origin !== context.origin) throw new HttpError(400, "Local request URL required.");
+    if (req.headers.host !== new URL(context.origin).host) throw new HttpError(400, "Exact configured Host header required.");
+    if (url.origin !== context.origin) throw new HttpError(400, "Configured request URL required.");
     if (context.proposalService?.requiresAuthentication && url.pathname !== "/api/v2/config") await context.proposalService.authenticate(req.headers.authorization);
     if (req.method === "GET" && url.pathname === "/api/v2/config") {
       const protectedAccess = Boolean(context.proposalService?.requiresAuthentication);
@@ -34,19 +34,22 @@ export async function handleV2Request(req: IncomingMessage, res: ServerResponse,
       return reply(res, 200, { mode: protectedAccess ? "controlled-live" : "fixture", authenticationRequired: protectedAccess,
         planner, proposalLimit: protectedAccess ? { perCode: 3, total: 50, reservationUsd: "0.05", totalUsd: "2.50" } : null });
     }
-    if (req.method === "GET" && url.pathname === "/api/v2/groundings") return reply(res, 200, (await grounded(context, context.v2)).grounding);
+    if (req.method === "GET" && url.pathname === "/api/v2/groundings") return reply(res, 200, (await withinInspectionGate(context, () => grounded(context, context.v2))).grounding);
     if (req.method === "POST" && url.pathname === "/api/v2/proposals") {
       const body = await mutation(req, context.origin);
       if (!isRecord(body) || !exact(body, ["requirement", "releases"]) || typeof body.requirement !== "string" || body.requirement.trim().length === 0 || body.requirement.length > 4_000 || !Array.isArray(body.releases) || body.releases.length !== 2 || !body.releases.every((id) => typeof id === "string")) throw new HttpError(400, "A requirement and exactly two registered releases are required.");
       let base: V2Context;
-      try { base = createV2Context(context.origin, [body.releases[0] as string, body.releases[1] as string]); resolveRelease(body.releases[0] as string); resolveRelease(body.releases[1] as string); }
+      try { base = createV2Context(context.fixtureOrigin ?? context.origin, [body.releases[0] as string, body.releases[1] as string]); resolveRelease(body.releases[0] as string); resolveRelease(body.releases[1] as string); }
       catch { throw new HttpError(400, "Unknown or duplicate registered releases."); }
       const principal = context.proposalService ? await context.proposalService.authorize(req.headers.authorization) : undefined;
       let source: V2Context;
       try { source = withSourceRequirement(base, body.requirement.trim()); }
       catch (error) { return reply(res, 200, { kind: "clarification", gaps: [error instanceof Error ? error.message : "Source requires clarification."] }); }
-      const inspected = await grounded(context, source);
-      const dispatched = context.proposalService ? await context.proposalService.propose(inspected, principal!) : undefined;
+      const { inspected, dispatched } = await withinInspectionGate(context, async () => {
+        const inspected = await grounded(context, source);
+        const dispatched = context.proposalService ? await context.proposalService.propose(inspected, principal!) : undefined;
+        return { inspected, dispatched };
+      });
       if (context.proposalService && (!dispatched || !dispatched.proposal || !["proposal", "clarification"].includes(dispatched.proposal.kind)))
         throw new HttpError(503, "Budgeted proposal was unavailable.");
       const proposal = context.proposalService ? dispatched!.proposal : await (context.propose ?? createV2Planner({ V2_PLANNER_MODE: "fixture" }).propose)(inspected);
@@ -91,7 +94,7 @@ export async function handleV2Request(req: IncomingMessage, res: ServerResponse,
       const body = await mutation(req, context.origin);
       if (!isRecord(body) || !exact(body, ["releases"]) || !Array.isArray(body.releases) || body.releases.length !== 2 || !body.releases.every((id) => typeof id === "string")) throw new HttpError(400, "Exactly two registered releases are required.");
       let base: V2Context;
-      try { base = createV2Context(context.origin, [body.releases[0] as string, body.releases[1] as string]); resolveRelease(body.releases[0] as string); resolveRelease(body.releases[1] as string); }
+      try { base = createV2Context(context.fixtureOrigin ?? context.origin, [body.releases[0] as string, body.releases[1] as string]); resolveRelease(body.releases[0] as string); resolveRelease(body.releases[1] as string); }
       catch { throw new HttpError(400, "Unknown or duplicate registered releases."); }
       const saved = await context.store.readRegression(prepare[1]!);
       let preparedContext: V2Context;
@@ -123,6 +126,10 @@ async function grounded(request: V2HttpContext, context: V2Context): Promise<V2C
     if (request.proposalService?.requiresAuthentication) throw new HttpError(503, "Registered target inspection is unavailable.");
     throw error;
   }
+}
+async function withinInspectionGate<T>(context: V2HttpContext, operation: () => Promise<T>): Promise<T> {
+  if (context.inspectionGate && !context.inspectionGate.acquire()) throw new HttpError(409, "Another proposal or target inspection is already in progress.");
+  try { return await operation(); } finally { context.inspectionGate?.release(); }
 }
 async function emptyMutation(req: IncomingMessage, origin: string) { const value = await mutation(req, origin); if (!isRecord(value) || !exact(value, [])) throw new HttpError(400, "An empty JSON body is required."); }
 function reply(res: ServerResponse, status: number, body: unknown): true { res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Content-Security-Policy": "default-src 'self'; base-uri 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" }); res.end(JSON.stringify(body)); return true; }

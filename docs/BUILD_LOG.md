@@ -2,6 +2,44 @@
 
 Every later product claim should point to a commit or a preserved run artifact. This log records preparation separately from functional work.
 
+## Hosted container packaging and local validation — November 1–2, 2026
+
+Implemented the user-approved packaging/hardening slice with delegated planning
+and runtime/container implementation. Primary review completed the remaining
+fixes after a Codex subagent hit its workspace credit limit. No Meta/Baseten
+credits were involved in that limit or these tests.
+
+Added separate public HTTPS-origin handling and target-only loopback serving,
+existing-state/write-fsync/recovery readiness gates, realpath-contained operator
+storage, fixture/live data profile separation, one inspection/proposal gate,
+and shutdown drain before fixture/operator teardown. Hosted legacy V1 and public
+target routes are disabled. Fixed the new fixture CSP to permit its own module
+scripts and added actual cart/coupon interaction coverage. Browser allowlists,
+approval authority and all numerical model limits remain unchanged.
+
+Added a non-root Node 26 container with pinned pnpm and lockfile-matched
+Chromium, restricted build context, health check and a private-repository Linux
+validation workflow. No production npm dependency was added. The user confirmed
+there is no local Docker runtime; the image build remains a separate CI gate.
+
+Local build and clean-selected-slice typecheck passed without the six unchanged
+V1 scaffold code/test files owned by another chat. Full unit tests passed
+133/133, followed by a new corrupt/unwritable-state check. Existing safety/UI
+browser checks passed 22/22; the two new hosted journeys passed on their focused
+runs, including a mocked authenticated proposal, exact approval, seeded FAIL,
+internal browser execution and protected report/quota reopening after restart.
+Initial new-test failures were corrected test inputs (V1 versus V2 price, and
+the reference-policy title versus an actual supported requirement); no runtime
+policy was relaxed. Unit results include two unchanged sibling V1 scaffold
+tests, which are not part of this commit.
+
+A limited configured-key/common-credential-pattern scan found no matches in
+the selected files or 226 unpublished-history blobs. This is not comprehensive
+publication clearance. No real model call, actual operator migration, billing
+change, public repository visibility or paid hosting action occurred. The
+[deployment runbook](DEPLOYMENT.md) records persistent-state cutover and the
+remaining managed-host gates. CI image verification is pending this checkpoint.
+
 ## Baseten email Chat Completions smoke — November 1, 2026
 
 The user explicitly requested the email flow after protocol differences were

@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "start": "node dist/src/server.js",
     "dev": "pnpm build && node --env-file-if-exists=.env dist/src/server.js",
     "operator:v2:init": "pnpm build && node dist/src/v2-operator.js init",
     "test": "pnpm build && node --test dist/tests/*.test.js",
     "test:safety": "pnpm build && node --test dist/tests/safety.integration.js",
+    "test:deployment": "pnpm build && node --test --test-concurrency=1 dist/tests/hosted-runtime.test.js dist/tests/container-packaging.test.js dist/tests/hosted-browser.integration.js",
     "test:ui": "pnpm build && node --test dist/tests/ui.integration.js",
     "test:v2": "pnpm build && node --test dist/tests/v2-*.test.js",
     "test:v2:browser": "pnpm build && node --test --test-concurrency=1 dist/tests/v2-browser.integration.js dist/tests/v2-ui.integration.js dist/tests/v2-controlled.integration.js dist/tests/v2-baseten-controlled.integration.js",

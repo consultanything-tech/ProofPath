@@ -17,12 +17,17 @@ export type V2RunnerOptions = { readonly execute?: (approval: SuiteApproval, run
 export function createV2Runtime(store: V2Store, origin: string, options: V2RunnerOptions = {}) {
   if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) throw new Error("V2 runtime requires a local loopback origin.");
   let active = false;
+  let accepting = true;
+  let settled: Promise<void> | undefined;
+  let settleActive: (() => void) | undefined;
   const execute = options.execute ?? ((approval: SuiteApproval, run: SuiteRun) => executePaired(approval, run, store, origin, options.limits));
   return {
     async start(approvalId: string): Promise<{ runId: string }> {
       // This is intentionally before the first await: a rejected request cannot consume an approval.
+      if (!accepting) throw new Error("This runtime is shutting down; no new approved run can start.");
       if (active || (options.gate && !options.gate.acquire())) throw new Error("Another approved run is already in progress.");
       active = true;
+      settled = new Promise<void>((resolve) => { settleActive = resolve; });
       try {
         const approval = await store.consumeApproval(approvalId);
         const accepted = await store.createJob(approval);
@@ -33,16 +38,25 @@ export function createV2Runtime(store: V2Store, origin: string, options: V2Runne
             await store.completeJob(running.id, result?.records ?? [], result?.coverage ?? ["Runner returned without complete paired observations."]);
           } catch {
             try { await store.completeJob(running.id, [], ["Runner failed before complete paired observations were captured."]); } catch { /* Durable progress remains recoverable; never replace it with an empty run. */ }
-          } finally { active = false; options.gate?.release(); }
+          } finally { active = false; options.gate?.release(); settleActive?.(); }
         })();
         return { runId: accepted.id };
       } catch (error) {
         active = false;
         options.gate?.release();
+        settleActive?.();
         throw error;
       }
     },
-    read(runId: string): Promise<SuiteRun> { return store.readJob(runId); }
+    read(runId: string): Promise<SuiteRun> { return store.readJob(runId); },
+    stopAdmissions() { accepting = false; },
+    async drain(timeoutMs = 30_000): Promise<boolean> {
+      accepting = false;
+      if (!active || !settled) return true;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try { return await Promise.race([settled.then(() => true), new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), timeoutMs); })]); }
+      finally { if (timer) clearTimeout(timer); }
+    }
   };
 }
 

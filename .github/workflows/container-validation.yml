@@ -1,0 +1,67 @@
+name: Container validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/deployment-validation-*
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-validation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Build Linux image
+        run: docker build --tag proofpath:validation .
+      - name: Start isolated fixture service
+        shell: bash
+        run: |
+          task_state_dir="$(mktemp -d)"
+          sudo chown 1000:1000 "$task_state_dir"
+          docker run --detach --network none --name proofpath-validation \
+            --mount "type=bind,src=$task_state_dir,dst=/var/data/proofpath" \
+            --env PROOFPATH_RUNTIME=hosted \
+            --env PUBLIC_ORIGIN=https://reviewer.example \
+            --env PORT=3000 --env FIXTURE_PORT=4173 \
+            --env DATA_DIR=/var/data/proofpath \
+            --env V2_OPERATOR_DIR=/var/data/proofpath/operator \
+            --env PLANNER_MODE=fixture --env V2_PLANNER_MODE=fixture \
+            proofpath:validation
+          for attempt in $(seq 1 60); do
+            if docker exec proofpath-validation node scripts/container-healthcheck.mjs; then exit 0; fi
+            sleep 1
+          done
+          docker logs proofpath-validation
+          exit 1
+      - name: Inspect browser and listener isolation
+        run: |
+          docker cp scripts/container-ci-smoke.mjs proofpath-validation:/app/scripts/container-ci-smoke.mjs
+          docker exec proofpath-validation node scripts/container-ci-smoke.mjs
+      - name: Verify state survives restart
+        shell: bash
+        run: |
+          before="$(docker exec proofpath-validation node --input-type=module -e 'import {readFileSync} from "node:fs";import {createHash} from "node:crypto";console.log(createHash("sha256").update(readFileSync(process.env.DATA_DIR+"/runs/v2/state.json")).digest("hex"))')"
+          docker restart --timeout 30 proofpath-validation
+          for attempt in $(seq 1 60); do
+            if docker exec proofpath-validation node scripts/container-healthcheck.mjs; then break; fi
+            sleep 1
+          done
+          docker exec proofpath-validation node scripts/container-healthcheck.mjs
+          after="$(docker exec proofpath-validation node --input-type=module -e 'import {readFileSync} from "node:fs";import {createHash} from "node:crypto";console.log(createHash("sha256").update(readFileSync(process.env.DATA_DIR+"/runs/v2/state.json")).digest("hex"))')"
+          test "$before" = "$after"
+          docker exec proofpath-validation node scripts/container-ci-smoke.mjs
+      - name: Show logs and remove fixture container
+        if: always()
+        run: |
+          docker logs proofpath-validation || true
+          docker rm --force proofpath-validation || true
