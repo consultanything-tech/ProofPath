@@ -1,12 +1,23 @@
 # ProofPath build handoff
 
+**Email-route access smoke, November 1 at approximately 13:52 SGT:** Pankaj
+explicitly requested trying the email example. One actual Chat Completions
+request returned the exact `meta-models/muse-spark-open-1026` identifier and
+valid usage: 147 prompt / 27 completion / 174 total tokens, estimated
+US$0.0002985. The prompt count exceeded requested `truncate_prompt_tokens: 64`;
+the runner retained usage and stopped `unsafe-usage` before accepting or
+retaining the greeting/finish reason. No retry occurred. This proves the
+email's model access path, not full QA integration or the proposed prompt cap.
+The one-use private lock/journal remain retained; reviewer/Meta accounting and
+actual migration were untouched. See [observed evidence](evaluations/baseten-email-chat-smoke-2026-11-01.md).
+
 **Current direction, October 31:** the checkout/order QA workbench has fixture
 and guarded Meta Responses implementations. Preserve `4ace907` as the v1
 fallback and `d6b345b` as the mock-budget checkpoint. The [v2 design](superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
 and [implementation plan](superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
 remain the product contract.
 
-**Baseten credential check, November 1:** the hackathon-issued key is configured,
+**Earlier Baseten credential check, November 1:** the hackathon-issued key is configured,
 ignored and restricted to mode 600. Inference catalog access succeeded (HTTP
 200) and listed the exact hackathon model and expected prices. The management
 metadata endpoint returned 403; the candidate Responses input-count endpoint

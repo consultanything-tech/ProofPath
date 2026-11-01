@@ -2,6 +2,13 @@
 
 ProofPath turns a plain-language browser journey into an approved run and an evidence-linked verdict.
 
+**Baseten access verified, November 1:** one user-authorized literal `Hello!`
+request to the email's Chat Completions route returned the exact hackathon
+model and valid usage (147 prompt, 27 completion tokens; estimated US$0.0002985).
+Reported prompt tokens exceeded the requested truncation value, so the smoke
+guard stopped after saving usage. Full V2 Chat integration and QA input
+admission remain unqualified. See the [smoke record](docs/evaluations/baseten-email-chat-smoke-2026-11-01.md).
+
 The selected next product direction is a checkout/order QA workbench: acceptance
 criteria → reviewed suites → paired release evidence → saved regression cases
 and exports. The [v2 PRD/design](docs/superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
@@ -97,12 +104,13 @@ cannot replenish quotas. The earlier US$5 independent-canary proposal was never
 approved and is superseded by the existing US$0.05/proposal policy.
 
 Baseten product wiring and mocked browser tests are complete locally. Actual
-grant-key metadata, exact input counting and model generation remain unverified;
+grant-specific QA input accounting and the provisional Responses path remain unverified;
 no real Baseten request or operator migration had occurred at the October 31
 checkpoint. On November 1 the configured hackathon key successfully read the
 inference catalog, but management metadata returned 403 and the candidate
-Responses input-count endpoint returned 404. No model generation or migration
-has occurred. Live enablement remains blocked on a documented input bound. See the
+Responses input-count endpoint returned 404. The later email-route smoke above
+verified one real Chat response; no migration has occurred. Reviewer enablement
+remains blocked on a documented input bound and Chat adaptation. See the
 [integration readiness record](docs/evaluations/v2-baseten-integration-readiness.md).
 
 ### Controlled local v2 Meta mode

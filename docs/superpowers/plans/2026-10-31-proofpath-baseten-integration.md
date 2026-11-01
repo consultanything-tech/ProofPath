@@ -1,6 +1,15 @@
 # Baseten integration coordination plan — October 31, 2026 (SGT)
 
-November 1 update: the hackathon-issued key is configured. The inference catalog
+Latest November 1 result: at the user's explicit request, one isolated literal
+greeting call to the email's Chat Completions endpoint returned the exact
+hackathon model and valid usage. This verifies that access path. Reported
+prompt usage was 147 despite `truncate_prompt_tokens: 64`; the smoke retained
+usage and stopped without retry. Do not treat that parameter as a verified cap
+on full billable input. Estimated token cost was US$0.0002985. Product QA
+admission and Chat adaptation remain open; no reviewer ledger or actual
+migration changed. See the [smoke evidence](../../evaluations/baseten-email-chat-smoke-2026-11-01.md).
+
+Earlier November 1 update: the hackathon-issued key is configured. The inference catalog
 returns the exact model and expected token prices (HTTP 200); management
 metadata is forbidden (403), and the candidate Responses count route is absent
 (404). No generation or actual migration occurred. The next step is a

@@ -1,5 +1,13 @@
 # Baseten V2 integration readiness — October 31, 2026 (SGT)
 
+Later November 1 access result: a separately authorized literal greeting on the
+email's Chat Completions route returned the exact model and valid usage.
+Reported input tokens exceeded the requested truncation value; the runner
+saved usage and stopped without accepting the answer or retrying. See the
+[smoke evidence](baseten-email-chat-smoke-2026-11-01.md). Full product QA
+admission remains unqualified. The earlier records below retain their dates
+and do not describe that later generation request.
+
 November 1 follow-up: the hackathon key is now configured. Inference catalog
 access succeeded and listed the exact model/pricing; management metadata was
 rejected (403), and the candidate Responses count endpoint was absent (404).

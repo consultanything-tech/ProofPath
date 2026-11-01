@@ -2,6 +2,30 @@
 
 Every later product claim should point to a commit or a preserved run artifact. This log records preparation separately from functional work.
 
+## Baseten email Chat Completions smoke — November 1, 2026
+
+The user explicitly requested the email flow after protocol differences were
+explained. A narrow planner review and isolated implementer produced a one-use
+ignored operator runner, followed by primary review and a fixed-body dry run.
+Offline mocks exercised success, duplicate refusal, cap-breach usage retention
+and safe HTTP diagnostics. No dependency or product code was added.
+
+One actual POST to `https://inference.baseten.co/v1/chat/completions` returned
+`meta-models/muse-spark-open-1026` and valid usage of 147 prompt and 27 completion
+tokens (174 total). Catalog-rate token cost estimates US$0.0002985. The runner
+had retained US$0.001168 before dispatch based on the documented 64-token
+truncation request and 256-token completion cap. Actual prompt usage exceeded
+64, so that full-billable-input assumption was not verified. The runner saved
+usage/model, marked `unsafe-usage`, and did not accept or retain greeting,
+finish reason, raw reasoning or the full envelope. No retry was made.
+
+The email's access route is verified; full V2 QA integration is not. No reviewer
+ledger, Meta reservation, frozen holdout, actual migration, billing setting or
+deployment changed. Preserve the smoke lock and retained reservation. Sources,
+request digest, safe result and private-artifact hashes are in the
+[smoke record](evaluations/baseten-email-chat-smoke-2026-11-01.md) and
+[machine evidence](evaluations/baseten-email-chat-smoke-2026-11-01.json).
+
 ## Baseten hackathon-key preflight — November 1, 2026
 
 Pankaj configured the ignored local key and confirmed it came from the hackathon

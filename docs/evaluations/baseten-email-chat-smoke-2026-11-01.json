@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "dateSgt": "2026-11-01",
+  "scope": "One user-authorized literal Hello! access smoke; not a QA proposal or reviewer request",
+  "endpoint": "https://inference.baseten.co/v1/chat/completions",
+  "requestedModel": "meta-models/muse-spark-open-1026",
+  "returnedModel": "meta-models/muse-spark-open-1026",
+  "requestDigest": "sha256:011623581dc035682845ec54a9dee3453e46d243bc3ca23e7c1d49d4c93e36a8",
+  "request": {
+    "model": "meta-models/muse-spark-open-1026",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hello!"
+      }
+    ],
+    "max_tokens": 256,
+    "truncate_prompt_tokens": 64,
+    "stream": false
+  },
+  "generationRequests": 1,
+  "successfulGenerationTransportObserved": true,
+  "modelIdentityVerified": true,
+  "usage": {
+    "promptTokens": 147,
+    "completionTokens": 27,
+    "totalTokens": 174
+  },
+  "estimatedUsd": 0.0002985,
+  "estimatedMicrousdRoundedUp": 299,
+  "plannedReservationMicrousd": 1168,
+  "runnerStatus": "failed-or-uncertain",
+  "runnerFailureCategory": "unsafe-usage",
+  "plannedInputTokenCap": 64,
+  "reportedInputTokens": 147,
+  "fullBillableInputCapVerified": false,
+  "finishReason": null,
+  "finalGreetingRetained": false,
+  "explanation": "A successful Chat response with valid integer usage and exact returned model reached the parser. Input usage exceeded the requested truncate_prompt_tokens value, so the guard stopped after saving usage and before accepting or retaining answer/finish_reason. The discrepancy does not establish how the provider applies truncation or template overhead.",
+  "reviewerLedgerOperations": 0,
+  "actualOperatorMigrationPerformed": false,
+  "productAdapterChanged": false,
+  "retries": 0,
+  "rawReasoningSaved": false,
+  "rawProviderEnvelopeSaved": false,
+  "reservedAt": "2026-11-01T05:52:54.592Z",
+  "dispatchedAt": "2026-11-01T05:52:54.601Z",
+  "completedAt": "2026-11-01T05:52:55.643Z",
+  "sources": [
+    "https://docs.baseten.co/reference/inference-api/chat-completions",
+    "https://docs.baseten.co/inference/model-apis/reasoning"
+  ],
+  "privateArtifactHashes": {
+    "runs/baseten-email-smoke/smoke-journal.json": "3aea31c86165489f460f64788327b24d0ff650249709d87b7f9e48d901e496c2",
+    "runs/baseten-email-smoke/smoke.mjs": "b37b7be02543b47d7ece346c194ea073eace2d529190111fdebd0cb47f79a219"
+  },
+  "limitations": [
+    "Confirms authenticated access/routing for one tiny Chat Completions request; not full ProofPath integration or general model quality.",
+    "Model identity is the returned API identifier, not independent verification of hosted weights.",
+    "Catalog prices estimate token cost; not an invoice reconciliation.",
+    "Prompt truncation is not verified as a complete billable-input bound and remains unsuitable for exact-source QA admission.",
+    "The one-use lock and reservation are retained; no automatic retry is permitted."
+  ]
+}
