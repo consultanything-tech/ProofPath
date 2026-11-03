@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 node_modules/
+.pnpm-store/
 dist/
 coverage/
 test-results/
@@ -9,3 +10,8 @@ playwright-report/
 runs/
 *.log
 .DS_Store
+
+# Generated media/receipts and private deployment planning stay local.
+outputs/
+brag-output/
+docs/superpowers/plans/2026-11-03-proofpath-gcp-serverless-deployment.md

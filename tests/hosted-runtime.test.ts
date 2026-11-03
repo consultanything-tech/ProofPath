@@ -65,7 +65,7 @@ test("hosted fixture runtime has strict public ingress and does not trust forwar
   const runtime = await startHostedRuntime(env);
   try {
     assert.equal((await receive(publicPort, "/healthz", { Host: new URL(origin).host })).status, 200);
-    assert.match((await receive(publicPort, "/", { Host: new URL(origin).host })).body, /Reviewed checkout regression workbench/);
+    assert.match((await receive(publicPort, "/", { Host: new URL(origin).host })).body, /<title>ProofPath workbench<\/title>/);
     assert.equal((await receive(publicPort, "/api/config", { Host: new URL(origin).host })).status, 404);
     assert.equal((await receive(publicPort, "/v2-target/r1/index.html", { Host: new URL(origin).host })).status, 404);
     assert.equal((await receive(publicPort, "/index.html", { Host: new URL(origin).host })).status, 404);

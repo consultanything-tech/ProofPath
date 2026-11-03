@@ -1,0 +1,60 @@
+{
+  "verifiedAt": "2026-11-03T05:49:31.868Z",
+  "image": "asia-southeast1-docker.pkg.dev/proofpath-hackathon-2026/proofpath/app@sha256:886b9d680dc6dd0c7bb19162596bfc8e2177a4b935333557a93bf88c4c1d88c8",
+  "initialImage": "asia-southeast1-docker.pkg.dev/proofpath-hackathon-2026/proofpath/app@sha256:164e09d14cbc112c96e27fc610a23a1f778c43993c35b68dcb685e70b1943984",
+  "cloudFixture": [
+    {
+      "execution": "proofpath-fixture-operator-x5jqm",
+      "namespace": "fixture-release-20261103",
+      "providerCalls": 0,
+      "v1": [
+        "01453271-9ed6-4b35-bb0d-b61fe915a622",
+        "d7aa1149-6c8f-4fc2-943c-59674de33ecb"
+      ],
+      "v2": [
+        "4578814c-87c1-4c25-bece-d6faf8dca8a6",
+        "88db7188-ee61-4355-bb74-17919ce06338"
+      ]
+    },
+    {
+      "execution": "proofpath-fixture-operator-5pfdf",
+      "namespace": "fixture-release-20261103",
+      "providerCalls": 0,
+      "v1": [
+        "f3641ba2-3848-4a4c-b6e1-499f0eb0f931",
+        "8a695508-bd39-42aa-afa4-cf4da5e1b5f6"
+      ],
+      "v2": [
+        "f0264fe1-d692-4aa8-ad91-589205af9b69",
+        "1309497a-dd9f-46e2-b711-6c7f65ec574c"
+      ]
+    }
+  ],
+  "liveCutover": "deployed",
+  "liveSecretsTransferred": true,
+  "liveLedgerImported": true,
+  "localOperatorRetired": true,
+  "publicReviewerDeployment": true,
+  "runtimeSecretAccess": "web-only",
+  "temporaryImportSecretAccessRemoved": true,
+  "liveVerification": {
+    "reports": 7,
+    "screenshotHashes": 20,
+    "desktopAndMobile": true,
+    "reviewerAuthentication": true,
+    "ledgerPreserved": true,
+    "reservations": 4,
+    "reservedUsd": 0.2,
+    "providerCalls": 0,
+    "browserErrors": 0
+  },
+  "localChecks": {
+    "releasePassed": 171,
+    "releaseFailed": 0,
+    "finalPolicyBrowserPassed": 8,
+    "finalPolicyBrowserFailed": 0
+  },
+  "web": "https://proofpath-web-vgrq2gffta-as.a.run.app",
+  "newHostedModelGenerationVerified": false,
+  "fixtureAcceptanceIsModelEvidence": false
+}

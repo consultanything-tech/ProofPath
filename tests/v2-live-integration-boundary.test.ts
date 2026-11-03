@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { LIVE_LEDGER_V3_POLICY } from "../src/v2-live-ledger-v3.js";
 import { createControlledLiveServices } from "../src/v2-live-bootstrap.js";
 import { initializeLiveOperatorV3, openLiveOperatorV3 } from "../src/v2-operator-v3.js";
 import { BASETEN_INPUT_COUNT_ENDPOINT, BASETEN_LIVE_PROFILE, BASETEN_MODEL_METADATA_ENDPOINT } from "../src/v2-baseten-live.js";
@@ -45,7 +46,7 @@ test("startup provider switches share one reviewer quota and preserve authentica
     return response(url === BASETEN_LIVE_PROFILE.endpoint ? BASETEN_LIVE_PROFILE.model : "muse-spark-1.3");
   };
   try {
-    for (const mode of ["meta", "baseten", "meta"] as const) {
+    for (const mode of Array.from({ length: LIVE_LEDGER_V3_POLICY.reviewerLimit }, (_, index) => (["meta", "baseten", "meta"] as const)[index % 3]!)) {
       const live = await createControlledLiveServices(environment(f.dir, mode), fetcher);
       try {
         const principal = await live.service.authorize(`Bearer ${f.code}`);
@@ -61,12 +62,12 @@ test("startup provider switches share one reviewer quota and preserve authentica
       });
       await exhausted.service.authenticate(`Bearer ${f.code}`);
     } finally { await exhausted.close(); }
-    assert.equal(counts, 3); assert.equal(generations, 3);
+    assert.equal(counts, LIVE_LEDGER_V3_POLICY.reviewerLimit); assert.equal(generations, LIVE_LEDGER_V3_POLICY.reviewerLimit);
     const operator = await openLiveOperatorV3(f.dir);
     try {
       const saved = await operator.ledger.snapshot();
-      assert.deepEqual(saved.reservations.map((item) => item.provider), ["meta", "baseten", "meta"]);
-      assert.equal(saved.reservations.length * saved.policy.reservationMicrousd, 150_000);
+      assert.deepEqual(saved.reservations.slice(0, 3).map((item) => item.provider), ["meta", "baseten", "meta"]);
+      assert.equal(saved.reservations.length * saved.policy.reservationMicrousd, LIVE_LEDGER_V3_POLICY.reviewerLimit * LIVE_LEDGER_V3_POLICY.reservationMicrousd);
       assert.deepEqual(saved.reservations[1]!.attempts[0]!.usage, { inputTokens: 100, outputTokens: 10, totalTokens: 110 });
     } finally { await operator.close(); }
   } finally { await rm(f.root, { recursive: true, force: true }); }

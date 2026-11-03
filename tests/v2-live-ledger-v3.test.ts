@@ -26,8 +26,8 @@ test("v3 serializes Meta and Baseten admissions into one no-refund fifty-reserva
       f.ledger.reserve(same, digest("meta-a"), 6_073), f.ledger.reserve(same, digest("baseten-a"), 26_073, "baseten"),
       f.ledger.reserve(same, digest("meta-b"), 1), f.ledger.reserve(same, digest("baseten-b"), 1, "baseten")
     ]);
-    assert.equal(first.filter((entry) => entry.status === "fulfilled").length, 3);
-    for (let index = 3; index < 50; index += 1) await f.ledger.reserve(principal(Math.floor(index / 3)), digest(String(index)), index % 2 ? 6_073 : 26_073, index % 2 ? "meta" : "baseten");
+    assert.equal(first.filter((entry) => entry.status === "fulfilled").length, 4);
+    for (let index = 4; index < 50; index += 1) await f.ledger.reserve(principal(Math.floor(index / 3)), digest(String(index)), index % 2 ? 6_073 : 26_073, index % 2 ? "meta" : "baseten");
     const state = await f.ledger.snapshot();
     assert.equal(state.reservations.length, 50); assert.equal(state.reservations.reduce((total, item) => total + item.reservedMicrousd, 0), 2_500_000);
     assert.equal(state.reservations.filter((item) => item.provider === "baseten").every((item) => item.maxAttempts === 1), true);

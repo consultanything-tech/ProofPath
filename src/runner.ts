@@ -100,7 +100,7 @@ function completeActionResults(envelope: ApprovalEnvelope, results: ActionResult
   return envelope.plan.actions.map((action) => byId.get(action.id) ?? { id: action.id, status: "not-run", startedAt: null, endedAt: null, url: null });
 }
 
-export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string, runId: string, limits: RunnerLimits = DEFAULT_LIMITS): Promise<RunnerResult> {
+export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string, runId: string, limits: RunnerLimits = DEFAULT_LIMITS, capture?: (filename: string, bytes: Buffer) => Promise<void>): Promise<RunnerResult> {
   const plan = envelope.plan;
   const expectedOrigin = new URL(origin).origin;
   const expectedUrl = new URL(fixturePath(envelope.scenario), origin).toString();
@@ -204,10 +204,14 @@ export async function runApprovedPlan(envelope: ApprovalEnvelope, origin: string
       ensureOwnedPage();
       const filename = `${assertion.id}.png`;
       try {
-        const output = evidencePath(runId, filename);
-        await mkdir(dirname(output), { recursive: true });
         ensureOwnedPage();
-        await page.screenshot({ path: output, fullPage: true, timeout: Math.min(limits.actionTimeoutMs, remainingMs()) });
+        if (capture) {
+          await capture(filename, await page.screenshot({ fullPage: true, timeout: Math.min(limits.actionTimeoutMs, remainingMs()) }));
+        } else {
+          const output = evidencePath(runId, filename);
+          await mkdir(dirname(output), { recursive: true });
+          await page.screenshot({ path: output, fullPage: true, timeout: Math.min(limits.actionTimeoutMs, remainingMs()) });
+        }
         ensureOwnedPage();
         let observed: string | null = null;
         if (assertion.predicate === "cart-quantity-equals") observed = parseVisibleNonNegativeInteger(await singleVisibleText(page.locator("#cart-quantity")));

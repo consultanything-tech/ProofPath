@@ -3,8 +3,10 @@ import { constants } from "node:fs";
 import { lstat, mkdir, open, readdir, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { buildMetaResponsesRequest, dispatchLiveV2MetaResponsesRequest, V2_META_INPUT_TOKENS_ENDPOINT, V2_META_MODEL } from "./v2-planner.js";
+import { buildV1MetaResponsesRequest, dispatchLiveV1MetaResponsesRequest } from "./v1-live-planner.js";
 import type { ProposalResult, V2Context } from "./v2-contracts.js";
 import { ProposalBudgetError, ReviewerCodeRegistry, type ReviewerPrincipal } from "./v2-proposal-budget.js";
+import type { Scenario } from "./scenarios.js";
 import { V2_LIVE_RETIREMENT_MARKER } from "./v2-live-ledger-v3.js";
 
 /** A new, incompatible ledger. Version 1 mock budget state is never migrated. */
@@ -65,6 +67,7 @@ async function boundedJson(response: Response) { if (Number(response.headers.get
 /** Production-only service: it accepts no caller-provided admission certificate. */
 export class LiveMetaProposalService {
   readonly requiresAuthentication = true;
+  readonly publicMetadata = Object.freeze({ provider: "meta-model-api" as const, model: V2_META_MODEL, protocol: "responses" as const, schemaEnforcement: "provider-and-local" as const });
   constructor(private readonly ledger: LiveProposalLedger, private readonly registry: ReviewerCodeRegistry, private readonly apiKey: string, private readonly fetcher: typeof fetch = fetch) { if (!apiKey || apiKey.length > 4096) throw unavailable(); }
   async authorize(header: string | undefined) { const principal = this.registry.authenticate(header); await this.ledger.preflight(principal); return principal; }
   async authenticate(header: string | undefined) { return this.registry.authenticate(header); }
@@ -77,5 +80,19 @@ export class LiveMetaProposalService {
     if (!isRecord(count) || !exact(count, ["object", "input_tokens"]) || count.object !== "response.input_tokens" || typeof count.input_tokens !== "number" || !Number.isSafeInteger(count.input_tokens) || count.input_tokens < 0 || count.input_tokens > LIVE_PROPOSAL_POLICY.maxRenderedInputTokens) throw unavailable();
     const reservationId = await this.ledger.reserve(principal, requestDigest, count.input_tokens);
     try { const result = await dispatchLiveV2MetaResponsesRequest(snapshot, async (url, init) => this.fetcher(url, { ...init, headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${this.apiKey}` } }), request, (attempt) => this.ledger.beforeAttempt(reservationId, attempt), (usage) => this.ledger.usage(reservationId, usage)); await this.ledger.finish(reservationId, result.proposal.kind === "proposal" ? "proposal" : "clarification"); return { proposal: result.proposal, reservationId, provenance: ["meta-responses-v1", `reservation:${reservationId}`] }; } catch (error) { await this.ledger.block().catch(() => {}); await this.ledger.finish(reservationId, "failed-or-uncertain").catch(() => {}); throw error instanceof ProposalBudgetError ? error : unavailable(); }
+  }
+  async proposeV1(requirement: string, scenario: Scenario, principal: ReviewerPrincipal) {
+    if (!this.registry.owns(principal)) throw new ProposalBudgetError(401, "Reviewer access is unavailable.");
+    await this.ledger.preflight(principal);
+    const request = buildV1MetaResponsesRequest(requirement, scenario); const body = JSON.stringify(request); const requestDigest = digest(request);
+    let count: unknown;
+    try { const response = await this.fetcher(V2_META_INPUT_TOKENS_ENDPOINT, { method: "POST", redirect: "error", headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` }, body, signal: AbortSignal.timeout(30_000) }); if (!response.ok) throw unavailable(); count = await boundedJson(response); } catch { throw unavailable(); }
+    if (!isRecord(count) || !exact(count, ["object", "input_tokens"]) || count.object !== "response.input_tokens" || typeof count.input_tokens !== "number" || !Number.isSafeInteger(count.input_tokens) || count.input_tokens < 0 || count.input_tokens > LIVE_PROPOSAL_POLICY.maxRenderedInputTokens) throw unavailable();
+    const reservationId = await this.ledger.reserve(principal, requestDigest, count.input_tokens);
+    try {
+      const response = await dispatchLiveV1MetaResponsesRequest(requirement, scenario, async (url, init) => this.fetcher(url, { ...init, headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${this.apiKey}` } }), request, (attempt) => this.ledger.beforeAttempt(reservationId, attempt), (usage) => this.ledger.usage(reservationId, usage));
+      await this.ledger.finish(reservationId, response.kind === "plan" ? "proposal" : "clarification");
+      return { response, reservationId, provenance: ["meta-responses-v1", `reservation:${reservationId}`] as const };
+    } catch (error) { await this.ledger.block().catch(() => {}); await this.ledger.finish(reservationId, "failed-or-uncertain").catch(() => {}); throw error instanceof ProposalBudgetError ? error : unavailable(); }
   }
 }

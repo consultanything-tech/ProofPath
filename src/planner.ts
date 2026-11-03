@@ -4,10 +4,15 @@ import type { PlannerProvenance } from "./plan-store.js";
 import { createMetaPlanner } from "./meta-planner.js";
 
 export type Planner = { readonly provenance: PlannerProvenance; propose(requirement: string, scenario: Scenario): Promise<PlannerResponse> };
-export function plannerLabel(provenance: PlannerProvenance) { return provenance.mode === "fixture" ? "Fixture planner — Meta not used" : "Meta Model API — muse-spark-1.3"; }
+export function plannerLabel(provenance: PlannerProvenance) {
+  if (provenance.mode === "fixture") return "Fixture planner — Meta not used";
+  if (provenance.mode === "baseten") return "Baseten-hosted Meta open-weight model — muse-spark-open-1026";
+  return "Meta Model API — muse-spark-1.3";
+}
 export function createPlanner(env: NodeJS.ProcessEnv, fetcher?: typeof fetch): Planner {
   if (env.PLANNER_MODE === "fixture") return { provenance: Object.freeze({ mode: "fixture", provider: null, model: null }), async propose(_requirement, scenario) { return fixturePlanFor(scenario); } };
-  if (env.PLANNER_MODE !== "meta") throw new Error("Set PLANNER_MODE explicitly to fixture or meta.");
+  if (env.PLANNER_MODE === "baseten") throw new Error("Baseten planning is disabled pending an authorized structured-output canary and durable $5 admission ledger.");
+  if (env.PLANNER_MODE !== "meta") throw new Error("Set PLANNER_MODE explicitly to fixture, meta or baseten.");
   return createMetaPlanner({ apiKey: env.MODEL_API_KEY ?? "", fetch: fetcher });
 }
 

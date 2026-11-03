@@ -6,7 +6,7 @@ FROM node:26-bookworm-slim AS build
 WORKDIR /app
 RUN npm install --global pnpm@11.8.0
 
-COPY package.json pnpm-lock.yaml tsconfig.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 RUN pnpm install --frozen-lockfile
 
 COPY src ./src
@@ -27,7 +27,7 @@ ENV NODE_ENV=production \
 WORKDIR /app
 RUN npm install --global pnpm@11.8.0
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod --frozen-lockfile \
     && pnpm exec playwright install --with-deps chromium \
     && pnpm store prune

@@ -4,7 +4,7 @@ import { chmod, lstat, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { LiveProposalBudgetLedgerV3 } from "../src/v2-live-ledger-v3.js";
+import { LEGACY_LIVE_LEDGER_V3_POLICY, LiveProposalBudgetLedgerV3 } from "../src/v2-live-ledger-v3.js";
 import { initializeLiveOperator, openLiveOperator } from "../src/v2-operator.js";
 import { migrateLiveOperatorV2, openLiveOperatorV3 } from "../src/v2-operator-v3.js";
 import { ReviewerCodeRegistry } from "../src/v2-proposal-budget.js";
@@ -37,15 +37,40 @@ test("migration keeps the real reviewer's consumed slot and verifies imported ev
         const id = await imported.ledger.reserve(same, digest, 100, "baseten");
         await imported.ledger.beforeAttempt(id, 1); await imported.ledger.usage(id, { inputTokens: 100, outputTokens: 2, totalTokens: 102 }); await imported.ledger.finish(id, "proposal");
       }
-      await assert.rejects(imported.ledger.reserve(same, digest, 100, "meta"), /exhausted/i);
+      await imported.ledger.reserve(same, digest, 100, "meta");
     } finally { await imported.close(); }
     const after = await openLiveOperatorV3(dir);
-    try { assert.equal((await after.ledger.snapshot()).reservations.length, 3); } finally { await after.close(); }
+    try { assert.equal((await after.ledger.snapshot()).reservations.length, 4); } finally { await after.close(); }
     const path = join(dir, "live-proposal-budget.json"); const original = await readFile(path);
     await writeFile(path, Buffer.concat([original, Buffer.from("\n")]));
     await assert.rejects(openLiveOperatorV3(dir), /unavailable/i);
     await assert.rejects(openLiveOperator(dir), /unavailable/i);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("a signed legacy v3 policy keeps its three-plan reviewer cap and rejects policy tampering", async () => {
+  const f = await fixture();
+  try {
+    for (let index = 0; index < 3; index += 1) {
+      const id = await f.ledger.reserve(f.principal, digest, 100);
+      await f.ledger.beforeAttempt(id, 1); await f.ledger.usage(id, { inputTokens: 100, outputTokens: 2, totalTokens: 102 }); await f.ledger.finish(id, "proposal");
+    }
+    await f.ledger.close();
+    const path = join(f.root, "live-ledger-v3.json"); const envelope = JSON.parse(await readFile(path, "utf8"));
+    envelope.payload.policy = LEGACY_LIVE_LEDGER_V3_POLICY;
+    envelope.mac = createHmac("sha256", f.key).update(JSON.stringify(envelope.payload)).digest("hex");
+    await writeFile(path, JSON.stringify(envelope));
+    const legacy = await LiveProposalBudgetLedgerV3.open({ dataDir: f.root, ledgerKey: f.key });
+    try {
+      assert.equal(legacy.proposalLimit().perCode, 3);
+      await assert.rejects(legacy.reserve(f.principal, digest, 100), /exhausted/i);
+    } finally { await legacy.close(); }
+    const tampered = JSON.parse(await readFile(path, "utf8"));
+    tampered.payload.policy.reviewerLimit = 4;
+    tampered.mac = createHmac("sha256", f.key).update(JSON.stringify(tampered.payload)).digest("hex");
+    await writeFile(path, JSON.stringify(tampered));
+    await assert.rejects(LiveProposalBudgetLedgerV3.open({ dataDir: f.root, ledgerKey: f.key }), /unavailable/i);
+  } finally { await clean(f); }
 });
 
 test("a global failure blocks attempts already reserved by the other provider", async () => {

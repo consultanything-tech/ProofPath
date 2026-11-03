@@ -5,7 +5,9 @@ The [v2 PRD and design](superpowers/specs/2026-10-28-proofpath-checkout-qa-desig
 was approved as development input. Its [implementation plan](superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
 now has a local fixture implementation. The requirements below describe the
 implemented v1 baseline; v1 evidence does not establish v2 eligible-model use.
-V2 live dispatch and deployment remain unverified and disabled.
+Current release (November 3): V2 has a recorded local Meta canary and both V1/V2
+are deployed on GCP with verified protected saved-report access. A new hosted
+model generation remains unverified. See [current submission notes](SUBMISSION.md).
 
 **Version:** 0.1 (draft)  
 **Date:** 26 October 2026, Asia/Singapore  

@@ -147,10 +147,11 @@ test("readable review and reports preserve evidence while guarding stale and leg
     assert.match(await content(desktop.locator("#report-output")), /PASS — execution completed/);
     assert.match(await content(desktop.locator("#report-output")), /Cart total is S\$78\.00\./);
     assert.match(await content(desktop.locator("#report-output")), /COMPLETED — Open the synthetic shop\./);
-    const rawHref = await desktop.getByRole("link", { name: "Open raw manifest" }).getAttribute("href");
-    assert.ok(rawHref);
-    const runId = rawHref.split("/")[2];
+    const reportHref = await desktop.getByRole("link", { name: "Open this readable report" }).getAttribute("href");
+    assert.ok(reportHref);
+    const runId = new URL(reportHref, server.origin).searchParams.get("run")!;
     assert.match(runId, /^[a-f0-9-]{36}$/);
+    const rawHref = `/runs/${runId}/manifest.json`;
     const rawResponse = await desktop.request.get(`${server.origin}${rawHref}`);
     assert.equal(rawResponse.ok(), true);
     const rawManifest = await rawResponse.json();

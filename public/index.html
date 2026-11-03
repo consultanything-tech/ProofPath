@@ -7,13 +7,22 @@
   <title>ProofPath</title>
 </head>
 <body class="proofpath-app">
+  <div class="single-product-bar"><a class="single-brand" href="/workbench.html"><span class="single-brand-mark" aria-hidden="true">P</span> ProofPath</a><span class="single-product-context">Single-journey review</span></div>
   <main class="app-shell">
     <header class="app-header">
       <p class="label" id="planner-label">Loading planner configuration…</p>
-      <h1>ProofPath</h1>
+      <h1>Single-journey evidence review</h1>
       <p>Turn one checkout requirement into an approved, evidence-linked browser verdict.</p>
+      <p class="notice"><strong>Focused single-journey evidence flow.</strong> For the primary submission demo, use the <a href="/workbench.html">reviewed checkout regression workbench</a>.</p>
       <p class="notice" id="planner-notice">Use synthetic requirements only. Review and approve each plan before running it.</p>
     </header>
+    <section id="reviewer-access" class="unlock-card" hidden aria-labelledby="reviewer-access-heading">
+      <h2 id="reviewer-access-heading">Reviewer access</h2>
+      <p>Enter the local reviewer access code to plan, approve, run, and open protected evidence. This code stays only in this browser tab’s memory.</p>
+      <label for="reviewer-code">Access code</label>
+      <input id="reviewer-code" type="password" autocomplete="off" spellcheck="false" aria-describedby="reviewer-access-help">
+      <p id="reviewer-access-help" class="help">Changing the code clears the current plan and report.</p>
+    </section>
     <section class="input-panel" aria-labelledby="journey-heading">
       <h2 id="journey-heading">Describe the journey</h2>
       <label for="scenario">Journey</label>

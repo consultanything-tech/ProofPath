@@ -5,6 +5,8 @@ import { createV2Planner, inspectRegisteredTarget } from "./v2-planner.js";
 import type { GroundingBundle, ReviewDecision, SuiteRun, V2Context } from "./v2-contracts.js";
 import { V2Store } from "./v2-store.js";
 import { ProposalBudgetError, type ReviewerPrincipal } from "./v2-proposal-budget.js";
+import type { PlannerResponse } from "./contracts.js";
+import type { Scenario } from "./scenarios.js";
 
 export type V2LiveMetadata = Readonly<{
   provider: "meta-model-api" | "baseten";
@@ -12,8 +14,9 @@ export type V2LiveMetadata = Readonly<{
   protocol: "responses";
   schemaEnforcement: "provider-and-local" | "local";
 }>;
-export type V2ProposalService = { readonly publicMetadata?: V2LiveMetadata; readonly requiresAuthentication?: boolean; authenticate(header: string | undefined): Promise<ReviewerPrincipal>; authorize(header: string | undefined): Promise<ReviewerPrincipal>; propose(context: V2Context, principal: ReviewerPrincipal): Promise<{ proposal: import("./v2-contracts.js").ProposalResult; reservationId: string; provenance: readonly string[] }> };
-export type V2HttpContext = { readonly origin: string; readonly fixtureOrigin?: string; readonly store: V2Store; readonly runtime: { start(approvalId: string): Promise<{ runId: string }>; read(runId: string): Promise<SuiteRun> }; readonly v2: V2Context; readonly inspect?: (context: V2Context) => Promise<GroundingBundle>; readonly propose?: (context: V2Context) => Promise<import("./v2-contracts.js").ProposalResult>; readonly proposalService?: V2ProposalService; readonly proposalProvenance?: readonly string[]; readonly inspectionGate?: { acquire(): boolean; release(): void } };
+export type V2ProposalLimit = Readonly<{ perCode: number; total: number; reservationUsd: string; totalUsd: string }>;
+export type V2ProposalService = { readonly publicMetadata?: V2LiveMetadata; readonly proposalLimit?: V2ProposalLimit; readonly requiresAuthentication?: boolean; authenticate(header: string | undefined): Promise<ReviewerPrincipal>; authorize(header: string | undefined): Promise<ReviewerPrincipal>; propose(context: V2Context, principal: ReviewerPrincipal): Promise<{ proposal: import("./v2-contracts.js").ProposalResult; reservationId: string; provenance: readonly string[] }>; proposeV1?(requirement: string, scenario: Scenario, principal: ReviewerPrincipal): Promise<{ response: PlannerResponse; reservationId: string; provenance: readonly string[] }> };
+export type V2HttpContext = { readonly origin: string; readonly fixtureOrigin?: string; readonly store: V2Store; readonly runtime: { start(approvalId: string): Promise<{ runId: string }>; read(runId: string): Promise<SuiteRun> }; readonly v2: V2Context; readonly inspect?: (context: V2Context) => Promise<GroundingBundle>; readonly propose?: (context: V2Context) => Promise<import("./v2-contracts.js").ProposalResult>; readonly proposalService?: V2ProposalService; readonly proposalProvenance?: readonly string[]; readonly inspectionGate?: { acquire(): boolean | Promise<boolean>; release(): void | Promise<void> } };
 class HttpError extends Error { constructor(readonly status: number, message: string) { super(message); } }
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const exact = (value: Record<string, unknown>, keys: readonly string[]) => Object.keys(value).length === keys.length && keys.every((key) => key in value);
@@ -32,7 +35,7 @@ export async function handleV2Request(req: IncomingMessage, res: ServerResponse,
         provider: "meta-model-api", model: "muse-spark-1.3", protocol: "responses", schemaEnforcement: "provider-and-local"
       } : null;
       return reply(res, 200, { mode: protectedAccess ? "controlled-live" : "fixture", authenticationRequired: protectedAccess,
-        planner, proposalLimit: protectedAccess ? { perCode: 3, total: 50, reservationUsd: "0.05", totalUsd: "2.50" } : null });
+        planner, proposalLimit: protectedAccess ? context.proposalService?.proposalLimit ?? { perCode: 3, total: 50, reservationUsd: "0.05", totalUsd: "2.50" } : null });
     }
     if (req.method === "GET" && url.pathname === "/api/v2/groundings") return reply(res, 200, (await withinInspectionGate(context, () => grounded(context, context.v2))).grounding);
     if (req.method === "POST" && url.pathname === "/api/v2/proposals") {
@@ -128,8 +131,8 @@ async function grounded(request: V2HttpContext, context: V2Context): Promise<V2C
   }
 }
 async function withinInspectionGate<T>(context: V2HttpContext, operation: () => Promise<T>): Promise<T> {
-  if (context.inspectionGate && !context.inspectionGate.acquire()) throw new HttpError(409, "Another proposal or target inspection is already in progress.");
-  try { return await operation(); } finally { context.inspectionGate?.release(); }
+  if (context.inspectionGate && !await context.inspectionGate.acquire()) throw new HttpError(409, "Another proposal or target inspection is already in progress.");
+  try { return await operation(); } finally { await context.inspectionGate?.release(); }
 }
 async function emptyMutation(req: IncomingMessage, origin: string) { const value = await mutation(req, origin); if (!isRecord(value) || !exact(value, [])) throw new HttpError(400, "An empty JSON body is required."); }
 function reply(res: ServerResponse, status: number, body: unknown): true { res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Content-Security-Policy": "default-src 'self'; base-uri 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" }); res.end(JSON.stringify(body)); return true; }

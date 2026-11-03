@@ -10,6 +10,8 @@ const requirement = document.querySelector("#requirement");
 const planButton = document.querySelector("#plan");
 const approveButton = document.querySelector("#approve");
 const executeButton = document.querySelector("#execute");
+const reviewerAccess = document.querySelector("#reviewer-access");
+const reviewerCode = document.querySelector("#reviewer-code");
 const inputs = [scenario, revision, requirement];
 const runIdPattern = /^[a-f0-9-]{36}$/;
 const screenshotPattern = /^[a-z0-9-]+\.png$/;
@@ -20,6 +22,8 @@ let proposalPending = false;
 let approvalPending = false;
 let runPending = false;
 let approved = false;
+let authenticationRequired = false;
+let savedReportId;
 
 const setStatus = (message) => { status.textContent = message; };
 const text = (value) => typeof value === "string" ? value : value === null || value === undefined ? "Not recorded" : String(value);
@@ -44,7 +48,7 @@ const rawDetails = (summary, value) => {
   details.append(node("summary", summary), node("pre", JSON.stringify(value, null, 2)));
   return details;
 };
-const plannerName = (planner) => planner?.mode === "meta" ? "Meta Model API — muse-spark-1.3" : "Fixture planner — Meta not used";
+const plannerName = (planner) => planner?.mode === "baseten" ? "Baseten-hosted Meta open-weight model — muse-spark-open-1026" : planner?.mode === "meta" ? "Meta Model API — muse-spark-1.3" : "Fixture planner — Meta not used";
 const journeyName = (id) => ({ "add-to-cart": "Add to cart", "quantity-update": "Quantity update", "required-fields": "Required checkout fields" })[id] ?? text(id);
 const revisionName = (id) => ({ baseline: "Baseline", "seeded-bug": "Seeded quantity defect", fixed: "Fixed quantity defect" })[id] ?? text(id);
 const safeRunId = (value) => typeof value === "string" && runIdPattern.test(value);
@@ -75,7 +79,7 @@ const updateControls = () => {
   const lockInputs = approvalPending || runPending;
   inputs.forEach((input) => { input.disabled = lockInputs; });
   revision.disabled = lockInputs || scenario.value !== "quantity-update";
-  planButton.disabled = !plannerReady || proposalPending || approvalPending || runPending;
+  planButton.disabled = !plannerReady || (authenticationRequired && !reviewerCode.value.trim()) || proposalPending || approvalPending || runPending;
   approveButton.disabled = approvalPending || runPending || approved || !planId;
   executeButton.disabled = runPending || approvalPending || !approved || !planId;
 };
@@ -100,7 +104,8 @@ const syncJourney = () => {
   updateControls();
 };
 const request = async (url, options = {}) => {
-  const response = await fetch(url, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
+  const headers = { "Content-Type": "application/json", ...(authenticationRequired && reviewerCode.value.trim() ? { Authorization: `Bearer ${reviewerCode.value.trim()}` } : {}), ...(options.headers || {}) };
+  const response = await fetch(url, { ...options, headers });
   let data;
   try { data = await response.json(); } catch { throw new Error("The local server returned an unreadable response."); }
   if (!response.ok) throw new Error(text(data?.error || "Request failed."));
@@ -144,7 +149,7 @@ const renderAssertion = (manifest, assertion, plannedAssertion) => {
   card.append(node("p", `URL: ${text(assertion.url)}. Recorded: ${formatTime(assertion.timestamp)}.`));
   if (safeRunId(manifest.runId) && assertion.screenshot !== "not-captured.png" && safeScreenshot(assertion.screenshot)) {
     const image = document.createElement("img");
-    image.src = `/evidence/${manifest.runId}/${assertion.screenshot}`;
+    image.dataset.evidence = `/evidence/${manifest.runId}/${assertion.screenshot}`;
     image.alt = `Screenshot evidence for ${text(assertion.id)}`;
     card.append(image);
   }
@@ -176,18 +181,43 @@ const renderReport = (manifest) => {
   const share = document.createElement("a");
   share.href = `/?run=${manifest.runId}`;
   share.textContent = "Open this readable report";
-  const raw = document.createElement("a");
-  raw.href = `/runs/${manifest.runId}/manifest.json`;
-  raw.textContent = "Open raw manifest";
-  links.append(share, raw, rawDetails("Open raw manifest data", manifest));
+  links.append(share, rawDetails("Open raw manifest data", manifest));
   reportOutput.replaceChildren(overview, actions, assertions, replay, links);
   report.hidden = false;
+  for (const image of reportOutput.querySelectorAll("img[data-evidence]")) {
+    fetch(image.dataset.evidence, { headers: authenticationRequired ? { Authorization: `Bearer ${reviewerCode.value.trim()}` } : {} }).then((response) => response.ok ? response.blob() : Promise.reject()).then((blob) => { image.src = URL.createObjectURL(blob); }).catch(() => { image.alt += " (unavailable)"; });
+  }
   document.querySelector("#report-heading").focus();
+};
+const waitForReport = async (data, version) => {
+  const deadline = Date.now() + 660_000;
+  while (data.jobStatus) {
+    if (version !== inputVersion) return null;
+    if (!safeRunId(data.runId) || Date.now() >= deadline) throw new Error("Run is still pending; reopen this saved run to check its status.");
+    setStatus(data.jobStatus === "running" ? "Running approved plan…" : "Approved run queued…");
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    data = await request(`/api/v1/jobs/${data.runId}`);
+  }
+  return version === inputVersion ? data : null;
+};
+const loadSavedReport = async () => {
+  if (!savedReportId || (authenticationRequired && !reviewerCode.value.trim())) return;
+  setStatus("Loading saved report…");
+  const reportVersion = inputVersion;
+  try {
+    const manifest = await waitForReport(await request(`/runs/${savedReportId}/manifest.json`), reportVersion);
+    if (!manifest) return;
+    renderReport(manifest);
+    setStatus("Saved report loaded.");
+  } catch {
+    if (reportVersion === inputVersion) setStatus("Saved report is unavailable.");
+  }
 };
 
 scenario.addEventListener("change", () => { syncJourney(); clearPlan("Inputs changed. Propose and approve a new plan."); });
 revision.addEventListener("change", () => clearPlan("Inputs changed. Propose and approve a new plan."));
 requirement.addEventListener("input", () => clearPlan("Inputs changed. Propose and approve a new plan."));
+reviewerCode.addEventListener("input", () => { if (authenticationRequired) { clearPlan("Access code changed. Propose and approve a new plan."); void loadSavedReport(); } });
 syncJourney();
 
 planButton.addEventListener("click", async () => {
@@ -237,8 +267,13 @@ executeButton.addEventListener("click", async () => {
   updateControls();
   try {
     setStatus("Running approved plan…");
-    const data = await request(`/api/plans/${planId}/run`, { method: "POST", body: "{}" });
-    if (version !== inputVersion) return;
+    let data = await request(`/api/plans/${planId}/run`, { method: "POST", body: "{}" });
+    if (data.jobStatus && safeRunId(data.runId)) {
+      savedReportId = data.runId;
+      history.replaceState(null, "", `/?run=${savedReportId}`);
+    }
+    data = await waitForReport(data, version);
+    if (!data) return;
     renderReport(data);
     run.hidden = true;
     planId = undefined;
@@ -247,7 +282,7 @@ executeButton.addEventListener("click", async () => {
   } catch (error) {
     if (version === inputVersion) {
       clearPlan();
-      setStatus(`${error instanceof Error ? error.message : "Run failed."} Propose a new plan before retrying.`);
+      setStatus(`${error instanceof Error ? error.message : "Run failed."} ${savedReportId ? "Reload this page to recover the saved run status before starting another run." : "Propose a new plan before retrying."}`);
     }
   } finally {
     runPending = false;
@@ -259,22 +294,17 @@ executeButton.addEventListener("click", async () => {
   try {
     const config = await request("/api/config");
     document.querySelector("#planner-label").textContent = text(config.plannerLabel);
-    document.querySelector("#planner-notice").textContent = config.planner?.mode === "fixture" ? "Fixture mode uses a fixed plan. It does not interpret the text or call Meta; review the plan and server-owned revision before approving it." : "Meta proposes a constrained plan from your synthetic requirement. A proposal does not run the browser; review and approve each snapshot.";
+    authenticationRequired = config.authenticationRequired === true;
+    reviewerAccess.hidden = !authenticationRequired;
+    document.querySelector("#planner-notice").textContent = config.planner?.mode === "fixture" ? "Fixture mode uses a fixed plan. It does not interpret the text or call Meta; review the plan and server-owned revision before approving it." : "The selected model proposes a constrained plan from your synthetic requirement. A proposal does not run the browser; review and approve each snapshot.";
     plannerReady = true;
     updateControls();
     const reportId = new URLSearchParams(location.search).get("run");
     if (reportId === null) return;
     if (!safeRunId(reportId)) { setStatus("The report link has an invalid run ID."); return; }
-    setStatus("Loading saved report…");
-    const reportVersion = inputVersion;
-    try {
-      const manifest = await request(`/runs/${reportId}/manifest.json`);
-      if (reportVersion !== inputVersion) return;
-      renderReport(manifest);
-      setStatus("Saved report loaded.");
-    } catch {
-      if (reportVersion === inputVersion) setStatus("Saved report is unavailable.");
-    }
+    savedReportId = reportId;
+    if (authenticationRequired) { setStatus("Enter reviewer access code to load this protected report."); return; }
+    await loadSavedReport();
   } catch (error) {
     setStatus(`Planner unavailable: ${error instanceof Error ? error.message : "Request failed."}`);
   }

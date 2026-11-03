@@ -60,7 +60,7 @@ export function createV2Runtime(store: V2Store, origin: string, options: V2Runne
   };
 }
 
-async function executePaired(approval: SuiteApproval, run: SuiteRun, store: V2Store, origin: string, limits: V2RunnerOptions["limits"]): Promise<V2Execution> {
+export async function executePaired(approval: SuiteApproval, run: SuiteRun, store: V2Store, origin: string, limits: V2RunnerOptions["limits"]): Promise<V2Execution> {
   const suiteMs = limits?.suiteMs ?? SUITE_TIMEOUT_MS;
   const caseMs = limits?.caseMs ?? CASE_TIMEOUT_MS;
   if (limits && (suiteMs > SUITE_TIMEOUT_MS || caseMs > CASE_TIMEOUT_MS)) throw new Error("Runtime limits cannot exceed the reviewed production bounds.");
@@ -175,12 +175,11 @@ function visible(page: Page, selector: string, timeout: number) {
 
 async function observe(assertion: CaseAssertion, expected: ExpectedCase, definition: CaseDefinition, release: ReleaseRef, runId: string, store: V2Store, page: Page, timeoutMs: number): Promise<V2AssertionResult> {
   const screenshot = `${definition.id}-${release.id}-${assertion.id}.png`;
-  const file = join(store.runDirectory(runId), screenshot);
-  await mkdir(store.runDirectory(runId), { recursive: true });
-  await page.screenshot({ path: file, fullPage: true, timeout: timeoutMs });
+  const bytes = await page.screenshot({ fullPage: true, timeout: timeoutMs });
+  await store.writeScreenshot(runId, screenshot, bytes);
   const expectedValue = expectedFor(assertion, expected);
   const observed = await observedFor(assertion, definition, page);
-  return { id: assertion.id, expected: expectedValue, observed: observed === undefined ? null : observed, verdict: observed === undefined ? "INCONCLUSIVE" : digestV2(observed) === digestV2(expectedValue) ? "PASS" : "FAIL", screenshot, screenshotSha256: `sha256:${createHash("sha256").update(await readFile(file)).digest("hex")}`, timestamp: new Date().toISOString(), url: page.url() };
+  return { id: assertion.id, expected: expectedValue, observed: observed === undefined ? null : observed, verdict: observed === undefined ? "INCONCLUSIVE" : digestV2(observed) === digestV2(expectedValue) ? "PASS" : "FAIL", screenshot, screenshotSha256: `sha256:${createHash("sha256").update(bytes).digest("hex")}`, timestamp: new Date().toISOString(), url: page.url() };
 }
 function expectedFor(assertion: CaseAssertion, expected: ExpectedCase): unknown {
   if (assertion.predicate === "total-minor") return expected.totalMinor;

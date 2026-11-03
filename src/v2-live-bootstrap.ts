@@ -29,7 +29,8 @@ export async function createControlledLiveServices(env: NodeJS.ProcessEnv, fetch
   try {
     if (mode === "meta") {
       const service = new LiveMetaProposalService(operator.ledger, operator.registry, key, fetcher);
-      return { service, operatorVersion: shared ? "3" : "2", close: () => operator.close() };
+      const proposalLimit = operator.ledger instanceof LiveProposalBudgetLedgerV3 ? operator.ledger.proposalLimit() : undefined;
+      return { service: Object.assign(service, { proposalLimit }), operatorVersion: shared ? "3" : "2", close: () => operator.close() };
     }
     if (!(operator.ledger instanceof LiveProposalBudgetLedgerV3)) throw unavailable();
     const ledger = operator.ledger;
@@ -43,6 +44,6 @@ export async function createControlledLiveServices(env: NodeJS.ProcessEnv, fetch
     };
     const profile = await readBasetenModelProfile(key, fetcher);
     const service = new BasetenLiveProposalService(basetenLedger, operator.registry, key, createBasetenAdmission(profile), fetcher);
-    return { service, operatorVersion: "3", close: () => operator.close() };
+    return { service: Object.assign(service, { proposalLimit: ledger.proposalLimit() }), operatorVersion: "3", close: () => operator.close() };
   } catch (error) { await operator.close().catch(() => {}); throw error; }
 }

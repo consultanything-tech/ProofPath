@@ -24,6 +24,7 @@ test("Baseten-labeled protected UI preserves model provenance and report access 
   // Scripted UI backend: this test makes no real Baseten or Meta request.
   const service: V2ProposalService = {
     requiresAuthentication: true,
+    proposalLimit: { perCode: 1, total: 1, reservationUsd: "0.05", totalUsd: "0.05" },
     publicMetadata: { provider: "baseten", model: "meta-models/muse-spark-open-1026", protocol: "responses", schemaEnforcement: "local" },
     async authenticate(header) { return registry.authenticate(header); },
     async authorize(header) {
@@ -53,7 +54,7 @@ test("Baseten-labeled protected UI preserves model provenance and report access 
     await new Promise<void>((resolve) => instance.server.listen(address.port, "127.0.0.1", resolve));
     const config = await (await fetch(instance.origin + "/api/v2/config")).json() as { mode: string; authenticationRequired: boolean; planner: { provider: string } };
     assert.equal(config.mode, "controlled-live"); assert.equal(config.authenticationRequired, true); assert.equal(config.planner.provider, "baseten");
-    assert.equal((await fetch(instance.origin + "/api/plans", { method: "POST" })).status, 403);
+    assert.equal((await fetch(instance.origin + "/api/plans", { method: "POST" })).status, 503);
     assert.equal((await fetch(instance.origin + "/api/v2/groundings")).status, 401);
     assert.equal(inspections, 0);
     const headers = { "Content-Type": "application/json", Origin: instance.origin, Authorization: `Bearer ${code}` };
@@ -65,22 +66,23 @@ test("Baseten-labeled protected UI preserves model provenance and report access 
     page.setDefaultTimeout(10_000);
     await page.goto(instance.origin + "/workbench.html");
     await page.locator("#v2-reviewer-code").waitFor({ state: "visible" });
-    assert.match(await page.locator("#v2-mode-label").innerText(), /Baseten-hosted Meta/);
+    assert.match(await page.locator("#v2-mode-label").innerText(), /Baseten-hosted Meta/i);
     assert.match(await page.locator("#v2-controlled-note").innerText(), /validates model output locally/);
+    assert.match(await page.locator("#v2-controlled-note").innerText(), /Plan limits: 1 per code and 1 total; US\$0\.05/);
     await page.locator("#v2-reviewer-code").fill(code);
     await page.locator("#v2-requirement").fill("An invalid coupon must display an error.");
-    await page.getByRole("button", { name: "Inspect registered pair and propose" }).click();
-    await page.getByRole("heading", { name: "2. Review exact rules, cases and gaps" }).waitFor();
-    assert.match(await page.locator("#v2-review-output").innerText(), /Baseten-hosted Meta/);
+    await page.getByRole("button", { name: "Generate test plan with Meta" }).click();
+    await page.getByRole("heading", { name: "2. Review the test plan" }).waitFor();
+    assert.match(await page.locator("#v2-review-output").innerText(), /Baseten-hosted Meta/i);
     for (const check of await page.locator("[data-accept], [data-reference], [data-gap]").all()) await check.check();
     for (const scope of await page.locator("[data-scope]").all()) await scope.selectOption("unchanged");
-    await page.getByRole("button", { name: "Compile reviewed snapshot" }).click();
-    await page.getByRole("heading", { name: "3. Final one-use approval" }).waitFor();
-    assert.match(await page.locator("#v2-approval-output").innerText(), /Baseten-hosted Meta/);
-    await page.getByRole("button", { name: "Approve exact reviewed snapshot" }).click();
-    await page.getByRole("button", { name: "Run approved pair" }).click();
-    await page.getByText("Paired run completed; save the immutable definition or download artifacts.").waitFor({ timeout: 35_000 });
-    assert.match(await page.locator("#v2-report-output").innerText(), /Baseten-hosted Meta/);
+    await page.getByRole("button", { name: "Continue to approval" }).click();
+    await page.getByRole("heading", { name: "3. Approve and run" }).waitFor();
+    assert.match(await page.locator("#v2-approval-output").innerText(), /Baseten-hosted Meta/i);
+    await page.getByRole("button", { name: "Approve this test plan" }).click();
+    await page.getByRole("button", { name: "Run approved test" }).click();
+    await page.getByText("Run completed. Review the result, then save or download the evidence if useful.").waitFor({ timeout: 35_000 });
+    assert.match(await page.locator("#v2-report-output").innerText(), /Baseten-hosted Meta/i);
     const reopen = await page.getByRole("link", { name: "Open this report" }).getAttribute("href");
     assert.ok(reopen);
     const exhausted = await fetch(instance.origin + "/api/v2/proposals", { method: "POST", headers,
@@ -90,9 +92,9 @@ test("Baseten-labeled protected UI preserves model provenance and report access 
     await page.locator("#v2-reviewer-code").waitFor({ state: "visible" });
     assert.equal(await page.locator("#v2-reviewer-code").inputValue(), "");
     await page.locator("#v2-reviewer-code").fill(code);
-    await page.getByRole("button", { name: "Open protected workbench" }).click();
+    await page.getByRole("button", { name: "Unlock Meta testing" }).click();
     await page.getByText("Loaded persisted read-only run report.").waitFor();
-    assert.match(await page.locator("#v2-report-output").innerText(), /Baseten-hosted Meta/);
+    assert.match(await page.locator("#v2-report-output").innerText(), /Baseten-hosted Meta/i);
     const downloading = page.waitForEvent("download");
     await page.getByRole("link", { name: "Download bug packet" }).click();
     const download = await downloading; const path = await download.path(); assert.ok(path);

@@ -4,7 +4,7 @@ import { access, lstat, mkdir, open, readFile, readdir, realpath, rename, stat, 
 import { isAbsolute, join, relative } from "node:path";
 import { calculateCheckout } from "./v2-oracle.js";
 import { deriveCaseInput, digestV2, validateCase } from "./v2-checkout.js";
-import { applyReviewedNumericRuleChanges, compileReviewedSuite } from "./v2-planner.js";
+import { applyReviewedNumericRuleChanges, compileReviewedSuite, validateSuiteProposal } from "./v2-planner.js";
 import { classifyComparison } from "./v2-comparison.js";
 import type { ApprovalReceipt, CaseComparison, CaseReleaseRecord, PreparedProposal, PreparedSuite, ProposalResult, ReviewDecision, SavedRegression, SuiteApproval, SuiteDefinition, SuiteRun, V2Context } from "./v2-contracts.js";
 
@@ -12,6 +12,8 @@ type DurableSuite = { definition: SuiteDefinition; expectations: PreparedSuite["
 type DurableState = { version: "2"; executionCount: number; suites: Record<string, DurableSuite>; runs: Record<string, SuiteRun>; regressions: Record<string, SavedRegression> };
 type PendingProposal = { prepared: PreparedProposal; provenance: string[]; expiresAt: number };
 type PendingApproval = { suite: DurableSuite; expiresAt: number; consumed: boolean };
+export type V2StoreSnapshot = { state: DurableState; proposals: [string, PendingProposal][]; approvals: [string, PendingApproval][] };
+export type V2EvidenceIO = { read(runId: string, filename: string): Promise<Buffer>; write(runId: string, filename: string, bytes: Buffer): Promise<void> };
 
 const clone = <T>(value: T): T => structuredClone(value);
 const approvalDigest = (suite: Omit<DurableSuite, "digest"> | DurableSuite) => digestV2({ definition: suite.definition, expectations: suite.expectations, grounding: suite.grounding, context: suite.context, provenance: suite.provenance });
@@ -28,7 +30,31 @@ export class V2Store {
   private failure: Error | undefined;
   private writes: Promise<void> = Promise.resolve();
 
-  constructor(private readonly dataDir: string, private readonly clock: () => number = Date.now) {}
+  constructor(private readonly dataDir: string, private readonly clock: () => number = Date.now, private readonly memoryEvidence?: V2EvidenceIO) {}
+
+  static restore(snapshot: V2StoreSnapshot, evidence: V2EvidenceIO, clock: () => number = Date.now) {
+    if (!isState(snapshot.state) || snapshot.proposals.length > 16 || snapshot.approvals.length > 16) throw new Error("Saved V2 state is invalid.");
+    const store = new V2Store("", clock, evidence);
+    store.state = clone(snapshot.state);
+    store.loading = Promise.resolve(store.state);
+    for (const [id, value] of snapshot.proposals) {
+      if (!uuid(id) || store.proposals.has(id) || !Number.isFinite(value.expiresAt) || value.prepared?.id !== id || !Array.isArray(value.provenance) || !value.provenance.every(shortText) || digestV2(value.prepared.provenance) !== digestV2(value.provenance)) throw new Error("Invalid pending proposal.");
+      validateSuiteProposal(value.prepared.proposal, value.prepared.context);
+      store.proposals.set(id, clone(value));
+    }
+    for (const [id, value] of snapshot.approvals) { if (!uuid(id) || store.approvals.has(id) || !Number.isFinite(value.expiresAt) || typeof value.consumed !== "boolean" || !isSuite(value.suite) || !Object.values(snapshot.state.suites).some((suite) => digestV2(suite) === digestV2(value.suite))) throw new Error("Invalid pending approval."); store.approvals.set(id, clone(value)); }
+    return store;
+  }
+  static emptySnapshot(): V2StoreSnapshot { return { state: initial(), proposals: [], approvals: [] }; }
+  async snapshot(): Promise<V2StoreSnapshot> { return clone({ state: await this.ready(), proposals: [...this.proposals], approvals: [...this.approvals] }); }
+  async validateExecutionApproval(approval: SuiteApproval) { await this.ready(); this.revalidateApproval(approval); }
+  async writeScreenshot(runId: string, filename: string, bytes: Buffer) {
+    if (!/^[a-z0-9-]+\.png$/.test(filename)) throw new Error("Invalid screenshot filename.");
+    if (this.memoryEvidence) return this.memoryEvidence.write(runId, filename, bytes);
+    await mkdir(this.runDirectory(runId), { recursive: true });
+    await writeFile(join(this.runDirectory(runId), filename), bytes);
+  }
+  private evidenceBytes(runId: string, filename: string): Promise<Buffer> { return this.memoryEvidence ? this.memoryEvidence.read(runId, filename) : readFile(join(this.runDirectory(runId), filename)); }
 
   /**
    * Hosted mode may only open an existing, writable V2 data set. Fresh runtime
@@ -162,11 +188,11 @@ export class V2Store {
     };
   }
 
-  async createJob(approval: SuiteApproval): Promise<SuiteRun> {
+  async createJob(approval: SuiteApproval, runId: string = randomUUID()): Promise<SuiteRun> {
     const state = await this.ready();
     this.revalidateApproval(approval);
     if (state.executionCount >= 50) throw new Error("This runtime data set has reached its 50 accepted suite-job limit.");
-    const run: SuiteRun = { id: randomUUID(), approvalDigest: approval.digest, artifact: { definition: clone(approval.definition), expectations: clone(approval.expectations), provenance: clone(approval.provenance) }, status: "accepted", records: [], comparisons: [], coverage: [], verdict: "INCONCLUSIVE", candidateVerdict: "INCONCLUSIVE", startedAt: nowIso(this.clock), endedAt: null };
+    const run: SuiteRun = { id: runId, approvalDigest: approval.digest, artifact: { definition: clone(approval.definition), expectations: clone(approval.expectations), provenance: clone(approval.provenance) }, status: "accepted", records: [], comparisons: [], coverage: [], verdict: "INCONCLUSIVE", candidateVerdict: "INCONCLUSIVE", startedAt: nowIso(this.clock), endedAt: null };
     state.executionCount += 1;
     state.runs[run.id] = run;
     await this.persist();
@@ -190,7 +216,7 @@ export class V2Store {
     const suite = this.suiteForDigest(current.approvalDigest);
     validateRecords(suite, merged);
     const padded = padRecords(suite, merged, this.clock);
-    const finalRecords = await sanitizeEvidence(padded, this.runDirectory(runId));
+    const finalRecords = await sanitizeEvidence(padded, this.runDirectory(runId), false, (filename) => this.evidenceBytes(runId, filename));
     const comparisons = comparisonsFor(suite, finalRecords);
     const authoritativeCoverage = [...new Set([...suite.definition.requirement.coverageGaps, ...coverage])];
     const next: SuiteRun = { ...current, status: "completed", records: finalRecords, comparisons, coverage: authoritativeCoverage, verdict: verdictFor(finalRecords, authoritativeCoverage), candidateVerdict: candidateVerdict(finalRecords, suite.definition.releases[1].id), endedAt: nowIso(this.clock) };
@@ -212,7 +238,7 @@ export class V2Store {
     const run = await this.readJob(runId);
     const assertion = run.records.flatMap((record) => record.assertions).find((item) => item.screenshot === filename && item.screenshotSha256);
     if (!assertion) throw new Error("Unknown verified evidence.");
-    const bytes = await readFile(join(this.runDirectory(runId), filename));
+    const bytes = await this.evidenceBytes(runId, filename);
     if (`sha256:${createHash("sha256").update(bytes).digest("hex")}` !== assertion.screenshotSha256) throw new Error("Evidence integrity check failed.");
     return bytes;
   }
@@ -286,8 +312,13 @@ export class V2Store {
 
   async writeManifest(run: SuiteRun): Promise<void> {
     const directory = join(this.runtimeRoot(), run.id);
-    await mkdir(directory, { recursive: true });
+    if (!this.memoryEvidence) await mkdir(directory, { recursive: true });
     const contents = JSON.stringify(run, null, 2);
+    if (this.memoryEvidence) {
+      await this.memoryEvidence.write(run.id, "manifest.json", Buffer.from(contents));
+      await this.memoryEvidence.write(run.id, "manifest.sha256", Buffer.from(createHash("sha256").update(contents).digest("hex") + "\n"));
+      return;
+    }
     await this.atomic(join(directory, "manifest.json"), contents);
     await this.atomic(join(directory, "manifest.sha256"), `${createHash("sha256").update(contents).digest("hex")}\n`);
   }
@@ -331,6 +362,7 @@ export class V2Store {
     }
   }
   private async persist(): Promise<void> {
+    if (this.memoryEvidence) return;
     if (!this.state) throw new Error("V2 durable state was not initialized.");
     this.writes = this.writes.then(async () => { await mkdir(this.runtimeRoot(), { recursive: true }); await this.atomic(join(this.runtimeRoot(), "state.json"), JSON.stringify(this.state)); });
     try { await this.writes; }
@@ -367,9 +399,9 @@ export class V2Store {
   private async verifyManifest(run: SuiteRun) {
     const directory = this.runDirectory(run.id);
     const contents = JSON.stringify(run, null, 2);
-    const [manifest, sidecar] = await Promise.all([readFile(join(directory, "manifest.json"), "utf8"), readFile(join(directory, "manifest.sha256"), "utf8")]);
+    const [manifest, sidecar] = await Promise.all([this.evidenceBytes(run.id, "manifest.json").then((b) => b.toString("utf8")), this.evidenceBytes(run.id, "manifest.sha256").then((b) => b.toString("utf8"))]);
     if (manifest !== contents || sidecar.trim() !== createHash("sha256").update(manifest).digest("hex")) throw new Error("Saved V2 run manifest integrity check failed.");
-    await sanitizeEvidence(run.records, directory, true);
+    await sanitizeEvidence(run.records, directory, true, (filename) => this.evidenceBytes(run.id, filename));
   }
 }
 
@@ -418,13 +450,13 @@ function comparisonsFor(suite: DurableSuite, records: readonly CaseReleaseRecord
     return { caseId: definition.id, classification: classifyComparison(outcome(previous), outcome(candidate), scope) };
   });
 }
-async function sanitizeEvidence(records: readonly CaseReleaseRecord[], directory: string, verifyOnly = false): Promise<CaseReleaseRecord[]> {
+async function sanitizeEvidence(records: readonly CaseReleaseRecord[], directory: string, verifyOnly = false, read: (filename: string) => Promise<Buffer> = (filename) => readFile(join(directory, filename))): Promise<CaseReleaseRecord[]> {
   const output: CaseReleaseRecord[] = [];
   for (const record of records) {
     const assertions = [];
     for (const assertion of record.assertions) {
       let valid = assertion.screenshot !== "not-captured.png" && /^sha256:[a-f0-9]{64}$/.test(assertion.screenshotSha256 ?? "");
-      if (valid) try { valid = `sha256:${createHash("sha256").update(await readFile(join(directory, assertion.screenshot))).digest("hex")}` === assertion.screenshotSha256; } catch { valid = false; }
+      if (valid) try { valid = `sha256:${createHash("sha256").update(await read(assertion.screenshot)).digest("hex")}` === assertion.screenshotSha256; } catch { valid = false; }
       if (!valid && assertion.verdict === "PASS") {
         if (verifyOnly) throw new Error("V2 PASS evidence is missing or tampered.");
         assertions.push({ ...assertion, observed: null, verdict: "INCONCLUSIVE" as const, screenshot: "not-captured.png", screenshotSha256: undefined });

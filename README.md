@@ -1,29 +1,23 @@
 # ProofPath
 
-ProofPath turns a plain-language browser journey into an approved run and an evidence-linked verdict.
+ProofPath turns checkout acceptance criteria into reviewed browser tests and evidence-linked regression results. A Meta model proposes bounded semantic checks; a person reviews the interpretation and approves the exact snapshot; Playwright compares registered releases; and deterministic assertions decide PASS, FAIL or INCONCLUSIVE.
 
-**Baseten access verified, November 1:** one user-authorized literal `Hello!`
-request to the email's Chat Completions route returned the exact hackathon
-model and valid usage (147 prompt, 27 completion tokens; estimated US$0.0002985).
-Reported prompt tokens exceeded the requested truncation value, so the smoke
-guard stopped after saving usage. Full V2 Chat integration and QA input
-admission remain unqualified. See the [smoke record](docs/evaluations/baseten-email-chat-smoke-2026-11-01.md).
+[Live workbench](https://proofpath-web-vgrq2gffta-as.a.run.app/workbench.html) · [Narrated demo](https://storage.googleapis.com/proofpath-hackathon-2026-submission-media/proofpath-demo.mp4) · [Submission notes](docs/SUBMISSION.md)
 
-The selected next product direction is a checkout/order QA workbench: acceptance
-criteria → reviewed suites → paired release evidence → saved regression cases
-and exports. The [v2 PRD/design](docs/superpowers/specs/2026-10-28-proofpath-checkout-qa-design.md)
-and [implementation plan](docs/superpowers/plans/2026-10-28-proofpath-checkout-qa-implementation.md)
-now have local fixture and guarded Meta Responses implementations. One authorized
-live v2 proposal completed local review, seeded-defect execution and saved fixed
-rerun on October 31. See the [canary record](docs/evaluations/v2-live-canary.md)
-and [admission basis](docs/evaluations/v2-responses-admission-basis.md).
-The frozen holdout, independent review and managed-host deployment remain open.
+The V2 workbench includes paired release comparison, independently computed checkout expectations, evidence downloads, saved regression reuse, bug packets and Playwright exports. It deliberately supports a controlled synthetic checkout rather than arbitrary websites or real payments.
 
-Controlled live mode enforces 3 proposals per allowlisted reviewer code,
-50 globally, and US$0.05 reserved per proposal including retries (US$2.50 total).
-Signed durable state retains reservations after failure and restart. This is a
-local admission control, not account-wide billing reconciliation or proof of a
-deployed reviewer service. The older mock-only ledger remains test evidence.
+## What is verified
+
+- **Real Meta integration:** a recorded `muse-spark-1.3` Responses proposal completed local review, seeded-defect execution and a saved fixed rerun. The fixed candidate passed while the suite retained INCONCLUSIVE for incomplete coverage. See the [V2 canary](docs/evaluations/v2-live-canary.md) and [admission basis](docs/evaluations/v2-responses-admission-basis.md).
+- **Hosted release:** V1 and V2 run on GCP Cloud Run with Firestore, private evidence storage and an IAM-private Cloud Tasks worker. Authenticated desktop/mobile report reads, 20 screenshot hashes and protected downloads passed. See the [release receipt](docs/evaluations/gcp-release-2026-11-03.json) and [deployment guide](docs/GCP_DEPLOYMENT.md).
+- **Validation:** the 171-check release suite passed, followed by eight targeted browser checks for the final policy-label correction. Cloud fixture acceptance exercised both queued workflows without provider calls.
+- **Demo disclosure:** the 2:01 narrated video shows the actual local workbench using fixture plans and synthetic data. It explicitly does not claim a model call in the recording. A new generation through the hosted service has not been smoke-tested.
+
+Reviewer access uses a private code. Codes, provider keys and operator state are not part of this repository. Request the reviewer code from the submitter through a private organizer/judge channel; do not post it in a public issue.
+
+Controlled live mode reads the existing signed admission policy. The current deployment allows at most 50 proposals per code and 50 overall, reserving US$0.05 per proposal including permitted retries, with a US$2.50 total reservation bound. Reservations survive failures and restarts; older signed policies retain their original limits. This is application admission control, not account-wide billing reconciliation or a hosting spending cap.
+
+The frozen holdout and broad reliability evaluation remain open. Baseten's exact hackathon Chat route returned a real greeting, but full QA admission remains unqualified and Baseten is not enabled in the hosted release; see its [access record](docs/evaluations/baseten-email-chat-smoke-2026-11-01.md).
 
 ## Hackathon scope
 
@@ -32,7 +26,7 @@ deployed reviewer service. The older mock-only ledger remains test evidence.
 - Event: Meta Global AI Developer Hackathon
 - Track: Indie Developer — Build for Your World
 - Participation: accepted and solo; acceptance was confirmed in the setup conversation on 26 October 2026.
-- Status: all fixture journeys and core local safety checks are implemented. Eight fixed live planning cases met their declared expectations (six plans, two clarifications). Live-generated plans have local browser evidence for all three journeys: add-to-cart PASS, saved quantity seeded FAIL/fixed PASS, and saved required-fields PASS. Saved-plan executions used fresh chat-authorized approvals without new model requests; see [quantity evidence](docs/evaluations/saved-quantity-runs-v1.md) and [build log](docs/BUILD_LOG.md). Readable review/report UI and per-action evidence are verified locally in fixture mode. Fresh live-proposal UI approval, broader reliability and deployment remain open.
+- Status: all fixture journeys and core local safety checks are implemented. Eight fixed live planning cases met their declared expectations (six plans, two clarifications). Live-generated plans have local browser evidence for all three journeys: add-to-cart PASS, saved quantity seeded FAIL/fixed PASS, and saved required-fields PASS. Saved-plan executions used fresh chat-authorized approvals without new model requests; see [quantity evidence](docs/evaluations/saved-quantity-runs-v1.md) and [build log](docs/BUILD_LOG.md). Readable review/report UI and per-action evidence are verified locally in fixture mode. Broader reliability and a newly generated hosted model result remain unverified.
 
 The V1 demo is deliberately narrow:
 
@@ -45,7 +39,7 @@ The V1 demo is deliberately narrow:
 
 `PASS` and `FAIL` come from deterministic assertions. The model may explain linked browser evidence but cannot override a verdict. Missing or conflicting evidence is `INCONCLUSIVE`.
 
-### V2 local workbench
+### V2 workbench
 
 At `/workbench.html`, an owned checkout requirement becomes an inspected,
 reviewed suite with bounded semantic actions. The independent typed oracle derives
@@ -54,8 +48,8 @@ in fresh contexts. The report keeps per-action evidence, coverage gaps, and the
 separate candidate and suite verdicts, so a passing candidate can still leave the
 suite `INCONCLUSIVE` when accepted coverage is partial. A reviewed regression can
 be saved, rebound to a compatible release pair without another planner call, and
-downloaded as an evidence-linked bug packet or Playwright test. These are local
-capabilities. The guarded live canary exercised the same workflow with a real
+downloaded as an evidence-linked bug packet or Playwright test. These capabilities
+are implemented locally and available in the protected hosted workbench. The guarded live canary exercised the same workflow with a real
 Meta-generated suite; that selected case does not establish general reliability.
 
 Start with [the PRD](docs/PRD.md) and [development kit](docs/DEVELOPMENT_KIT.md). See also [the plan](docs/PLAN.md) and [the build log](docs/BUILD_LOG.md).
@@ -68,8 +62,10 @@ TestForgeAI is prior experience, not this project’s implementation. This base 
 
 Container deployment uses separate public and loopback-fixture listeners, strict
 origin checks and existing persistent reviewer state. See the
-[deployment runbook](docs/DEPLOYMENT.md) for configuration, validation and cutover
-requirements. Paid provisioning and public HTTPS verification remain separate.
+[GCP deployment guide](docs/GCP_DEPLOYMENT.md) for the current V1/V2 serverless
+deployment, cloud acceptance and completed live cutover. The older
+[persistent-disk runbook](docs/DEPLOYMENT.md) describes the single-container path.
+Private fixture acceptance does not establish public reviewer or live model access.
 
 Use Node 26 and pnpm:
 
@@ -145,8 +141,9 @@ the private operator directory and data on durable storage; normal startup
 refuses missing/corrupt state, old mock state and another owner. Crash-left locks
 require explicit operator investigation, never automatic deletion or budget
 reset. This loopback-only bootstrap does not authorize public hosting or more
-live requests. The canary used one proposal; 2 remain for that code and 49
-globally, with US$0.05 permanently reserved.
+live requests. The existing legacy V2 operator has a three-plan per-reviewer
+cap; do not reset it, edit its signed JSON, or issue another reviewer code to
+work around that limit.
 
 ### Controlled local v2 Baseten readiness
 
@@ -185,15 +182,20 @@ active. Never delete a crash-left lock. The explicit migration command is:
 V2_OPERATOR_DIR=runs/v2-live/operator pnpm operator:v2:migrate-shared
 ```
 
-It preserves the original reviewer code, signed Meta source and consumed quota,
-then publishes a verified shared v3 state and retires the legacy writer. Verify
-one imported reservation, US$0.05 retained, 2 proposals left for the original
-code and 49 globally before any new request. New private reviewer material is
-under `runs/v2-live/operator/v3/`; do not print it. Migration recovery validates
-published state rather than reimporting or resetting. Partial unpublished
-staging directories are retained for operator investigation. A failed/blocked
-source cannot be migrated to clear its latch. Never run either initialization
-command on this existing setup or choose a fresh directory to obtain more quota.
+It is a one-way signed policy transition: it preserves the original reviewer
+code, every signed V2 reservation and the global 50-proposal/US$2.50 cap, then
+publishes a verified V3 state and retires the legacy writer. The migrated V3
+policy permits up to 50 reservations for the same authenticated reviewer, but
+never more than 50 in aggregate; historical reservations remain permanently
+counted. Do not run this command while the controlled server owns the operator,
+and do not treat these instructions as evidence that migration has occurred.
+Verify the imported reservation count and reserved cost before any new request.
+The V3 directory remains private; do not print its contents. Migration recovery
+validates published state rather than reimporting or resetting. Partial
+unpublished staging directories are retained for operator investigation. A
+failed/blocked source cannot be migrated to clear its latch. Never run either
+initialization command on this existing setup or choose a fresh directory to
+obtain more quota.
 
 Once readiness, migration and the concrete live-call authorization are settled:
 
@@ -225,7 +227,7 @@ recorded v2 live canary. No frozen-holdout reliability claim is made.
 
 The server hashes the requirement, scenario revision, target registry, planner provenance and validated plan into a one-use ten-minute approval. A fresh browser context permits only the synthetic shop and its two assets. Runs are serialized, bounded and reported as completed, blocked, timed-out or failed. The seeded quantity revision observes 3900 cents for quantity 2 and fails; the fixed revision observes 7800 and passes. Blank checkout requires both visible errors and an active checkout state. Reports retain approval snapshots, replay, URL/time, screenshots and hashes. Missing evidence cannot produce PASS, and a known failure survives interrupted execution.
 
-The October 26 Billing inspection showed $150 free credits, $0 balance and no payment method. On October 27 one authenticated Meta request returned a valid plan (estimated token cost US$0.003463), and the exact plan passed its controlled local browser run. Current card/credit balance was not reinspected and no billing setting changed. The initial eight-case live planning evaluation passed; broader language reliability and public deployment remain open. See [evaluation results](docs/evaluations/live-results-v1.md) and BUILD_LOG for exact evidence and limitations.
+The October 26 Billing inspection showed $150 free credits, $0 balance and no payment method. On October 27 one authenticated Meta request returned a valid plan (estimated token cost US$0.003463), and the exact plan passed its controlled local browser run. Current card/credit balance was not reinspected and no billing setting changed. The initial eight-case live planning evaluation passed. The V1/V2 GCP deployment and protected saved-report browser checks now pass; broader language reliability and a newly generated hosted model result remain unverified. See [evaluation results](docs/evaluations/live-results-v1.md) and BUILD_LOG for exact evidence and limitations.
 
 ## Submission checklist
 

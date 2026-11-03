@@ -16,6 +16,7 @@ import { createV2Runtime } from "./v2-runner.js";
 import { V2Store } from "./v2-store.js";
 import { createFixtureServer } from "./fixture-server.js";
 import { readHostedRuntimeConfig, type HostedRuntimeConfig } from "./runtime-config.js";
+import { ProposalBudgetError } from "./v2-proposal-budget.js";
 
 const host = "127.0.0.1";
 const publicRoot = resolve(process.cwd(), "public");
@@ -46,6 +47,11 @@ type ServerRuntimeOptions = Readonly<{
   readonly dataDir?: string;
   readonly hosted?: boolean;
   readonly v2Store?: V2Store;
+  readonly bothJourneys?: boolean;
+  readonly planningGate?: V2HttpContext["inspectionGate"];
+  readonly v2Runtime?: { start(id: string): Promise<{ runId: string }>; read(id: string): Promise<import("./v2-contracts.js").SuiteRun>; stopAdmissions(): void; drain(ms?: number): Promise<boolean> };
+  readonly plans?: { create(...args: Parameters<PlanStore["create"]>): ReturnType<PlanStore["create"]> | Promise<ReturnType<PlanStore["create"]>>; approve(...args: Parameters<PlanStore["approve"]>): ReturnType<PlanStore["approve"]> | Promise<ReturnType<PlanStore["approve"]>>; consume(...args: Parameters<PlanStore["consume"]>): ReturnType<PlanStore["consume"]> | Promise<ReturnType<PlanStore["consume"]>> };
+  readonly v1Jobs?: { start(id: string, owner?: string): Promise<{ runId: string; jobStatus: string }>; read(id: string, owner?: string): Promise<import("./evidence.js").RunManifest | { runId: string; jobStatus: string }>; evidence(id: string, filename: string, owner?: string): Promise<Buffer> };
 }>;
 type ServerServices = Pick<V2HttpContext, "inspect" | "propose" | "proposalService"> & {
   readonly controlledMeta?: boolean;
@@ -54,7 +60,7 @@ type ServerServices = Pick<V2HttpContext, "inspect" | "propose" | "proposalServi
 };
 
 function send(res: ServerResponse, status: number, body: unknown, type = "application/json; charset=utf-8") {
-  res.writeHead(status, { "Content-Type": type, "Content-Security-Policy": "default-src 'self'; base-uri 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" });
+  res.writeHead(status, { "Content-Type": type, "Content-Security-Policy": "default-src 'self'; img-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" });
   res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
 
@@ -91,12 +97,22 @@ export function createProofPathServer(port: number, planner: Planner = createPla
   const runtime = v2Services.runtime;
   const origin = runtime?.origin ?? `http://${host}:${port}`;
   const fixtureOrigin = runtime?.fixtureOrigin ?? origin;
-  const store = new PlanStore();
+  const store = runtime?.plans ?? new PlanStore();
   const gate = new RunGate();
-  const inspectionGate = new RunGate();
+  const localInspectionGate = new RunGate();
+  const inspectionGate = {
+    async acquire() {
+      if (!localInspectionGate.acquire()) return false;
+      try {
+        if (runtime?.planningGate && !await runtime.planningGate.acquire()) { localInspectionGate.release(); return false; }
+        return true;
+      } catch (error) { localInspectionGate.release(); throw error; }
+    },
+    async release() { try { await runtime?.planningGate?.release(); } finally { localInspectionGate.release(); } }
+  };
   const v2Store = runtime?.v2Store ?? new V2Store(runtime?.dataDir ?? process.env.DATA_DIR ?? process.cwd());
   const v2Context = createV2Context(fixtureOrigin);
-  const v2Runtime = createV2Runtime(v2Store, fixtureOrigin, { gate });
+  const v2Runtime = runtime?.v2Runtime ?? createV2Runtime(v2Store, fixtureOrigin, { gate });
   const ready = v2Store.recoverInterruptedJobs();
   if (!runtime?.hosted) void ready.catch(() => {});
   const { runtime: ignoredRuntime, controlledMeta: ignoredControlledMeta, controlledLive: ignoredControlledLive, ...v2HttpServices } = v2Services;
@@ -110,35 +126,68 @@ export function createProofPathServer(port: number, planner: Planner = createPla
       if (url.origin !== origin) throw new Error("Configured request URL required.");
       if (runtime?.hosted && req.method === "GET" && url.pathname === "/healthz") return send(res, 200, { status: "ok" });
       if (await handleV2Request(req, res, { origin, fixtureOrigin, store: v2Store, runtime: v2Runtime, v2: v2Context, inspectionGate, ...v2HttpServices })) return;
-      if (runtime?.hosted && (url.pathname.startsWith("/api/") || url.pathname.startsWith("/runs/") || url.pathname.startsWith("/evidence/"))) return send(res, 404, { error: "Not found." });
-      if (runtime?.hosted && !["/", "/workbench.html", "/workbench.js", "/styles.css"].includes(url.pathname)) return send(res, 404, { error: "Not found." });
-      if (req.method === "GET" && url.pathname === "/api/config") return send(res, 200, { planner: planner.provenance, plannerLabel: plannerLabel(planner.provenance), controlledMeta: controlledLive, controlledLive });
+      if (runtime?.hosted && !runtime.bothJourneys && (url.pathname.startsWith("/api/") || url.pathname.startsWith("/runs/") || url.pathname.startsWith("/evidence/"))) return send(res, 404, { error: "Not found." });
+      const v1Route = runtime?.bothJourneys && (/^\/api\/(?:config|plans(?:\/[a-f0-9-]{36}\/(?:approve|run))?|v1\/jobs\/[a-f0-9-]{36})$/.test(url.pathname) || /^\/runs\/[a-f0-9-]{36}\/manifest\.json$/.test(url.pathname) || /^\/evidence\/[a-f0-9-]{36}\/[a-z0-9-]+\.png$/.test(url.pathname));
+      const assets = runtime?.bothJourneys ? ["/", "/index.html", "/app.js", "/workbench.html", "/workbench.js", "/styles.css"] : ["/", "/workbench.html", "/workbench.js", "/styles.css"];
+      if (runtime?.hosted && !assets.includes(url.pathname) && !v1Route) return send(res, 404, { error: "Not found." });
+      const queued = url.pathname.match(/^\/api\/v1\/jobs\/([a-f0-9-]{36})$/);
+      if (req.method === "GET" && queued && runtime?.v1Jobs) {
+        const principal = controlledLive ? await v2Services.proposalService?.authenticate(req.headers.authorization) : undefined;
+        if (controlledLive && !principal) throw new ProposalBudgetError(401, "Reviewer access is unavailable.");
+        return send(res, 200, await runtime.v1Jobs.read(queued[1]!, principal?.key));
+      }
+      if (req.method === "GET" && url.pathname === "/api/config") {
+        const livePlanner = v2Services.proposalService?.publicMetadata;
+        const controlledPlanner = livePlanner?.provider === "meta-model-api" ? { mode: "meta" as const, provider: "meta-model-api" as const, model: livePlanner.model as "muse-spark-1.3" } : planner.provenance;
+        return send(res, 200, { planner: controlledPlanner, plannerLabel: plannerLabel(controlledPlanner), controlledMeta: controlledLive, controlledLive, authenticationRequired: Boolean(controlledLive && v2Services.proposalService?.requiresAuthentication), v1Planning: { enabled: Boolean(controlledLive && v2Services.proposalService?.proposeV1) } });
+      }
       if (req.method === "POST" && url.pathname === "/api/plans") {
-        if (controlledLive) return send(res, 403, { error: "V1 model planning is disabled in controlled live mode." });
+        if (controlledLive) {
+          const service = v2Services.proposalService;
+          if (!service?.proposeV1) throw new ProposalBudgetError(503, "V1 live planning is unavailable.");
+          await service.authenticate(req.headers.authorization);
+        }
         mutation(req, origin);
         const input = await readJson(req);
         if (!isRecord(input) || typeof input.requirement !== "string" || input.requirement.trim().length === 0 || input.requirement.length > 2000) throw new Error("A requirement of up to 2,000 characters is required.");
         const scenario = getScenario(input.scenarioId, input.revision);
+        if (controlledLive) {
+          const service = v2Services.proposalService;
+          if (!service?.proposeV1) throw new ProposalBudgetError(503, "V1 live planning is unavailable.");
+          const principal = await service.authorize(req.headers.authorization);
+          if (!await inspectionGate.acquire()) throw new ProposalBudgetError(503, "Another proposal or target inspection is already in progress.");
+          let result;
+          try { result = await service.proposeV1(input.requirement.trim(), scenario, principal); }
+          finally { await inspectionGate.release(); }
+          const livePlanner = service.publicMetadata;
+          const provenance = { mode: "meta" as const, provider: "meta-model-api" as const, model: (livePlanner?.model ?? "muse-spark-1.3") as "muse-spark-1.3" };
+          const label = plannerLabel(provenance);
+          if (result.response.kind === "clarification") return send(res, 200, { kind: "clarification", question: result.response.question, plannerLabel: label });
+          return send(res, 201, { kind: "plan", ...await store.create(input.requirement.trim(), scenario, result.response.plan!, provenance, principal.key), plannerLabel: label });
+        }
         const response = validatePlannerResponse(await planner.propose(input.requirement.trim(), scenario));
         const label = plannerLabel(planner.provenance);
         if (response.kind === "clarification") return send(res, 200, { kind: "clarification", question: response.question, plannerLabel: label });
-        return send(res, 201, { kind: "plan", ...store.create(input.requirement.trim(), scenario, response.plan!, planner.provenance), plannerLabel: label });
+        return send(res, 201, { kind: "plan", ...await store.create(input.requirement.trim(), scenario, response.plan!, planner.provenance), plannerLabel: label });
       }
       const approve = url.pathname.match(/^\/api\/plans\/([a-f0-9-]+)\/approve$/);
       if (req.method === "POST" && approve) {
-        if (controlledLive) return send(res, 403, { error: "V1 model planning is disabled in controlled live mode." });
         mutation(req, origin);
         emptyBody(await readJson(req));
-        return send(res, 200, store.approve(approve[1]));
+        const principal = controlledLive ? await v2Services.proposalService?.authenticate(req.headers.authorization) : undefined;
+        if (controlledLive && !principal) throw new ProposalBudgetError(503, "V1 live planning is unavailable.");
+        return send(res, 200, await store.approve(approve[1], principal?.key));
       }
       const run = url.pathname.match(/^\/api\/plans\/([a-f0-9-]+)\/run$/);
       if (req.method === "POST" && run) {
-        if (controlledLive) return send(res, 403, { error: "V1 model planning is disabled in controlled live mode." });
         mutation(req, origin);
         emptyBody(await readJson(req));
+        const principal = controlledLive ? await v2Services.proposalService?.authenticate(req.headers.authorization) : undefined;
+        if (controlledLive && !principal) throw new ProposalBudgetError(503, "V1 live planning is unavailable.");
+        if (runtime?.v1Jobs) return send(res, 202, await runtime.v1Jobs.start(run[1]!, principal?.key));
         if (!gate.acquire()) throw new Error("Another approved run is already in progress.");
         try {
-          const plan = store.consume(run[1]);
+          const plan = await store.consume(run[1], principal?.key);
           const startedAt = new Date().toISOString();
           const temporaryId = randomUUID();
           let executionStatus: ExecutionStatus = "completed";
@@ -162,6 +211,14 @@ export function createProofPathServer(port: number, planner: Planner = createPla
       }
       const manifest = url.pathname.match(/^\/runs\/([a-f0-9-]{36})\/manifest\.json$/);
       if (req.method === "GET" && manifest) {
+        if (controlledLive) {
+          const principal = await v2Services.proposalService?.authenticate(req.headers.authorization);
+          if (!principal) throw new ProposalBudgetError(503, "V1 live planning is unavailable.");
+        }
+        if (runtime?.v1Jobs) {
+          const principal = controlledLive ? await v2Services.proposalService?.authenticate(req.headers.authorization) : undefined;
+          return send(res, 200, await runtime.v1Jobs.read(manifest[1]!, principal?.key));
+        }
         const contents = await readFile(manifestPath(manifest[1]), "utf8");
         const saved = JSON.parse(contents);
         if (saved.runId !== manifest[1]) return send(res, 404, { error: "Not found." });
@@ -169,13 +226,21 @@ export function createProofPathServer(port: number, planner: Planner = createPla
       }
       const evidence = url.pathname.match(/^\/evidence\/([a-f0-9-]{36})\/([a-z0-9-]+\.png)$/);
       if (req.method === "GET" && evidence) {
+        if (controlledLive) {
+          const principal = await v2Services.proposalService?.authenticate(req.headers.authorization);
+          if (!principal) throw new ProposalBudgetError(503, "V1 live planning is unavailable.");
+        }
+        if (runtime?.v1Jobs) {
+          const principal = controlledLive ? await v2Services.proposalService?.authenticate(req.headers.authorization) : undefined;
+          return send(res, 200, await runtime.v1Jobs.evidence(evidence[1]!, evidence[2]!, principal?.key), "image/png");
+        }
         const saved = JSON.parse(await readFile(manifestPath(evidence[1]), "utf8"));
         if (saved.runId !== evidence[1] || !saved.assertions.some((item: { screenshot?: string }) => item.screenshot === evidence[2])) return send(res, 404, { error: "Not found." });
         return send(res, 200, await readFile(evidencePath(evidence[1], evidence[2])), "image/png");
       }
-      if (req.method === "GET") return serveFile(res, runtime?.hosted && url.pathname === "/" ? "/workbench.html" : url.pathname);
+      if (req.method === "GET") return serveFile(res, runtime?.hosted && !runtime.bothJourneys && url.pathname === "/" ? "/workbench.html" : url.pathname);
       return send(res, 405, { error: "Method not allowed." });
-    } catch (error) { return send(res, 400, { error: error instanceof Error ? error.message : "Request failed." }); }
+    } catch (error) { return send(res, error instanceof ProposalBudgetError ? error.status : 400, { error: error instanceof Error ? error.message : "Request failed." }); }
   });
   return {
     server, origin, fixtureOrigin, gate, ready,
@@ -184,7 +249,7 @@ export function createProofPathServer(port: number, planner: Planner = createPla
       const started = Date.now();
       const execution = await v2Runtime.drain(timeoutMs);
       if (!execution) return false;
-      return await inspectionGate.drain(Math.max(0, timeoutMs - (Date.now() - started)));
+      return await localInspectionGate.drain(Math.max(0, timeoutMs - (Date.now() - started)));
     }
   };
 }
@@ -253,6 +318,10 @@ export async function startHostedRuntime(
 const port = Number(process.env.PORT ?? 3000);
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const boot = async () => {
+    if (process.env.PROOFPATH_RUNTIME === "gcp") {
+      await (await import("./gcp/runtime.js")).startGcpRuntime(process.env);
+      return;
+    }
     if (readHostedRuntimeConfig(process.env)) {
       const runtime = await startHostedRuntime(process.env);
       const closeRuntime = () => { void runtime.close().catch(() => { process.stderr.write("Hosted shutdown incomplete; operator ownership retained.\n"); process.exitCode = 1; }); };
